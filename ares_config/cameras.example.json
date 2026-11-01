@@ -1,0 +1,8 @@
+{
+  "_ghi_chu": "Đổi tên thành cameras.json để dùng. Camera USB cắm thêm được tự dò; mục dưới đây dành cho camera mạng (RTSP/HTTP) hoặc file video thử.",
+  "auto_usb": true,
+  "cameras": [
+    {"id": "hanhlang", "name": "Hành lang", "source": "rtsp://tai_khoan:mat_khau@192.168.1.50:554/stream1"},
+    {"id": "phongb", "name": "Phòng B", "source": "http://192.168.1.51:8080/video"}
+  ]
+}

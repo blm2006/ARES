@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Review — person annotation</title>
+<style>
+:root{
+  --bg:#f6f7f9;--panel:#fff;--ink:#16191d;--ink2:#4a5158;--line:#d8dde3;
+  --green:#137a52;--amber:#8a5a08;--red:#b32424;--blue:#1f5fd0;--violet:#6b3fc4;
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#111316;--panel:#1a1d21;--ink:#e8eaed;--ink2:#b2b8bf;--line:#32373d;
+  --green:#5cc79a;--amber:#e0ac55;--red:#f08a8a;--blue:#7aa8f5;--violet:#b79bf0;}}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--ink);font-size:15px}
+.top{display:flex;gap:16px;align-items:center;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
+.top b{font-size:15px}
+.pill{font-size:11.5px;font-weight:700;letter-spacing:.03em;padding:3px 9px;border-radius:20px}
+.s-failure_mining{background:#fdecec;color:#b32424}
+.s-uncertainty{background:#fdf3e0;color:#8a5a08}
+.s-random{background:#eaf1fd;color:#1f5fd0}
+@media(prefers-color-scheme:dark){.s-failure_mining{background:#331a1a}.s-uncertainty{background:#2e2313}.s-random{background:#16233a}}
+.wrap{display:flex;gap:16px;padding:16px;align-items:flex-start;flex-wrap:wrap}
+.stage{position:relative;line-height:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#000}
+canvas{display:block;max-width:100%;cursor:crosshair}
+.side{flex:1 1 280px;min-width:260px;display:flex;flex-direction:column;gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.k{font-size:11.5px;letter-spacing:.03em;text-transform:uppercase;color:var(--ink2)}
+.v{font-size:20px;font-weight:650;font-variant-numeric:tabular-nums}
+button{font:inherit;font-weight:600;padding:9px 14px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+button:hover{filter:brightness(.97)}
+button.primary{background:var(--green);color:#fff;border-color:transparent}
+button.warn{background:var(--amber);color:#fff;border-color:transparent}
+button.danger{background:var(--red);color:#fff;border-color:transparent}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+kbd{font-family:ui-monospace,monospace;font-size:11px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:1px 5px;opacity:.8}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td{padding:3px 0}td:last-child{text-align:right;font-variant-numeric:tabular-nums}
+.hint{font-size:12.5px;color:var(--ink2);line-height:1.5}
+select{font:inherit;padding:7px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);width:100%}
+.boxlist{max-height:160px;overflow:auto;font-size:12.5px}
+.boxlist div{display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid var(--line)}
+.boxlist button{padding:1px 7px;font-size:11px}
+.empty{padding:40px;text-align:center;color:var(--ink2)}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <b>Review</b>
+  <span id="src" class="pill">–</span>
+  <span class="hint" id="meta">–</span>
+  <span style="flex:1"></span>
+  <span class="hint">Còn lại <b id="pending">–</b></span>
+  <span class="hint">Agreement <b id="agree">–</b></span>
+</div>
+
+<div class="wrap">
+  <div class="stage"><canvas id="cv" width="960" height="540"></canvas></div>
+
+  <div class="side">
+    <div class="card">
+      <div class="row">
+        <button class="primary" onclick="decide('approve')">Approve <kbd>A</kbd></button>
+        <button class="warn" onclick="decide('fix')">Lưu sửa <kbd>S</kbd></button>
+        <button class="danger" onclick="openReject()">Reject <kbd>R</kbd></button>
+        <button onclick="nextItem(++skip)">Bỏ qua <kbd>→</kbd></button>
+      </div>
+      <p class="hint" style="margin:10px 0 0">
+        Kéo chuột trên ảnh để <b>thêm box</b>. Bấm vào <b>viền</b> box rồi <kbd>Del</kbd> để xoá.
+        Chọn <b>Lớp</b> ở panel phải trước khi vẽ (hoặc chọn box rồi đổi lớp). <kbd>U</kbd> hoàn tác. Box nét đứt là <b>gợi ý nội suy</b> từ track lân cận —
+        approve sẽ KHÔNG lấy nó, phải xác nhận bằng Lưu sửa.
+      </p>
+    </div>
+
+    <div class="card" id="rejectCard" style="display:none">
+      <div class="k">Lý do reject</div>
+      <select id="reason"></select>
+      <div class="row" style="margin-top:10px">
+        <button class="danger" onclick="decide('reject')">Xác nhận</button>
+        <button onclick="rejectCard.style.display='none'">Huỷ</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="k">Tên nhãn (gõ tên cho box; box đang chọn sẽ đổi theo)</div>
+      <input id="clsName" list="clsOpts" placeholder="vd: car, người, xe máy…"
+             onchange="onNameSet()" style="width:100%;font:inherit;padding:7px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink)">
+      <datalist id="clsOpts"></datalist>
+      <p class="hint" style="margin:6px 0 0">Enter để áp dụng. Tên mới sẽ được thêm và lưu lại cho lúc train.</p>
+    </div>
+
+    <div class="card">
+      <div class="k">Box hiện tại</div>
+      <div class="boxlist" id="boxlist"></div>
+    </div>
+
+    <div class="card">
+      <div class="k">Thống kê</div>
+      <table id="stats"></table>
+    </div>
+  </div>
+</div>
+
+<script>
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+let item = null, img = new Image(), boxes = [], history = [], skip = 0, clsNames = {}, curCls = 0;
+let sel = -1, drag = null, scale = 1;
+
+function fit(){
+  const maxW = Math.min(960, window.innerWidth - 340);
+  scale = Math.min(maxW / img.naturalWidth, 1);
+  cv.width = Math.round(img.naturalWidth * scale);
+  cv.height = Math.round(img.naturalHeight * scale);
+}
+
+function draw(){
+  if(!img.naturalWidth) return;
+  ctx.drawImage(img, 0, 0, cv.width, cv.height);
+  boxes.forEach((b,i)=>{
+    const x=b.x1*scale, y=b.y1*scale, w=(b.x2-b.x1)*scale, h=(b.y2-b.y1)*scale;
+    ctx.lineWidth = i===sel ? 3 : 2;
+    ctx.setLineDash(b.interpolated ? [7,5] : []);
+    ctx.strokeStyle = b.interpolated ? '#e0ac55' : (i===sel ? '#7aa8f5' : '#2ecc8f');
+    ctx.strokeRect(x,y,w,h);
+    ctx.setLineDash([]);
+    const cname = clsNames[b.cls] ?? ('cls'+b.cls);
+    const label = (b.interpolated ? 'gợi ý ' : '') + cname + (b.conf!=null ? ' '+b.conf.toFixed(2) : '');
+    if(label.trim()){
+      ctx.font='12px system-ui'; ctx.fillStyle=ctx.strokeStyle;
+      ctx.fillText(label, x+3, Math.max(12,y-4));
+    }
+  });
+  if(drag){
+    ctx.setLineDash([4,3]); ctx.strokeStyle='#7aa8f5'; ctx.lineWidth=2;
+    ctx.strokeRect(drag.x, drag.y, drag.w, drag.h); ctx.setLineDash([]);
+  }
+  renderBoxList();
+}
+
+function renderBoxList(){
+  boxlist.innerHTML = boxes.map((b,i)=>
+    `<div><span>${i+1}. ${clsNames[b.cls] ?? ('cls'+b.cls)} · ${Math.round(b.x2-b.x1)}×${Math.round(b.y2-b.y1)}${b.interpolated?' · gợi ý':''}</span>
+     <button onclick="delBox(${i})">xoá</button></div>`).join('') || '<div style="opacity:.6">chưa có box</div>';
+}
+function delBox(i){ history.push(JSON.stringify(boxes)); boxes.splice(i,1); sel=-1; draw(); }
+
+function rebuildClsOpts(){
+  const ids = Object.keys(clsNames).map(Number).sort((a,b)=>a-b);
+  clsOpts.innerHTML = ids.map(id=>`<option value="${clsNames[id]}">`).join('');
+  clsName.value = clsNames[curCls] ?? '';
+}
+async function onNameSet(){
+  const name = clsName.value.trim();
+  if(!name){ return; }
+  // tìm id theo tên (không phân biệt hoa/thường)
+  let id = null;
+  for(const [k,v] of Object.entries(clsNames)){ if(String(v).toLowerCase()===name.toLowerCase()){ id=parseInt(k,10); break; } }
+  if(id===null){                       // tên mới -> nhờ server cấp id và lưu
+    try{
+      const r = await fetch('/api/labels',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});
+      if(!r.ok){ alert('Không thêm được nhãn: '+await r.text()); return; }
+      const d = await r.json(); id = d.id; clsNames = d.class_names || clsNames;
+    }catch(e){ alert('Lỗi mạng khi thêm nhãn'); return; }
+  }
+  curCls = id;
+  if(sel>=0){ history.push(JSON.stringify(boxes)); boxes[sel].cls = id; }
+  rebuildClsOpts(); draw();
+}
+function syncClsSel(){
+  if(sel>=0){ curCls = boxes[sel].cls; clsName.value = clsNames[curCls] ?? String(curCls); }
+}
+
+cv.addEventListener('mousedown', e=>{
+  const r=cv.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top;
+  const tol = 7;  // px sát viền được coi là trúng box
+  let hit = -1, best = Infinity;
+  boxes.forEach((b,i)=>{
+    const x1=b.x1*scale, y1=b.y1*scale, x2=b.x2*scale, y2=b.y2*scale;
+    const dxOut = Math.max(x1-x, 0, x-x2), dyOut = Math.max(y1-y, 0, y-y2);
+    // khoảng cách từ con trỏ tới VIỀN box (0 = đúng trên viền)
+    const d = (dxOut>0 || dyOut>0)
+      ? Math.hypot(dxOut, dyOut)
+      : Math.min(x-x1, x2-x, y-y1, y2-y);
+    if(d<=tol && d<best){ best=d; hit=i; }  // viền gần con trỏ nhất thắng
+  });
+  if(hit>=0 && !e.shiftKey){ sel=hit; syncClsSel(); draw(); return; }
+  drag={x0:x,y0:y,x:x,y:y,w:0,h:0};
+});
+cv.addEventListener('mousemove', e=>{
+  if(!drag) return;
+  const r=cv.getBoundingClientRect();
+  const x=e.clientX-r.left, y=e.clientY-r.top;
+  drag.x=Math.min(drag.x0,x); drag.y=Math.min(drag.y0,y);
+  drag.w=Math.abs(x-drag.x0); drag.h=Math.abs(y-drag.y0);
+  draw();
+});
+cv.addEventListener('mouseup', ()=>{
+  if(drag && drag.w>6 && drag.h>6){
+    history.push(JSON.stringify(boxes));
+    boxes.push({x1:drag.x/scale,y1:drag.y/scale,x2:(drag.x+drag.w)/scale,y2:(drag.y+drag.h)/scale,
+                conf:1.0,cls:curCls,track_id:null,interpolated:false});
+  }
+  drag=null; draw();
+});
+
+document.addEventListener('keydown', e=>{
+  if(e.target.tagName==='SELECT') return;
+  const k=e.key.toLowerCase();
+  if(k==='a') decide('approve');
+  else if(k==='s') decide('fix');
+  else if(k==='r') openReject();
+  else if(e.key==='ArrowRight') nextItem(++skip);
+  else if(e.key==='Delete'||e.key==='Backspace'){ if(sel>=0) delBox(sel); }
+  else if(k==='u'){ if(history.length){ boxes=JSON.parse(history.pop()); sel=-1; draw(); } }
+});
+
+async function nextItem(sk=0){
+  skip = sk;
+  const d = await (await fetch('/api/next?skip='+sk)).json();
+  pending.textContent = d.pending ?? 0;
+  if(d.empty){
+    item=null;
+    document.querySelector('.stage').innerHTML='<div class="empty">Hàng chờ trống. Worker chưa đẩy mẫu nào vào review_queue.</div>';
+    return;
+  }
+  item=d; boxes=(d.boxes||[]).map(b=>({...b})); history=[]; sel=-1; clsNames=d.class_names||{}; rebuildClsOpts();
+  src.textContent = d.source + (d.failure_reason? ' · '+d.failure_reason : '');
+  src.className = 'pill s-'+d.source;
+  meta.textContent = `${d.cam_id} · ${new Date(d.ts).toLocaleString('vi-VN')} · ${d.width}×${d.height}`
+    + (d.uncertainty!=null? ` · u=${d.uncertainty.toFixed(3)}` : '');
+  img = new Image();
+  img.onload = ()=>{ fit(); draw(); };
+  img.src = '/api/image/'+d.frame_id;
+}
+
+async function decide(action){
+  if(!item) return;
+  const body = {action, reviewer:'local'};
+  if(action==='fix') body.boxes = boxes.map(b=>({...b, interpolated:false}));
+  if(action==='reject') body.reject_reason = reason.value;
+  const r = await fetch('/api/decide/'+item.item_id, {
+    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  if(!r.ok){ alert('Lỗi: '+ (await r.text())); return; }
+  rejectCard.style.display='none';
+  loadStats(); nextItem(0);
+}
+
+function openReject(){ rejectCard.style.display='block'; reason.focus(); }
+
+async function loadStats(){
+  const d = await (await fetch('/api/stats')).json();
+  const a = d.agreement||{};
+  agree.textContent = ((a.overall||0)*100).toFixed(1)+'%';
+  const rows=[];
+  rows.push(['agreement · random (đáng tin nhất)', ((a.random_only||0)*100).toFixed(1)+'%']);
+  for(const [k,v] of Object.entries(a.by_source||{}))
+    rows.push(['agreement · '+k, (v.rate*100).toFixed(1)+'% (n='+v.n+')']);
+  for(const [k,v] of Object.entries(d.pending_by_source||{})) rows.push(['chờ · '+k, v]);
+  for(const [k,v] of Object.entries(d.by_status||{})) rows.push([k, v]);
+  rows.push(['ngưỡng nới review', ((d.target||0)*100).toFixed(0)+'%']);
+  stats.innerHTML = rows.map(([k,v])=>`<tr><td>${k}</td><td>${v}</td></tr>`).join('');
+}
+
+(async ()=>{
+  const rs = await (await fetch('/api/reasons')).json();
+  reason.innerHTML = rs.map(r=>`<option value="${r}">${r.replace(/_/g,' ')}</option>`).join('');
+  await nextItem(0); loadStats();
+  setInterval(loadStats, 15000);
+})();
+window.addEventListener('resize', ()=>{ if(img.naturalWidth){ fit(); draw(); }});
+</script>
+</body>
+</html>

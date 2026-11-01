@@ -1,0 +1,882 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARES — Giám sát phòng</title>
+<style>
+:root{
+  --bg:#f5f6f8; --surface:#ffffff; --surface2:#f0f2f5; --text:#14181f; --muted:#5b6573; --border:#dfe3e9;
+  --accent:#2563eb; --accent-ink:#ffffff; --ok:#15803d; --warn:#b45309; --bad:#b91c1c;
+  --ok-bg:#dcfce7; --warn-bg:#fef3c7; --bad-bg:#fee2e2; --info-bg:#dbeafe;
+  --z1:#2563eb; --z2:#059669; --z3:#d97706; --z4:#9333ea; --z5:#0891b2; --z6:#be185d;
+  --shadow:0 1px 2px rgba(16,24,40,.06);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0e1116; --surface:#161a21; --surface2:#1d222b; --text:#e7eaf0; --muted:#98a2b3; --border:#2a303a;
+    --accent:#60a5fa; --accent-ink:#0b1220; --ok:#4ade80; --warn:#fbbf24; --bad:#f87171;
+    --ok-bg:#12301d; --warn-bg:#3a2a0c; --bad-bg:#3b1517; --info-bg:#14264a;
+    --z1:#60a5fa; --z2:#34d399; --z3:#fbbf24; --z4:#c084fc; --z5:#22d3ee; --z6:#f472b6;
+    --shadow:none;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-variant-numeric:tabular-nums}
+header{position:sticky;top:0;z-index:10;background:var(--surface);border-bottom:1px solid var(--border)}
+.bar{display:flex;align-items:center;gap:14px;padding:10px 16px;flex-wrap:wrap}
+.brand{font-weight:700;letter-spacing:.04em}
+.brand small{font-weight:500;color:var(--muted);letter-spacing:0;margin-left:6px}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;background:var(--surface2);color:var(--muted);border:1px solid var(--border);white-space:nowrap}
+.pill.ok{background:var(--ok-bg);color:var(--ok);border-color:transparent}
+.pill.warn{background:var(--warn-bg);color:var(--warn);border-color:transparent}
+.pill.bad{background:var(--bad-bg);color:var(--bad);border-color:transparent}
+.pill.info{background:var(--info-bg);color:var(--accent);border-color:transparent}
+.dot{width:8px;height:8px;border-radius:50%;background:currentColor}
+.spacer{flex:1}
+.clock{font-weight:600}
+nav{display:flex;gap:2px;padding:0 12px;overflow-x:auto}
+nav button{background:none;border:0;border-bottom:2px solid transparent;color:var(--muted);padding:9px 14px;font:inherit;font-weight:600;cursor:pointer;white-space:nowrap}
+nav button:hover{color:var(--text)}
+nav button[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+nav .badge{margin-left:6px;background:var(--accent);color:var(--accent-ink);border-radius:999px;font-size:11px;padding:0 6px}
+main{padding:16px;max-width:1500px;margin:0 auto}
+.tab{display:none}.tab.on{display:block}
+.camgrid{display:grid;gap:6px;height:calc(100vh - 168px);min-height:260px;background:var(--bg)}
+.ctile{position:relative;background:#000;border-radius:8px;overflow:hidden;cursor:pointer;min-width:0;min-height:0;border:1px solid var(--border)}
+.ctile img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block}
+.ctile .nm{position:absolute;left:0;right:0;top:0;padding:5px 9px;font-size:12px;font-weight:600;color:#fff;background:linear-gradient(#000a,#0000);display:flex;gap:6px;align-items:center;z-index:2}
+.ctile .nm i{width:8px;height:8px;border-radius:50%;background:#34d399;flex:none}
+.ctile.off .nm i{background:#ef4444}
+.ctile .cnt{position:absolute;right:8px;bottom:8px;z-index:2;background:#000b;color:#fff;border-radius:8px;padding:3px 10px;font-weight:700;font-size:clamp(14px,2.2vw,30px);line-height:1.2}
+.ctile .cnt small{font-weight:500;font-size:.5em;margin-left:4px;opacity:.85}
+.ctile .msg{position:absolute;inset:0;display:grid;place-items:center;color:#aab;font-size:13px;text-align:center;padding:10px}
+.ctile .msg[hidden]{display:none}
+.ctile.full{position:fixed;inset:0;z-index:50;border-radius:0;border:0}
+.ctile.full .nm{font-size:15px;padding:10px 14px}
+.ctile.full .cnt{font-size:40px}
+.pcacard{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:8px}
+.pcacard .it{background:var(--surface2);border-radius:8px;padding:8px 10px}
+.pcacard .it b{display:block;font-size:20px;line-height:1.2}
+.pcacard .it span{color:var(--muted);font-size:12px}
+.subtabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.tune{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:14px}
+.trow{display:grid;grid-template-columns:1fr 120px;gap:4px 12px;align-items:center;padding:8px 0;border-top:1px solid var(--border)}
+.trow:first-of-type{border-top:0}
+.trow label{font-weight:600}
+.trow .u{color:var(--muted);font-weight:500;font-size:12px;margin-left:4px}
+.trow input{width:100%;text-align:right}
+.trow input.chg{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.trow .hl{grid-column:1/-1;color:var(--muted);font-size:12px}
+.trow .df{color:var(--warn);font-size:12px;font-weight:600}
+.subtabs button{background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:999px;padding:3px 11px;font:inherit;font-size:12px;font-weight:600;cursor:pointer}
+.subtabs button.on{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.holdbox{border:1px solid var(--warn);background:var(--warn-bg);color:var(--text);border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:13px}
+.grid{display:grid;gap:14px}
+.live{grid-template-columns:minmax(300px,1.15fr) minmax(320px,1fr)}
+@media (max-width:980px){.live{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;box-shadow:var(--shadow)}
+.card h2{margin:0 0 10px;font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.card h2 .aux{float:right;text-transform:none;letter-spacing:0;font-weight:500}
+.stack{display:grid;gap:14px;align-content:start}
+.cam{position:relative;background:#000;border-radius:8px;overflow:hidden;aspect-ratio:16/9;display:grid;place-items:center}
+.cam img{width:100%;height:100%;object-fit:contain;display:block}
+.cam .none{position:absolute;color:#aab;font-size:13px}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.kv .it{background:var(--surface2);border-radius:8px;padding:8px 10px}
+.kv .it b{display:block;font-size:20px;line-height:1.2}
+.kv .it span{color:var(--muted);font-size:12px}
+.big{font-size:34px;font-weight:700;line-height:1}
+.zones{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.zone{border:1px solid var(--border);border-left:4px solid var(--zc,var(--accent));border-radius:8px;padding:8px 10px;background:var(--surface2)}
+.zone .t{display:flex;justify-content:space-between;align-items:baseline;gap:6px}
+.zone .n{font-size:22px;font-weight:700}
+.zone .s{color:var(--muted);font-size:12px}
+.meter{height:8px;border-radius:99px;background:var(--border);overflow:hidden;margin:6px 0 2px}
+.meter i{display:block;height:100%;background:var(--zc,var(--accent));width:0%;transition:width .5s}
+.row{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px dashed var(--border)}
+.row:last-child{border:0}
+.row span:first-child{color:var(--muted)}
+.events{max-height:300px;overflow:auto;font-size:13px}
+.ev{display:grid;grid-template-columns:62px 1fr;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)}
+.ev time{color:var(--muted)}
+.ev.warn .msg{color:var(--warn)}.ev.error .msg{color:var(--bad);font-weight:600}
+.ev .k{font-size:11px;color:var(--muted);display:block}
+.sess{display:flex;gap:8px;flex-wrap:wrap}
+.sess .p{border:1px solid var(--border);border-radius:8px;padding:4px 9px;font-size:13px;background:var(--surface2)}
+.sess .p.cur{border-color:var(--accent);background:var(--info-bg);font-weight:600}
+.health{display:flex;flex-wrap:wrap;gap:6px}
+.note{color:var(--muted);font-size:12px;margin-top:6px}
+.btn{font:inherit;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:8px;padding:7px 13px;cursor:pointer}
+.btn:hover{background:var(--surface2)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.good{background:var(--ok-bg);color:var(--ok);border-color:transparent}
+.btn.danger{background:var(--bad-bg);color:var(--bad);border-color:transparent}
+kbd{font:12px ui-monospace,Consolas,monospace;border:1px solid var(--border);border-bottom-width:2px;border-radius:4px;padding:0 5px;background:var(--surface2)}
+select,input{font:inherit;color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px 9px}
+.tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+/* biểu đồ */
+.charts{grid-template-columns:repeat(auto-fit,minmax(420px,1fr))}
+.chart canvas{width:100%;height:210px;display:block}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:6px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+/* duyệt ảnh */
+.review{grid-template-columns:260px minmax(0,1fr)}
+@media (max-width:900px){.review{grid-template-columns:1fr}}
+.queue{max-height:78vh;overflow:auto;display:grid;gap:8px;align-content:start}
+.qi{display:grid;grid-template-columns:76px 1fr;gap:8px;border:1px solid var(--border);border-radius:8px;padding:6px;background:var(--surface);cursor:pointer;text-align:left;font:inherit;color:inherit}
+.qi.sel{border-color:var(--accent);background:var(--info-bg)}
+.qi img{width:76px;height:44px;object-fit:cover;border-radius:4px;background:#000}
+.qi small{color:var(--muted);display:block}
+.stage{position:relative;display:inline-block;max-width:100%;line-height:0;border-radius:8px;overflow:hidden;background:#000;touch-action:none}
+.stage img{max-width:100%;max-height:72vh;display:block}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%;cursor:crosshair}
+.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
+.empty{padding:40px 10px;text-align:center;color:var(--muted)}
+/* bảng */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--border);vertical-align:top}
+th{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+.scroll{overflow:auto}
+/* thói quen */
+.heat{display:grid;gap:2px;font-size:11px}
+.heat .c{height:22px;border-radius:3px;background:var(--surface2)}
+.heat .lab{display:flex;align-items:center;color:var(--muted)}
+.toast{position:fixed;right:16px;bottom:16px;max-width:380px;background:var(--text);color:var(--bg);padding:10px 14px;border-radius:10px;opacity:0;transform:translateY(8px);transition:.2s;pointer-events:none;z-index:50}
+.toast.on{opacity:1;transform:none}
+.simbanner{background:var(--warn-bg);color:var(--warn);padding:6px 16px;font-size:13px;font-weight:600;display:none}
+</style>
+</head>
+<body>
+<header>
+  <div class="simbanner" id="simbanner">Đang chạy MÔ PHỎNG: cảm biến, camera và thiết bị đều là giả — số liệu không phản ánh phòng thật.</div>
+  <div class="bar">
+    <div class="brand">ARES<small id="room">—</small></div>
+    <span class="pill" id="p-mode">—</span>
+    <span class="pill" id="p-cam"><i class="dot"></i>Camera</span>
+    <span class="pill" id="p-mqtt"><i class="dot"></i>MQTT</span>
+    <span class="pill" id="p-sensor"><i class="dot"></i>Cảm biến</span>
+    <span class="pill info" id="p-model">model —</span>
+    <span class="pill" id="p-fps" title="Bình thường chạy full FPS; đang train thì tự hạ FPS">FPS —</span>
+    <div class="spacer"></div>
+    <div class="clock" id="clock">—</div>
+  </div>
+  <nav role="tablist">
+    <button role="tab" aria-selected="true" data-tab="live">Giám sát</button>
+    <button role="tab" aria-selected="false" data-tab="cams">Camera<span class="badge" id="b-cams" hidden>0</span></button>
+    <button role="tab" aria-selected="false" data-tab="charts">Biểu đồ</button>
+    <button role="tab" aria-selected="false" data-tab="review">Duyệt ảnh<span class="badge" id="b-pending" hidden>0</span></button>
+    <button role="tab" aria-selected="false" data-tab="models">Model</button>
+    <button role="tab" aria-selected="false" data-tab="habits">Thói quen</button>
+    <button role="tab" aria-selected="false" data-tab="tune">Thiết bị</button>
+  </nav>
+</header>
+
+<main>
+<!-- ============================ GIÁM SÁT ============================ -->
+<section class="tab on" id="tab-live">
+  <div class="grid live">
+    <div class="stack">
+      <div class="card">
+        <h2>Camera &amp; vùng <span class="aux" id="cam-info"></span></h2>
+        <div class="cam"><img id="cam" alt="Khung hình camera với vùng và bbox" hidden><div class="none" id="cam-none">Chưa có khung hình</div></div>
+        <div class="note">Khung xanh: tin cậy ≥ 0,55 · cam: vùng bất định 0,35–0,55 (ứng viên học chủ động) · chấm đỏ: điểm giữa-đáy dùng để xếp vùng.</div>
+      </div>
+      <div class="card">
+        <h2>Số người theo vùng <span class="aux" id="occ-aux"></span></h2>
+        <div class="zones" id="zones"></div>
+      </div>
+      <div class="card">
+        <h2>Lịch hôm nay</h2>
+        <div class="sess" id="sess"></div>
+      </div>
+    </div>
+    <div class="stack">
+      <div class="card">
+        <h2>Môi trường</h2>
+        <div class="kv" id="env"></div>
+      </div>
+      <div class="card">
+        <h2>Điều hòa <span class="aux" id="ac-aux"></span></h2>
+        <div id="ac"></div>
+      </div>
+      <div class="card" id="simcard" hidden>
+        <h2>Mô phỏng <span class="aux">giá trị thật trong thế giới giả</span></h2>
+        <div id="sim"></div>
+      </div>
+      <div class="card">
+        <h2>Sự kiện gần đây</h2>
+        <div class="events" id="events"></div>
+      </div>
+      <div class="card">
+        <h2>Sức khoẻ hệ thống</h2>
+        <div class="health" id="health"></div>
+        <div class="note" id="health-note"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ BIỂU ĐỒ ============================ -->
+<!-- ============================ CAMERA (lưới CCTV) ============================ -->
+<section class="tab" id="tab-cams">
+  <div class="tools">
+    <span class="pill" id="cam-sum">—</span>
+    <label class="note">Bố cục
+      <select id="cam-layout">
+        <option value="auto">Tự động theo số camera</option>
+        <option value="1x1">1×1</option><option value="2x1">2×1</option><option value="2x2">2×2</option>
+        <option value="3x2">3×2</option><option value="3x3">3×3</option><option value="4x3">4×3</option>
+        <option value="4x4">4×4</option><option value="5x4">5×4</option><option value="5x5">5×5</option>
+      </select>
+    </label>
+    <button class="btn" id="cam-rescan">Dò lại camera</button>
+    <span class="note">Bấm vào một ô để xem toàn màn hình · <kbd>Esc</kbd> để thoát. Số trên mỗi ô = số người camera đó đếm được.</span>
+  </div>
+  <div class="camgrid" id="camgrid"></div>
+</section>
+
+<section class="tab" id="tab-charts">
+  <div class="tools">
+    <label>Khoảng thời gian
+      <select id="range">
+        <option value="3">3 giờ</option><option value="6" selected>6 giờ</option><option value="12">12 giờ</option>
+        <option value="24">24 giờ</option><option value="72">3 ngày</option><option value="168">7 ngày</option>
+      </select></label>
+    <button class="btn" id="chart-reload">Tải lại</button>
+    <span class="note" id="chart-note"></span>
+  </div>
+  <div class="grid charts">
+    <div class="card chart"><h2>Số người</h2><canvas id="c-occ"></canvas><div class="legend" id="l-occ"></div></div>
+    <div class="card chart"><h2>Nhiệt độ (°C) &amp; điều hòa</h2><canvas id="c-temp"></canvas><div class="legend" id="l-temp"></div></div>
+    <div class="card chart"><h2>Độ rọi trần (lux)</h2><canvas id="c-lux"></canvas><div class="legend" id="l-lux"></div></div>
+    <div class="card chart"><h2>Độ sáng đèn (PWM %)</h2><canvas id="c-pwm"></canvas><div class="legend" id="l-pwm"></div></div>
+  </div>
+</section>
+
+<!-- ============================ DUYỆT ẢNH ============================ -->
+<section class="tab" id="tab-review">
+  <div class="tools">
+    <span class="pill" id="al-counts">—</span>
+    <span class="pill" id="al-today">—</span>
+    <button class="btn" id="al-reload">Tải lại hàng đợi</button>
+    <span class="note">Chỉ ảnh bạn duyệt mới được dùng để train. Không giới hạn số ảnh/ngày — PCA lọc ảnh trùng trước khi tới bạn.</span>
+  </div>
+  <div class="card" style="margin-bottom:14px">
+    <h2>Lọc PCA trước khi duyệt <span class="aux" id="pca-state"></span></h2>
+    <div class="holdbox" id="pca-hold" hidden></div>
+    <div class="pcacard" id="pca-kv"></div>
+    <div class="actions" id="pca-actions"></div>
+  </div>
+  <div class="grid review">
+    <div class="card"><h2>Hàng đợi</h2>
+      <div class="subtabs" id="rv-sub">
+        <button data-st="PENDING" class="on">Chờ duyệt</button><button data-st="CANDIDATE">Chờ lọc PCA</button><button data-st="DUPLICATE">Bị lọc trùng</button>
+      </div>
+      <div class="queue" id="queue"></div></div>
+    <div class="card" id="viewer">
+      <div class="empty" id="rv-empty">Không có ảnh nào đang chờ duyệt.</div>
+      <div id="rv-main" hidden>
+        <div class="tools" style="margin-bottom:8px">
+          <b id="rv-title"></b><span class="note" id="rv-meta"></span>
+        </div>
+        <div class="stage" id="stage"><img id="rv-img" alt="Ảnh cần duyệt"><canvas id="rv-cv"></canvas></div>
+        <div class="note">Kéo trên vùng trống để vẽ bbox mới · bấm vào bbox để chọn, kéo để dời, kéo góc để đổi cỡ · <kbd>Del</kbd> xoá bbox đã chọn.
+          Bbox cam = model chưa chắc (0,35–0,55), xanh = model chắc, xanh dương = bạn thêm.</div>
+        <div class="actions">
+          <button class="btn good" id="btn-approve">Nhãn đúng — Duyệt <kbd>A</kbd></button>
+          <button class="btn primary" id="btn-save">Lưu bản sửa <kbd>S</kbd></button>
+          <select id="rej-reason">
+            <option>Ảnh hỏng / mờ</option><option>Trùng lặp</option><option>Không rõ có người hay không</option>
+            <option>Người bị che khuất hoàn toàn</option><option>Khác</option>
+          </select>
+          <button class="btn good" id="btn-restore" hidden>Khôi phục về hàng chờ duyệt</button>
+          <button class="btn danger" id="btn-reject">Loại bỏ <kbd>R</kbd></button>
+          <span class="spacer"></span>
+          <button class="btn" id="btn-prev">←</button><button class="btn" id="btn-next">→</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ MODEL ============================ -->
+<section class="tab" id="tab-models">
+  <div class="tools">
+    <button class="btn primary" id="btn-retrain">Train ngay</button>
+    <button class="btn" id="btn-rollback">Quay lui phiên bản trước</button>
+    <button class="btn" id="models-reload">Tải lại</button>
+    <span class="note" id="retrain-note"></span>
+  </div>
+  <div class="card scroll"><h2>Các phiên bản model</h2>
+    <table><thead><tr><th>Phiên bản</th><th>Trạng thái</th><th>Tạo lúc</th><th>Dữ liệu</th><th>Chất lượng (ứng viên so với hiện tại)</th><th>Cổng chất lượng</th><th></th></tr></thead>
+    <tbody id="models"></tbody></table>
+  </div>
+  <div class="card" style="margin-top:14px"><h2>Lọc PCA lần 2 — trước khi train <span class="aux" id="pca2-aux"></span></h2>
+    <div id="pca2" class="note">—</div></div>
+  <div class="card" style="margin-top:14px"><h2>Lần train / việc ban đêm gần nhất</h2><pre id="last-retrain" style="margin:0;white-space:pre-wrap;font:12px ui-monospace,Consolas,monospace"></pre></div>
+</section>
+
+<!-- ============================ THÓI QUEN ============================ -->
+<section class="tab" id="tab-habits">
+  <div class="card scroll">
+    <h2>Xác suất có người theo thứ &amp; giờ (habit_profiles) <span class="aux" id="habit-note"></span></h2>
+    <div class="heat" id="heat"></div>
+    <div class="note">Màu đậm = xác suất cao. Pre-cooling chỉ kích hoạt khi xác suất &gt; ngưỡng (viền đỏ). Cần vài tuần dữ liệu để đáng tin; trước đó hệ thống dựa vào lịch phòng.</div>
+  </div>
+</section>
+<!-- ============================ THIẾT BỊ (delay / vùng điều chỉnh) ============================ -->
+<section class="tab" id="tab-tune">
+  <div class="tools">
+    <button class="btn primary" id="tune-save" disabled>Lưu &amp; áp dụng</button>
+    <button class="btn" id="tune-undo" disabled>Bỏ thay đổi</button>
+    <button class="btn" id="tune-reset">Khôi phục mặc định</button>
+    <span class="note" id="tune-note"></span>
+  </div>
+  <div class="note" style="margin-bottom:12px">Độ trễ và vùng chết chống đèn/điều hòa bật tắt liên tục. Áp dụng ngay ở nhịp điều khiển kế tiếp, không cần khởi động lại.
+    Giá trị lưu vào file trên máy chủ và được dùng lại ở lần chạy sau (đè lên <code>ares.env</code>). Ô có viền xanh = đang sửa chưa lưu; chữ cam = khác mặc định.</div>
+  <div class="tune" id="tune"></div>
+</section>
+</main>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+"use strict";
+/* ------------------------------------------------------------------ tiện ích */
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+function h(tag, props = {}, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (k === "class") el.className = v;
+    else if (k === "style") el.style.cssText = v;
+    else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else if (v === true) el.setAttribute(k, "");
+    else if (v !== false && v != null) el.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()) if (kid != null && kid !== false) el.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+  return el;
+}
+const fmt = (v, d = 1) => (v == null || Number.isNaN(v) ? "—" : Number(v).toFixed(d).replace(".", ","));
+const ZC = i => `var(--z${(i % 6) + 1})`;
+let toastTimer;
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("on"), 3800); }
+async function api(path, opts = {}) {
+  const o = { method: "GET", ...opts, headers: { ...(opts.headers || {}) } };
+  if (o.method !== "GET") { o.headers["X-ARES"] = "1"; if (o.body && typeof o.body !== "string") { o.body = JSON.stringify(o.body); o.headers["Content-Type"] = "application/json"; } }
+  const r = await fetch(path, o);
+  let data = null; try { data = await r.json(); } catch (_) {}
+  if (!r.ok) throw new Error((data && (data.detail && (data.detail.message || data.detail))) || `Lỗi ${r.status}`);
+  return data;
+}
+let S = null;      // trạng thái mới nhất
+const tzFmt = {};
+function fmtClock(epoch, withSec = true) {
+  const tz = (S && S.tz) || "Asia/Ho_Chi_Minh";
+  tzFmt[tz + withSec] ||= new Intl.DateTimeFormat("vi-VN", { timeZone: tz, hour: "2-digit", minute: "2-digit", second: withSec ? "2-digit" : undefined, hour12: false });
+  return tzFmt[tz + withSec].format(new Date(epoch * 1000));
+}
+const hhmm = iso => (iso || "").slice(11, 16);
+
+/* ------------------------------------------------------------------ tab */
+let activeTab = "live";
+$$("nav button").forEach(b => b.addEventListener("click", () => selectTab(b.dataset.tab)));
+function selectTab(name) {
+  activeTab = name;
+  $$("nav button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === name)));
+  $$(".tab").forEach(t => t.classList.toggle("on", t.id === "tab-" + name));
+  if (name === "cams") camTick(true);
+  if (name === "charts") loadCharts();
+  if (name === "review") loadQueue();
+  if (name === "models") loadModels();
+  if (name === "habits") loadHabits();
+  if (name === "tune") loadTune();
+  if (name === "live") liveFrame();
+}
+
+/* ------------------------------------------------------------------ GIÁM SÁT */
+const STATE_VI = { OCCUPIED: "Có người", GRACE: "Vừa vắng", IDLE: "Trống · đèn nền", OFF: "Tắt", HOLD: "Giữ nguyên", FAULT: "Lỗi cảm biến" };
+const STATE_CLS = { OCCUPIED: "ok", GRACE: "info", IDLE: "", OFF: "", HOLD: "warn", FAULT: "bad" };
+const MODE_VI = { OFF: "Tắt", PRECOOL_WAIT: "Chờ giờ pre-cool", PRECOOL: "Đang pre-cool", ACTIVE: "Điều chỉnh theo lớp", ON_IDLE: "Bật · không có lớp", FAILSAFE_OFF: "Đã tắt · lớp trống" };
+const VMODE_VI = { vision: "", assume_occupied: "Mất camera → coi như có người", hold: "Mất camera → giữ nguyên đèn" };
+let lastFrameT = null;
+
+function setPill(id, cls, text) { const el = $(id); el.className = "pill " + cls; if (text != null) el.lastChild.textContent = text; }
+
+function renderLive(s) {
+  S = s;
+  $("#room").textContent = s.room_id;
+  $("#simbanner").style.display = s.simulation ? "block" : "none";
+  const m = $("#p-mode"); m.textContent = s.simulation ? "MÔ PHỎNG" : "THẬT"; m.className = "pill " + (s.simulation ? "warn" : "ok");
+  $("#clock").textContent = s.now.slice(0, 19).replace("T", " ") + (s.speed && s.speed !== 1 ? `  ×${s.speed}` : "");
+  $("#p-model").textContent = "model " + s.model_version;
+  const fp = (s.extra || {}).fps;
+  if (fp) { const p = $("#p-fps"); const fv = fmt(fp.vision_fps_target, fp.vision_fps_target < 10 ? 1 : 0); p.textContent = fp.mode === "training" ? `Đang train · ${fv} FPS` : `${fv} FPS`; p.className = "pill " + (fp.mode === "training" ? "warn" : "ok"); }
+  const age = x => x == null ? null : (s.t - x) / (s.speed || 1);
+  const vAge = s.vision ? age(s.vision.t) : null;
+  setPill("#p-cam", vAge == null ? "" : vAge < 15 ? "ok" : "bad", vAge == null ? "Camera: chưa có" : vAge < 15 ? "Camera" : `Camera mất ${Math.round(vAge)}s`);
+  setPill("#p-mqtt", s.simulation ? "info" : s.mqtt_connected ? "ok" : "bad", s.simulation ? "MQTT: giả lập" : s.mqtt_connected ? "MQTT" : "MQTT mất kết nối");
+  const sAge = s.sensors ? age(s.sensors.t) : null;
+  setPill("#p-sensor", sAge == null ? "" : sAge < 60 ? "ok" : "bad", sAge == null ? "Cảm biến: chưa có" : sAge < 60 ? "Cảm biến" : `Cảm biến mất ${Math.round(sAge)}s`);
+
+  // camera
+  const v = s.vision, img = $("#cam");
+  if (v && v.t !== lastFrameT) { lastFrameT = v.t; img.src = "/api/frame.jpg?t=" + Math.floor(v.t * 1000); }
+  $("#cam-info").textContent = v ? `${fmt(v.inference_ms, 0)} ms · ${fmt(v.fps, 2)} khung/s · ${v.n_detections} detection` : "";
+  img.onload = () => { img.hidden = false; $("#cam-none").hidden = true; };
+  img.onerror = () => { img.hidden = true; $("#cam-none").hidden = false; };
+
+  // vùng
+  const zs = s.zones, L = s.lighting, vs = s.vision_smoothed || {}, hs = s.hvac_smoothed || {};
+  const box = $("#zones");
+  if (box.children.length !== zs.length) { box.replaceChildren(...zs.map((z, i) => h("div", { class: "zone", style: `--zc:${ZC(i)}` },
+    h("div", { class: "t" }, h("b", {}, z.name), h("span", { class: "pill", "data-r": "st" })),
+    h("div", { class: "t" }, h("span", { class: "n", "data-r": "n" }), h("span", { class: "s", "data-r": "avg" })),
+    h("div", { class: "meter" }, h("i", { "data-r": "bar" })),
+    h("div", { class: "s", "data-r": "lux" })))); }
+  zs.forEach((z, i) => {
+    const el = box.children[i], q = k => $(`[data-r=${k}]`, el);
+    const st = L.zone_state[i] || "OFF"; const p = q("st"); p.textContent = STATE_VI[st] || st; p.className = "pill " + (STATE_CLS[st] || "");
+    q("n").textContent = v ? v.n_zones[i] : "—";
+    q("avg").textContent = vs.mean_zones ? `TB 30s: ${fmt(vs.mean_zones[i])}` : "";
+    q("bar").style.width = (L.pwm[i] || 0) + "%";
+    q("lux").textContent = `Đèn ${fmt(L.pwm[i], 0)}% · mặt bàn ${fmt(L.actual[i], 0)}/${fmt(L.setpoint[i], 0)} lux`;
+  });
+  $("#occ-aux").textContent = v ? `Tổng ${v.n_total} (TB 30s ${fmt(vs.mean_total)} · TB 10 phút ${fmt(hs.mean_total)})` : "";
+
+  // lịch
+  const cur = s.schedule.current;
+  $("#sess").replaceChildren(...(s.schedule.today.length ? s.schedule.today.map(x => h("div", { class: "p" + (cur && cur.start === x.start ? " cur" : "") }, `${hhmm(x.start)}–${hhmm(x.end)} ${x.name}`))
+    : [h("span", { class: "note" }, "Hôm nay không có buổi nào trong lịch phòng.")]));
+
+  // môi trường
+  const e = s.sensors || {};
+  const kv = (val, lab) => h("div", { class: "it" }, h("b", {}, val), h("span", {}, lab));
+  $("#env").replaceChildren(kv(fmt(e.temp_in) + " °C", "Trong phòng"), kv(fmt(e.temp_out) + " °C", "Ngoài trời"), kv(fmt(e.humidity, 0) + " %", "Độ ẩm"),
+    kv(fmt(e.lux_window, 0) + " lux", "Cửa sổ (nắng)"), kv(fmt(L.daylight_lux == null ? null : L.daylight_lux, 0), "Ánh sáng tự nhiên"),
+    kv(VMODE_VI[L.vision_mode] || "Bình thường", "Chế độ vision"));
+
+  // điều hòa
+  const ac = s.ac, hv = s.hvac;
+  $("#ac-aux").textContent = MODE_VI[hv.mode] || hv.mode;
+  const rows = [
+    ["Trạng thái đã lệnh", ac.known ? (ac.power ? `BẬT · ${ac.temp} °C · quạt ${ac.fan}` : "TẮT") : "Chưa gửi lệnh nào"],
+    ["Setpoint tính ra (chưa làm tròn)", hv.setpoint_raw == null ? "—" : fmt(hv.setpoint_raw, 2) + " °C"],
+    ["Lần đánh giá kế tiếp", hv.next_eval_t ? fmtClock(hv.next_eval_t, false) : "—"],
+    ["R_cool đang dùng", hv.r_cool == null ? "—" : fmt(hv.r_cool, 3) + " °C/phút"],
+  ];
+  if (hv.plan) rows.push(["Kế hoạch pre-cool", `${hv.plan.class} ${hhmm(hv.plan.class_start)} · bật lúc ${hhmm(hv.plan.start_at)} (t_lead ${fmt(hv.plan.t_lead_min, 0)}′, P=${fmt(hv.plan.p_occ, 2)}${hv.plan.started ? ", đã bật" : ""})`]);
+  const acEl = $("#ac"); acEl.replaceChildren(...rows.map(([a, b]) => h("div", { class: "row" }, h("span", {}, a), h("span", {}, b))),
+    ...(hv.notes || []).concat(L.notes || []).map(n => h("div", { class: "note" }, "• " + n)),
+    h("div", { class: "note" }, "Điều hòa điều khiển bằng IR một chiều: đây là trạng thái ĐÃ LỆNH, không phải đọc ngược từ máy."));
+
+  // mô phỏng
+  $("#simcard").hidden = !s.sim;
+  if (s.sim) {
+    const x = s.sim;
+    $("#sim").replaceChildren(...[
+      ["Người thật / ARES đếm", `${x.true_people} / ${v ? v.n_total : "—"}`], ["Nhiệt độ thật", x.true_t_in == null ? "—" : `${x.true_t_in} °C`],
+      ["Lux mặt bàn thật", x.true_desk_lux.join(" · ")], ["Điện đèn / điều hòa", `${x.led_kwh} / ${x.ac_kwh} kWh`],
+      ["Có người mà > 26,5 °C / > 27 °C", `${x.warm_min} / ${x.hot_min} phút`], ["Vùng có người mà < 300 lux", `${x.dark_zone_min} phút-vùng`],
+    ].map(([a, b]) => h("div", { class: "row" }, h("span", {}, a), h("span", {}, b))));
+  }
+
+  // sự kiện
+  $("#events").replaceChildren(...(s.events.length ? s.events.map(ev => h("div", { class: "ev " + ev.severity },
+    h("time", {}, fmtClock(ev.t)), h("div", { class: "msg" }, h("span", { class: "k" }, ev.kind), ev.message))) : [h("div", { class: "note" }, "Chưa có sự kiện.")]));
+
+  // sức khoẻ
+  const names = { vision: "Vision", lighting: "Đèn", hvac: "Điều hòa", telemetry: "Ghi telemetry", housekeep: "Nền", nightly: "Ban đêm", sim_world: "Thế giới giả" };
+  const hb = Object.entries(s.health).map(([k, x]) => {
+    const a = (s.t - x.last_tick) / (s.speed || 1), bad = a > 120 || x.errors > 0;
+    return h("span", { class: "pill " + (a > 120 ? "bad" : x.errors ? "warn" : "ok"), title: x.last_error || "" }, `${names[k] || k}: ${Math.round(a)}s${x.errors ? ` · ${x.errors} lỗi` : ""}`);
+  });
+  $("#health").replaceChildren(...hb);
+  $("#health-note").textContent = `DB: ${s.db.dropped} bản ghi bị bỏ, ${s.db.write_errors} lỗi ghi · hoạt động ${s.uptime_s == null ? "—" : Math.round(s.uptime_s / 60) + " phút"}`;
+
+  const pend = (s.al && s.al.counts && s.al.counts.PENDING) || 0;
+  const bp = $("#b-pending"); bp.hidden = !pend; bp.textContent = pend;
+}
+
+let busy = false;
+async function pollLive() {
+  if (busy || document.hidden) return;
+  busy = true;
+  try { renderLive(await api("/api/status")); } catch (e) { setPill("#p-mqtt", "bad", "Mất kết nối server"); }
+  busy = false;
+}
+setInterval(pollLive, 2000); pollLive();
+
+/* khung hình trực tiếp: tải liên tục (mỗi ảnh xong mới tải ảnh sau) khi đang ở tab Giám sát -> theo kịp FPS của vision */
+let liveBusy = false;
+function liveFrame() {
+  if (liveBusy || activeTab !== "live" || document.hidden) return;
+  liveBusy = true;
+  const img = $("#cam"), t0 = performance.now();
+  const next = () => { liveBusy = false; setTimeout(liveFrame, Math.max(0, 200 - (performance.now() - t0))); };
+  const pre = new Image();
+  pre.onload = () => { img.src = pre.src; img.hidden = false; $("#cam-none").hidden = true; next(); };
+  pre.onerror = () => { liveBusy = false; setTimeout(liveFrame, 2000); };
+  pre.src = "/api/frame.jpg?r=" + Date.now();
+}
+document.addEventListener("visibilitychange", liveFrame);
+liveFrame();
+
+/* ------------------------------------------------------------------ THIẾT BỊ */
+let TUNE = null;
+async function loadTune() {
+  try { TUNE = await api("/api/tuning"); } catch (e) { toast("Lỗi: " + e.message); return; }
+  const cards = TUNE.groups.map(g => h("div", { class: "card" }, h("h2", {}, g.name), ...g.items.map(it => {
+    const inp = h("input", { type: "number", step: String(it.step), "data-k": it.key });
+    if (it.min != null) inp.min = it.min; if (it.max != null) inp.max = it.max;
+    inp.value = it.value; inp.dataset.orig = String(it.value);
+    inp.addEventListener("input", tuneDirty);
+    return h("div", { class: "trow" },
+      h("label", {}, it.label, h("span", { class: "u" }, it.unit)), inp,
+      h("div", { class: "hl" }, it.help || "", it.overridden ? h("span", { class: "df" }, `  · mặc định ${it.default}`) : ""));
+  })));
+  $("#tune").replaceChildren(...cards);
+  $("#tune-note").textContent = TUNE.n_overrides ? `${TUNE.n_overrides} giá trị khác mặc định` : "Đang dùng giá trị mặc định";
+  tuneDirty();
+}
+function tuneChanges() {
+  const out = {};
+  $$("#tune input").forEach(i => { if (i.value !== "" && Number(i.value) !== Number(i.dataset.orig)) out[i.dataset.k] = Number(i.value); });
+  return out;
+}
+function tuneDirty() {
+  const ch = tuneChanges();
+  $$("#tune input").forEach(i => i.classList.toggle("chg", i.dataset.k in ch));
+  $("#tune-save").disabled = $("#tune-undo").disabled = !Object.keys(ch).length;
+}
+$("#tune-save").onclick = async () => {
+  const ch = tuneChanges();
+  try { await api("/api/tuning", { method: "POST", body: { values: ch } }); toast(`Đã áp dụng ${Object.keys(ch).length} thay đổi.`); loadTune(); }
+  catch (e) { toast("Không lưu được: " + e.message); }
+};
+$("#tune-undo").onclick = loadTune;
+$("#tune-reset").onclick = async () => {
+  if (!confirm("Khôi phục mọi cài đặt thiết bị về mặc định?")) return;
+  try { await api("/api/tuning/reset", { method: "POST" }); toast("Đã khôi phục mặc định."); loadTune(); } catch (e) { toast("Lỗi: " + e.message); }
+};
+
+/* ------------------------------------------------------------------ BIỂU ĐỒ */
+function cssv(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function niceTicks(lo, hi, n = 5) {
+  if (!(hi > lo)) { hi = lo + 1; }
+  const raw = (hi - lo) / n, p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p;
+  const step = (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p, out = [];
+  for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) out.push(+v.toFixed(6));
+  return out;
+}
+class Chart {
+  constructor(cv, legendEl) { this.cv = cv; this.legendEl = legendEl; this.d = null; this.hover = null;
+    cv.addEventListener("mousemove", e => { this.hover = e.offsetX; this.draw(); });
+    cv.addEventListener("mouseleave", () => { this.hover = null; this.draw(); }); }
+  set(d) { this.d = d; this.legendEl.replaceChildren(...d.series.map(s => h("span", {}, h("i", { style: `background:${s.color}` }), s.name))); this.draw(); }
+  draw() {
+    const d = this.d; if (!d) return;
+    const cv = this.cv, dpr = window.devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight;
+    cv.width = W * dpr; cv.height = H * dpr; const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const text = cssv("--muted"), grid = cssv("--border"), fg = cssv("--text");
+    const L = 42, R = 10, T = 8, B = 22, pw = W - L - R, ph = H - T - B;
+    const xs = d.xs; if (!xs.length) { g.fillStyle = text; g.font = "13px system-ui"; g.fillText("Chưa có dữ liệu trong khoảng này", L + 8, T + 24); return; }
+    const x0 = xs[0], x1 = xs[xs.length - 1] || x0 + 1;
+    let lo = d.yMin ?? Infinity, hi = d.yMax ?? -Infinity;
+    if (d.yMin == null || d.yMax == null) for (const s of d.series) for (const v of s.data) if (v != null) { if (d.yMin == null) lo = Math.min(lo, v); if (d.yMax == null) hi = Math.max(hi, v); }
+    if (!isFinite(lo)) lo = 0; if (!isFinite(hi)) hi = lo + 1; if (d.yMin == null) lo = Math.floor(lo - (hi - lo) * 0.05); if (d.yMax == null) hi = Math.ceil(hi + (hi - lo) * 0.05);
+    const X = t => L + (x1 === x0 ? 0 : (t - x0) / (x1 - x0)) * pw, Y = v => T + ph - (v - lo) / (hi - lo) * ph;
+    g.font = "11px system-ui"; g.textBaseline = "middle"; g.lineWidth = 1;
+    for (const v of niceTicks(lo, hi)) { const y = Y(v); g.strokeStyle = grid; g.beginPath(); g.moveTo(L, y); g.lineTo(W - R, y); g.stroke(); g.fillStyle = text; g.textAlign = "right"; g.fillText(String(v), L - 6, y); }
+    const spanMin = (x1 - x0) / 60000, steps = [15, 30, 60, 120, 180, 360, 720, 1440, 2880], stepMin = steps.find(s => spanMin / s <= 7) || 2880;
+    g.textAlign = "center"; g.textBaseline = "top";
+    for (let t = Math.ceil(x0 / (stepMin * 60000)) * stepMin * 60000; t <= x1; t += stepMin * 60000) { const x = X(t), dt = new Date(t);
+      g.strokeStyle = grid; g.beginPath(); g.moveTo(x, T); g.lineTo(x, T + ph); g.stroke(); g.fillStyle = text;
+      const lab = stepMin >= 1440 ? `${dt.getUTCDate()}/${dt.getUTCMonth() + 1}` : `${String(dt.getUTCHours()).padStart(2, "0")}:${String(dt.getUTCMinutes()).padStart(2, "0")}`; g.fillText(lab, x, T + ph + 5); }
+    for (const b of d.bands || []) { g.fillStyle = b.color; g.fillRect(X(b.x0), T, Math.max(1, X(b.x1) - X(b.x0)), ph); }
+    for (const s of d.series) {
+      g.strokeStyle = s.color; g.lineWidth = s.width || 2; g.setLineDash(s.dash || []); g.beginPath(); let pen = false;
+      s.data.forEach((v, i) => { if (v == null) { pen = false; return; } const x = X(xs[i]), y = Y(v);
+        if (!pen) { g.moveTo(x, y); pen = true; } else if (s.step) { g.lineTo(x, Y(s.data[i - 1] ?? v)); g.lineTo(x, y); } else g.lineTo(x, y); });
+      g.stroke(); g.setLineDash([]);
+    }
+    if (this.hover != null && this.hover >= L && this.hover <= W - R) {
+      const tx = x0 + (this.hover - L) / pw * (x1 - x0); let bi = 0, bd = Infinity; xs.forEach((t, i) => { const dd = Math.abs(t - tx); if (dd < bd) { bd = dd; bi = i; } });
+      const x = X(xs[bi]); g.strokeStyle = fg; g.globalAlpha = .4; g.beginPath(); g.moveTo(x, T); g.lineTo(x, T + ph); g.stroke(); g.globalAlpha = 1;
+      const dt = new Date(xs[bi]), lines = [`${String(dt.getUTCHours()).padStart(2, "0")}:${String(dt.getUTCMinutes()).padStart(2, "0")}`, ...d.series.filter(s => !s.hideTip).map(s => `${s.name}: ${s.data[bi] == null ? "—" : fmt(s.data[bi], d.dec ?? 1)}`)];
+      g.font = "12px system-ui"; const w = Math.max(...lines.map(l => g.measureText(l).width)) + 14, hh = lines.length * 16 + 8, bx = x + 10 + w > W ? x - w - 10 : x + 10;
+      g.fillStyle = cssv("--surface"); g.strokeStyle = grid; g.fillRect(bx, T + 4, w, hh); g.strokeRect(bx, T + 4, w, hh); g.fillStyle = fg; g.textAlign = "left"; g.textBaseline = "middle";
+      lines.forEach((l, i) => g.fillText(l, bx + 7, T + 14 + i * 16));
+    }
+  }
+}
+const charts = { occ: new Chart($("#c-occ"), $("#l-occ")), temp: new Chart($("#c-temp"), $("#l-temp")), lux: new Chart($("#c-lux"), $("#l-lux")), pwm: new Chart($("#c-pwm"), $("#l-pwm")) };
+const ms = iso => Date.parse(iso + "Z");   // chuỗi giờ địa phương không múi giờ -> đọc như UTC để giữ nguyên giờ treo tường
+async function loadCharts() {
+  const hours = +$("#range").value, bucket = hours <= 6 ? 120 : hours <= 24 ? 300 : 900;
+  try {
+    const r = await api(`/api/history?hours=${hours}&bucket=${bucket}`), rows = r.rows, xs = rows.map(x => ms(x.t));
+    const zn = (S && S.zones) || [], nz = zn.length || (rows[0] && rows[0].occ_zones.length) || 4;
+    const zname = i => (zn[i] ? zn[i].name.split(" (")[0] : `Khu ${i + 1}`);
+    const col = (k, i) => rows.map(x => (x[k] && x[k][i] != null) ? x[k][i] : null);
+    const zs = k => Array.from({ length: nz }, (_, i) => ({ name: zname(i), color: cssv(`--z${(i % 6) + 1}`), data: col(k, i) }));
+    charts.occ.set({ xs, yMin: 0, dec: 1, series: [{ name: "Tổng", color: cssv("--text"), data: rows.map(x => x.occ_total), width: 2.5 }, ...zs("occ_zones")] });
+    const bands = []; rows.forEach((x, i) => { if (x.ac_power != null && x.ac_power >= 0.5) { const t0 = xs[i], t1 = xs[i + 1] ?? t0 + bucket * 1000; const last = bands[bands.length - 1]; if (last && Math.abs(last.x1 - t0) < 1) last.x1 = t1; else bands.push({ x0: t0, x1: t1, color: "rgba(96,165,250,.12)" }); } });
+    charts.temp.set({ xs, bands, dec: 1, series: [{ name: "Trong phòng", color: cssv("--z3"), data: rows.map(x => x.temp_in), width: 2.5 }, { name: "Ngoài trời", color: cssv("--z1"), data: rows.map(x => x.temp_out) },
+      { name: "Setpoint đã lệnh", color: cssv("--z2"), data: rows.map(x => x.ac_temp), step: true, dash: [5, 3] }] });
+    charts.lux.set({ xs, yMin: 0, dec: 0, series: [{ name: "Cửa sổ", color: cssv("--text"), data: rows.map(x => x.lux_window), dash: [4, 3] }, ...zs("lux_zones")] });
+    charts.pwm.set({ xs, yMin: 0, yMax: 100, dec: 0, series: zs("led_pwm") });
+    $("#chart-note").textContent = `${rows.length} điểm · gộp mỗi ${bucket / 60} phút · vùng nền xanh = điều hòa bật`;
+  } catch (e) { toast("Không tải được biểu đồ: " + e.message); }
+}
+$("#range").addEventListener("change", loadCharts); $("#chart-reload").addEventListener("click", loadCharts);
+addEventListener("resize", () => Object.values(charts).forEach(c => c.draw()));
+
+/* ------------------------------------------------------------------ DUYỆT ẢNH */
+const RV = { status: "PENDING", items: [], idx: -1, boxes: [], orig: "", sel: -1, mode: null, drag: null, w: 1, h: 1 };
+const countsText = c => `Chờ duyệt ${c.PENDING} · Đã duyệt ${c.APPROVED} · Đã train ${c.TRAINED} · Đã loại ${c.REJECTED} · Bị lọc trùng ${c.DUPLICATE || 0}`;
+function showCounts(c) {
+  $("#al-counts").textContent = countsText(c);
+  const n = c.CANDIDATE || 0; $("#al-today").textContent = n ? `${n} ảnh đang chờ lọc PCA` : "Không có ảnh chờ lọc";
+  $$("#rv-sub button").forEach(b => { const k = b.dataset.st, lab = { PENDING: "Chờ duyệt", CANDIDATE: "Chờ lọc PCA", DUPLICATE: "Bị lọc trùng" }[k]; b.textContent = `${lab} (${c[k] || 0})`; });
+}
+$$("#rv-sub button").forEach(b => b.onclick = () => { RV.status = b.dataset.st; RV.idx = -1; $$("#rv-sub button").forEach(x => x.classList.toggle("on", x === b)); loadQueue(); });
+const PCA_VI = { waiting_pca: "đang chờ đủ ảnh mẫu", idle: "không có ảnh mới" };
+async function loadPca() {
+  try {
+    const p = await api("/api/pca/status");
+    if (!p.enabled) { $("#pca-state").textContent = "đang tắt"; $("#pca-kv").replaceChildren(); $("#pca-hold").hidden = true; $("#pca-actions").replaceChildren(); return; }
+    $("#pca-state").textContent = p.fitted ? `đã khởi tạo · ${p.version} · ${p.n_components} chiều` : "chưa khởi tạo";
+    const it = (v, l) => h("div", { class: "it" }, h("b", {}, v), h("span", {}, l));
+    $("#pca-kv").replaceChildren(
+      it(`${p.corpus}/${p.need}`, "ảnh mẫu để khởi tạo PCA"), it(p.candidates, "chờ lọc"), it(p.kept_total, "đã giữ cho người duyệt"),
+      it(p.duplicates_total, p.duplicates_deleted_now ? "đã xoá vì trùng (từ lúc khởi động)" : "bị loại vì trùng"), it(fmt(p.reduction_total_pct, 1) + "%", "giảm lượng ảnh phải duyệt"));
+    const hold = $("#pca-hold");
+    if (!p.fitted) { hold.hidden = false; hold.textContent = p.candidates ? `PCA cần ≥ ${p.need} ảnh mẫu (hiện ${p.corpus}) trước khi chuyển ảnh cho bạn. ${p.candidates} ảnh đang được giữ lại — không mất.` : `PCA cần ≥ ${p.need} ảnh mẫu (hiện ${p.corpus}); camera tự lấy mẫu mỗi 30 giây.`; }
+    else hold.hidden = true;
+    const acts = [];
+    if (!p.fitted) acts.push(h("button", { class: "btn primary", onclick: () => pcaDo("/api/pca/fit", "Đã khởi tạo PCA.") }, `Khởi tạo PCA ngay (cần ≥ ${p.need_manual} ảnh mẫu)`));
+    if (p.candidates) acts.push(h("button", { class: "btn", onclick: () => pcaDo("/api/pca/triage", "Đã lọc xong.") }, "Lọc ngay"));
+    if (p.candidates && !p.fitted) acts.push(h("button", { class: "btn danger", onclick: () => { if (confirm("Bỏ qua lọc: toàn bộ ảnh đang chờ sẽ chuyển thẳng sang hàng duyệt. Tiếp tục?")) pcaDo("/api/pca/release", "Đã chuyển tất cả sang hàng chờ duyệt."); } }, "Bỏ qua lọc, đưa hết cho tôi duyệt"));
+    const l = p.last_stage1; if (l && l.n != null) acts.push(h("span", { class: "note" }, `Lần lọc gần nhất: ${l.n} ảnh → giữ ${l.kept ?? "?"}, loại ${l.dropped ?? "?"}`));
+    $("#pca-actions").replaceChildren(...acts);
+  } catch (e) { /* PCA là phần phụ: không chặn trang duyệt */ }
+}
+async function pcaDo(url, okMsg) { try { await api(url, { method: "POST" }); toast(okMsg); loadQueue(); } catch (e) { toast("Lỗi: " + e.message); } }
+async function loadQueue(keepId) {
+  try {
+    const r = await api(`/api/al/items?status=${RV.status}&limit=60`);
+    RV.items = r.items; showCounts(r.counts);
+    loadPca();
+    let i = keepId ? RV.items.findIndex(x => x.image_id === keepId) : -1; if (i < 0) i = RV.items.length ? Math.min(Math.max(RV.idx, 0), RV.items.length - 1) : -1;
+    renderQueue(); openItem(i);
+  } catch (e) { toast("Không tải được hàng đợi: " + e.message); }
+}
+function renderQueue() {
+  $("#queue").replaceChildren(...RV.items.map((it, i) => h("button", { class: "qi" + (i === RV.idx ? " sel" : ""), onclick: () => openItem(i) },
+    h("img", { src: `/api/al/items/${it.image_id}/image`, loading: "lazy", alt: "" }),
+    h("div", {}, h("b", {}, it.captured_at.slice(11, 19)), h("small", {}, `${it.pred_bboxes.length} bbox · ${it.captured_at.slice(5, 10)}`)))));
+}
+function openItem(i) {
+  RV.idx = i; const it = RV.items[i];
+  $("#rv-empty").hidden = !!it; $("#rv-main").hidden = !it;
+  $("#rv-empty").textContent = { PENDING: "Không có ảnh nào đang chờ duyệt.", CANDIDATE: "Không có ảnh nào đang chờ lọc PCA.", DUPLICATE: "Không có ảnh trùng nào đang giữ. Mặc định ảnh trùng bị XOÁ NGAY khi lọc (ARES_DUPLICATE_TTL_DAYS=0)." }[RV.status];
+  $$(".qi").forEach((q, k) => q.classList.toggle("sel", k === i));
+  if (!it) return;
+  RV.w = it.width || 1; RV.h = it.height || 1; RV.sel = -1;
+  RV.boxes = (it.final_bboxes || it.pred_bboxes).map(b => ({ bbox: b.bbox.slice(), conf: b.conf ?? null, cls: b.class ?? 0, user: false }));
+  RV.orig = JSON.stringify(RV.boxes.map(b => b.bbox));
+  $("#rv-title").textContent = it.image_id; $("#rv-meta").textContent = `${it.width}×${it.height} · chụp ${it.captured_at.replace("T", " ").slice(0, 19)}`;
+  const img = $("#rv-img"); img.onload = () => { sizeCanvas(); drawBoxes(); }; img.src = `/api/al/items/${it.image_id}/image`;
+  updateButtons();
+}
+const dirty = () => JSON.stringify(RV.boxes.map(b => b.bbox)) !== RV.orig;
+function updateButtons() {
+  const ro = RV.status !== "PENDING", d = dirty();
+  $("#btn-approve").disabled = d || ro; $("#btn-save").disabled = ro; $("#btn-reject").disabled = ro; $("#btn-restore").hidden = RV.status !== "DUPLICATE";
+  $("#btn-approve").hidden = $("#btn-save").hidden = $("#btn-reject").hidden = $("#rej-reason").hidden = RV.status === "DUPLICATE"; $("#btn-save").textContent = RV.boxes.length ? "Lưu bản sửa " : "Lưu: không có ai trong ảnh "; $("#btn-save").append(h("kbd", {}, "S"));
+}
+function sizeCanvas() { const img = $("#rv-img"), cv = $("#rv-cv"); cv.width = img.clientWidth; cv.height = img.clientHeight; }
+addEventListener("resize", () => { if (activeTab === "review") { sizeCanvas(); drawBoxes(); } });
+function drawBoxes() {
+  const cv = $("#rv-cv"), g = cv.getContext("2d"), sx = cv.width / RV.w, sy = cv.height / RV.h; g.clearRect(0, 0, cv.width, cv.height);
+  RV.boxes.forEach((b, i) => {
+    const [x1, y1, x2, y2] = b.bbox, band = b.conf != null && b.conf >= 0.35 && b.conf <= 0.55;
+    const c = b.user ? cssv("--z1") : band ? "#f59e0b" : "#22c55e", sel = i === RV.sel;
+    g.strokeStyle = c; g.lineWidth = sel ? 3 : 2; g.strokeRect(x1 * sx, y1 * sy, (x2 - x1) * sx, (y2 - y1) * sy);
+    if (b.conf != null) { g.font = "12px system-ui"; const t = b.conf.toFixed(2), tw = g.measureText(t).width + 6; g.fillStyle = c; g.fillRect(x1 * sx, Math.max(0, y1 * sy - 16), tw, 16); g.fillStyle = "#000"; g.fillText(t, x1 * sx + 3, Math.max(12, y1 * sy - 4)); }
+    if (sel) for (const [hx, hy] of [[x1, y1], [x2, y1], [x1, y2], [x2, y2]]) { g.fillStyle = "#fff"; g.strokeStyle = c; g.fillRect(hx * sx - 5, hy * sy - 5, 10, 10); g.strokeRect(hx * sx - 5, hy * sy - 5, 10, 10); }
+  });
+}
+function toImg(e) { const r = $("#rv-cv").getBoundingClientRect(); return [(e.clientX - r.left) / r.width * RV.w, (e.clientY - r.top) / r.height * RV.h]; }
+const clampBox = b => { const [x1, y1, x2, y2] = b; return [Math.max(0, Math.min(x1, x2)), Math.max(0, Math.min(y1, y2)), Math.min(RV.w, Math.max(x1, x2)), Math.min(RV.h, Math.max(y1, y2))]; };
+(() => {
+  const cv = $("#rv-cv");
+  cv.addEventListener("pointerdown", e => {
+    const [px, py] = toImg(e), tol = 9 * RV.w / cv.clientWidth; cv.setPointerCapture(e.pointerId);
+    if (RV.sel >= 0) { const b = RV.boxes[RV.sel].bbox, cs = [[0, 1, 0, 1], [2, 1, 2, 1], [0, 3, 0, 3], [2, 3, 2, 3]];
+      for (const [ix, iy] of cs) if (Math.abs(px - b[ix]) < tol && Math.abs(py - b[iy]) < tol) { RV.mode = "resize"; RV.drag = { ix: ix === 0 ? 0 : 2, iy: iy === 1 ? 1 : 3 }; return; } }
+    for (let i = RV.boxes.length - 1; i >= 0; i--) { const [x1, y1, x2, y2] = RV.boxes[i].bbox; if (px >= x1 && px <= x2 && py >= y1 && py <= y2) { RV.sel = i; RV.mode = "move"; RV.drag = { px, py, orig: RV.boxes[i].bbox.slice() }; drawBoxes(); return; } }
+    RV.sel = RV.boxes.push({ bbox: [px, py, px, py], conf: null, cls: 0, user: true }) - 1; RV.mode = "draw"; RV.drag = { px, py }; drawBoxes();
+  });
+  cv.addEventListener("pointermove", e => {
+    if (!RV.mode) return; const [px, py] = toImg(e), b = RV.boxes[RV.sel]; if (!b) return;
+    if (RV.mode === "draw") b.bbox = [RV.drag.px, RV.drag.py, px, py];
+    else if (RV.mode === "move") { const dx = px - RV.drag.px, dy = py - RV.drag.py, o = RV.drag.orig, w = o[2] - o[0], hh = o[3] - o[1], nx = Math.min(Math.max(0, o[0] + dx), RV.w - w), ny = Math.min(Math.max(0, o[1] + dy), RV.h - hh); b.bbox = [nx, ny, nx + w, ny + hh]; }
+    else if (RV.mode === "resize") { b.bbox[RV.drag.ix] = Math.min(Math.max(0, px), RV.w); b.bbox[RV.drag.iy] = Math.min(Math.max(0, py), RV.h); }
+    drawBoxes();
+  });
+  const end = () => { if (!RV.mode) return; const b = RV.boxes[RV.sel];
+    if (b) { b.bbox = clampBox(b.bbox); if (RV.mode === "draw" && (b.bbox[2] - b.bbox[0] < 6 || b.bbox[3] - b.bbox[1] < 6)) { RV.boxes.splice(RV.sel, 1); RV.sel = -1; } else if (RV.mode !== "draw" || b) { b.conf = RV.mode === "draw" ? null : b.conf; } }
+    RV.mode = null; RV.drag = null; drawBoxes(); updateButtons(); };
+  cv.addEventListener("pointerup", end); cv.addEventListener("pointercancel", end);
+})();
+async function decide(kind) {
+  const it = RV.items[RV.idx]; if (!it) return; const id = it.image_id;
+  if (RV.status !== "PENDING" && kind !== "restore") return toast("Ảnh này chưa ở hàng chờ duyệt.");
+  try {
+    if (kind === "restore") await api(`/api/al/items/${id}/restore`, { method: "POST" });
+    else
+    if (kind === "approve") { if (dirty()) return toast("Bạn đã sửa bbox — hãy dùng “Lưu bản sửa” (S)."); await api(`/api/al/items/${id}/approve`, { method: "POST" }); }
+    else if (kind === "save") await api(`/api/al/items/${id}/edit`, { method: "POST", body: { boxes: RV.boxes.map(b => ({ bbox: b.bbox, class: b.cls })) } });
+    else await api(`/api/al/items/${id}/reject`, { method: "POST", body: { reason: $("#rej-reason").value } });
+    toast(kind === "reject" ? "Đã loại bỏ ảnh." : kind === "restore" ? "Đã khôi phục ảnh về hàng chờ duyệt." : "Đã lưu — ảnh sẽ dùng cho lần train kế tiếp.");
+    RV.items.splice(RV.idx, 1); renderQueue(); openItem(RV.items.length ? Math.min(RV.idx, RV.items.length - 1) : -1);
+    api("/api/al/items?status=PENDING&limit=1").then(r => showCounts(r.counts)).catch(() => {});
+  } catch (e) { toast("Lỗi: " + e.message); }
+}
+$("#btn-restore").onclick = () => decide("restore"); $("#btn-approve").onclick = () => decide("approve"); $("#btn-save").onclick = () => decide("save"); $("#btn-reject").onclick = () => decide("reject");
+$("#btn-prev").onclick = () => openItem(Math.max(0, RV.idx - 1)); $("#btn-next").onclick = () => openItem(Math.min(RV.items.length - 1, RV.idx + 1));
+$("#al-reload").onclick = () => loadQueue();
+addEventListener("keydown", e => {
+  if (activeTab !== "review" || e.target.matches("select,input") || e.ctrlKey || e.metaKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (k === "a") decide("approve"); else if (k === "s") decide("save"); else if (k === "r") decide("reject");
+  else if ((k === "delete" || k === "backspace") && RV.sel >= 0) { e.preventDefault(); RV.boxes.splice(RV.sel, 1); RV.sel = -1; drawBoxes(); updateButtons(); }
+  else if (k === "arrowright") $("#btn-next").click(); else if (k === "arrowleft") $("#btn-prev").click();
+});
+
+/* ------------------------------------------------------------------ CAMERA (lưới CCTV) */
+const CAM = { tiles: new Map(), layout: "auto", full: null, timer: null, last: null };
+try { CAM.layout = localStorage.getItem("ares_cam_layout") || "auto"; } catch (_) {}
+$("#cam-layout").value = CAM.layout; if ($("#cam-layout").value !== CAM.layout) { CAM.layout = "auto"; $("#cam-layout").value = "auto"; }
+$("#cam-layout").onchange = e => { CAM.layout = e.target.value; try { localStorage.setItem("ares_cam_layout", CAM.layout); } catch (_) {} if (CAM.last) camRender(CAM.last); };
+$("#cam-rescan").onclick = async () => { try { await api("/api/cameras/rescan", { method: "POST" }); toast("Đang dò camera (USB + danh sách RTSP)…"); setTimeout(() => camTick(true), 2500); } catch (e) { toast("Lỗi: " + e.message); } };
+function camDims(n) {
+  if (CAM.layout !== "auto") { const [c, r] = CAM.layout.split("x").map(Number); if (c * r >= n) return [c, r]; }
+  const c = Math.max(1, Math.ceil(Math.sqrt(n))); return [c, Math.max(1, Math.ceil(n / c))];
+}
+function camRender(o) {
+  CAM.last = o;
+  const n = o.cameras.length, [cols, rows] = camDims(n), g = $("#camgrid");
+  g.style.gridTemplateColumns = `repeat(${cols},minmax(0,1fr))`; g.style.gridTemplateRows = `repeat(${rows},minmax(0,1fr))`;
+  const ids = new Set(o.cameras.map(c => c.id));
+  for (const [id, t] of CAM.tiles) if (!ids.has(id)) { t.el.remove(); CAM.tiles.delete(id); if (CAM.full === id) CAM.full = null; }
+  o.cameras.forEach((c, i) => {
+    let t = CAM.tiles.get(c.id);
+    if (!t) {
+      const img = h("img", { alt: c.name, hidden: true }), nm = h("div", { class: "nm" }, h("i"), h("span")), cnt = h("div", { class: "cnt" }), msg = h("div", { class: "msg" }, "Chưa có hình");
+      const el = h("div", { class: "ctile", title: "Bấm để phóng to / thu nhỏ", onclick: () => camToggle(c.id) }, img, msg, nm, cnt);
+      t = { el, img, nm, cnt, msg, busy: false, seen: 0 }; CAM.tiles.set(c.id, t);
+    }
+    g.append(t.el); // giữ đúng thứ tự (append node có sẵn = di chuyển)
+    t.el.classList.toggle("off", !c.online);
+    t.nm.lastChild.textContent = `${c.name}${c.control ? " · điều khiển" : ""}${c.fps ? ` · ${fmt(c.fps, 1)} fps` : ""}`;
+    t.cnt.replaceChildren(String(c.online ? c.n_people : "—"), h("small", {}, "người"));
+    t.msg.hidden = c.has_frame && c.online;
+    t.msg.textContent = c.online ? "Chưa có hình" : (c.error ? "Mất kết nối: " + c.error : "Mất kết nối");
+    t.has = c.has_frame; t.cid = c.id; t.online = c.online;
+  });
+  const parts = [`${o.count} camera`, `${o.online} đang bật`, `${o.total_people} người (tổng)`];
+  $("#cam-sum").textContent = parts.join(" · ") + (o.scanning ? " · đang dò…" : "");
+  const bc = $("#b-cams"); bc.hidden = !o.count; bc.textContent = o.count;
+}
+function camToggle(id) {
+  CAM.full = CAM.full === id ? null : id;
+  for (const [k, t] of CAM.tiles) t.el.classList.toggle("full", k === CAM.full);
+  camFrames();
+}
+addEventListener("keydown", e => { if (e.key === "Escape" && CAM.full) camToggle(CAM.full); });
+function camFrames() {
+  const now = Date.now();
+  for (const [id, t] of CAM.tiles) {
+    if (CAM.full && CAM.full !== id) continue;          // đang phóng to: chỉ cập nhật ô đó
+    if (!t.has || t.busy) continue;
+    t.busy = true;
+    const im = new Image();
+    im.onload = () => { t.img.src = im.src; t.img.hidden = false; t.busy = false; };
+    im.onerror = () => { t.busy = false; };
+    im.src = `/api/cameras/${id}/frame.jpg?t=${now}`;
+  }
+}
+async function camTick(now) {
+  clearTimeout(CAM.timer);
+  if (activeTab !== "cams") return;
+  try { camRender(await api("/api/cameras")); camFrames(); } catch (e) { $("#cam-sum").textContent = "Không tải được danh sách camera: " + e.message; }
+  const n = CAM.tiles.size, ms = CAM.full ? 400 : n <= 4 ? 700 : n <= 9 ? 1200 : 2000;
+  CAM.timer = setTimeout(camTick, ms);
+}
+// huy hiệu số camera ở thanh tab cập nhật cả khi ở tab khác (nhẹ: 1 request / 10 s)
+setInterval(() => { if (activeTab !== "cams") api("/api/cameras").then(o => { const bc = $("#b-cams"); bc.hidden = !o.count; bc.textContent = o.count; }).catch(() => {}); }, 10000);
+api("/api/cameras").then(o => { const bc = $("#b-cams"); bc.hidden = !o.count; bc.textContent = o.count; }).catch(() => {});
+
+/* ------------------------------------------------------------------ MODEL */
+const MSTAT = { production: ["ok", "Đang chạy"], candidate: ["info", "Chờ duyệt"], rejected: ["bad", "Không đạt cổng"], archived: ["", "Lưu trữ"] };
+function metricCell(m) {
+  const out = [];
+  for (const k of ["human", "replay"]) { const c = m.candidate && m.candidate[k], p = m.current && m.current[k]; if (!c) continue;
+    out.push(h("div", {}, h("b", {}, k === "human" ? "Tập người duyệt: " : "Tập replay: "), `recall ${fmt(c.recall, 3)} (${fmt(p && p.recall, 3)}) · mAP50 ${fmt(c.map50, 3)} (${fmt(p && p.map50, 3)})`)); }
+  return out.length ? out : "—";
+}
+async function loadModels() {
+  try {
+    const r = await api("/api/models");
+    $("#models").replaceChildren(...r.versions.map(v => { const [cls, lab] = MSTAT[v.status] || ["", v.status];
+      return h("tr", {}, h("td", {}, h("b", {}, v.version), v.version === r.running && v.version !== r.production ? h("div", { class: "note" }, "đang nạp") : ""),
+        h("td", {}, h("span", { class: "pill " + cls }, lab)), h("td", {}, (v.created_at || "").replace("T", " ") || "—"),
+        h("td", {}, v.version === "base" ? "Weights gốc" : `mới ${v.n_new} · người duyệt ${v.n_total} · replay ${v.n_replay}`),
+        h("td", {}, metricCell(v.metrics || {})), h("td", {}, v.gate && v.gate.reason ? v.gate.reason : "—"),
+        h("td", {}, v.status !== "production" ? h("button", { class: "btn", onclick: () => promote(v.version) }, "Dùng bản này") : ""));
+    }));
+    const rt = r.retrain; $("#btn-retrain").disabled = rt.running || !rt.enabled;
+    $("#retrain-note").textContent = rt.running ? "Đang train…" : `Tự động lúc ${rt.time} hằng đêm · chính sách: ${({ gated: "tự chuyển nếu đạt cổng chất lượng", never: "luôn chờ duyệt tay", always: "train xong hoán đổi ngay (cổng chất lượng chỉ cảnh báo)" })[rt.policy] || rt.policy} · ảnh chờ train: ${r.al_counts.APPROVED}`;
+    loadPca2();
+    $("#last-retrain").textContent = rt.last ? JSON.stringify(rt.last, null, 2) : "Chưa có lần train nào kể từ lúc khởi động.";
+  } catch (e) { toast("Không tải được danh sách model: " + e.message); }
+}
+async function loadPca2() {
+  const box = $("#pca2");
+  try {
+    const p = await api("/api/pca/train-preview");
+    if (p.n_new == null) { box.textContent = p.note || "—"; return; }
+    $("#pca2-aux").textContent = `giảm ${fmt(p.reduction_pct, 0)}% ảnh mới`;
+    box.textContent = `${p.n_new} ảnh mới đã duyệt → ${p.n_picked} ảnh đưa vào train, ${p.n_dropped} ảnh trùng bị bỏ qua lần này (vẫn giữ trong kho). ` +
+      `Ảnh bạn đã sửa bbox (${p.forced_edited ?? 0}) luôn được giữ. ${p.note || ""}`;
+  } catch (e) { box.textContent = "Lọc PCA lần 2 chưa dùng được: " + e.message; $("#pca2-aux").textContent = ""; }
+}
+async function promote(v) { try { await api(`/api/models/${v}/promote`, { method: "POST" }); toast(`Đã chuyển production sang ${v}. Vision sẽ nạp lại trong vài giây.`); loadModels(); } catch (e) { toast("Lỗi: " + e.message); } }
+$("#btn-rollback").onclick = async () => { try { const r = await api("/api/models/rollback", { method: "POST" }); toast("Đã quay lui về " + r.production); loadModels(); } catch (e) { toast("Lỗi: " + e.message); } };
+$("#btn-retrain").onclick = async () => { try { await api("/api/retrain", { method: "POST" }); toast("Đã bắt đầu train. Có thể mất nhiều phút đến vài giờ."); setTimeout(loadModels, 1500); } catch (e) { toast(e.message); } };
+$("#models-reload").onclick = loadModels;
+
+/* ------------------------------------------------------------------ THÓI QUEN */
+const DOW = { 2: "Thứ Hai", 3: "Thứ Ba", 4: "Thứ Tư", 5: "Thứ Năm", 6: "Thứ Sáu", 7: "Thứ Bảy", 8: "Chủ nhật" };
+async function loadHabits() {
+  try {
+    const r = await api("/api/habits"), slot = r.slot_min, from = 5 * 60, to = 22 * 60, cols = (to - from) / slot, map = new Map(r.rows.map(x => [x.dow + "|" + x.slot, x]));
+    const heat = $("#heat"); heat.style.gridTemplateColumns = `84px repeat(${cols}, minmax(14px,1fr))`; const cells = [h("div", {})];
+    for (let c = 0; c < cols; c++) { const m = from + c * slot; cells.push(h("div", { class: "lab", style: "justify-content:center" }, m % 60 === 0 ? String(m / 60) : "")); }
+    for (let d = 2; d <= 8; d++) { cells.push(h("div", { class: "lab" }, DOW[d]));
+      for (let c = 0; c < cols; c++) { const m = from + c * slot, key = `${d}|${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`, x = map.get(key);
+        const el = h("div", { class: "c", title: x ? `${DOW[d]} ${key.split("|")[1]}\nXác suất có người: ${fmt(x.p * 100, 0)}%\nSĩ số dự kiến: ${x.headcount}\nSố lần quan sát: ${x.n_obs}\nR_cool: ${x.r_cool == null ? "chưa học" : fmt(x.r_cool, 3) + " °C/phút"}` : `${DOW[d]} ${key.split("|")[1]}\nChưa có dữ liệu` });
+        if (x) { el.style.background = `color-mix(in srgb, var(--accent) ${Math.round(x.p * 100)}%, var(--surface2))`; if (x.p > r.p_threshold) el.style.outline = "1px solid var(--bad)"; }
+        cells.push(el); } }
+    heat.replaceChildren(...cells);
+    $("#habit-note").textContent = `${r.rows.length} ô đã học · khung ${slot} phút · ngưỡng pre-cool P > ${r.p_threshold}`;
+  } catch (e) { toast("Không tải được thói quen: " + e.message); }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,38 @@
+# Redis (luồng thu thập/học cũ) + Mosquitto (ARES, chỉ chạy khi bật profile "ares").
+# Model, camera và storage chạy native trên máy để không mất GPU passthrough.
+#   docker compose up -d                     # chỉ Redis, như trước
+#   docker compose --profile ares up -d      # Redis + broker MQTT cho ARES (xem ARES_UPGRADE.md, mục MQTT)
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: yolo-al-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    # appendonly = persistence. Đây là điểm khác cốt lõi so với queue.Queue in-memory của v1:
+    # restart không được làm mất hàng chờ.
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # Broker MQTT cho hai ESP32. Bắt buộc có tài khoản: tạo tệp mật khẩu theo hướng dẫn trong
+  # deploy/mosquitto/mosquitto.conf trước khi bật, nếu không broker sẽ không khởi động.
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: yolo-al-mosquitto
+    profiles: ["ares"]
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./deploy/mosquitto:/mosquitto/config:ro
+      - mosquitto-data:/mosquitto/data
+
+volumes:
+  redis-data:
+  mosquitto-data:

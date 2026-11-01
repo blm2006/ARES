@@ -1,0 +1,103 @@
+{
+  "room_id": "P101",
+  "n_max": 40,
+  "_ghi_chu": "Toạ độ đa giác là chuẩn hoá 0..1 theo khung hình camera (x sang phải, y xuống dưới). Mỗi người được xếp vào vùng chứa ĐIỂM GIỮA-ĐÁY của bbox (chỗ chân chạm sàn). Sửa cho khớp góc camera thật rồi chạy `python -m ares zones --snapshot anh.jpg` để xem vùng vẽ lên ảnh. k = hệ số hiệu chuẩn lux trần -> lux mặt bàn (spec: ~3.0-3.5): đo bằng máy đo lux đặt trên bàn rồi chỉnh cho từng vùng.",
+  "zones": [
+    {
+      "id": 1,
+      "name": "Khu 1 (trên-trái)",
+      "capacity": 10,
+      "k": 3.25,
+      "polygon": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.5,
+          0.0
+        ],
+        [
+          0.5,
+          0.5
+        ],
+        [
+          0.0,
+          0.5
+        ]
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Khu 2 (trên-phải)",
+      "capacity": 10,
+      "k": 3.25,
+      "polygon": [
+        [
+          0.5,
+          0.0
+        ],
+        [
+          1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.5
+        ],
+        [
+          0.5,
+          0.5
+        ]
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Khu 3 (dưới-trái)",
+      "capacity": 10,
+      "k": 3.25,
+      "polygon": [
+        [
+          0.0,
+          0.5
+        ],
+        [
+          0.5,
+          0.5
+        ],
+        [
+          0.5,
+          1.0
+        ],
+        [
+          0.0,
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Khu 4 (dưới-phải)",
+      "capacity": 10,
+      "k": 3.25,
+      "polygon": [
+        [
+          0.5,
+          0.5
+        ],
+        [
+          1.0,
+          0.5
+        ],
+        [
+          1.0,
+          1.0
+        ],
+        [
+          0.5,
+          1.0
+        ]
+      ]
+    }
+  ]
+}

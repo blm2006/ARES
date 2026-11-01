@@ -1,0 +1,14 @@
+{
+  "room_id": "P101",
+  "n_max": 10,
+  "_ghi_chu": "Cấu hình 1 đèn / 1 cảm biến cho bản thử dùng Arduino. Vùng phủ toàn khung hình. k = lux mặt bàn / lux cảm biến: nếu BH1750 đặt NGAY trên mặt bàn thì k = 1.0 (spec k≈3.0-3.5 chỉ đúng khi cảm biến gắn trên trần). Hiệu chuẩn: đo bằng app lux hoặc máy đo trên bàn rồi chỉnh k.",
+  "zones": [
+    {
+      "id": 1,
+      "name": "Khu 1 (toàn khung hình)",
+      "capacity": 10,
+      "k": 1.0,
+      "polygon": [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]]
+    }
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "_ghi_chu": "Lịch phòng MẪU — hãy thay bằng lịch thật. days: 2 = Thứ Hai ... 7 = Thứ Bảy, 8 = Chủ nhật. exceptions: ngày nghỉ/huỷ lớp (vd {\"date\": \"2026-11-20\", \"cancelled\": true}). Sửa file khi đang chạy thì hệ thống tự nạp lại sau khoảng 30 giây.",
+  "sessions": [
+    {
+      "name": "Tiết 1-3",
+      "days": [
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "start": "07:00",
+      "end": "09:30"
+    },
+    {
+      "name": "Tiết 4-6",
+      "days": [
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "start": "09:45",
+      "end": "12:15"
+    },
+    {
+      "name": "Tiết 7-9",
+      "days": [
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "start": "13:00",
+      "end": "15:30"
+    },
+    {
+      "name": "Tiết 10-12",
+      "days": [
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "start": "15:45",
+      "end": "18:15"
+    }
+  ],
+  "exceptions": []
+}
