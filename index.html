@@ -212,7 +212,7 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}
       <h2>Sự kiện AI phát hiện <span class="spacer"></span>
         <div class="filters">
           <select id="f-status"><option value="">Tất cả</option><option value="new">Chưa xử lý</option><option value="ack">Đã xử lý</option></select>
-          <select id="f-kind"><option value="">Mọi loại</option><option value="FALL">Té ngã</option><option value="LYING_STILL">Nằm bất động</option>
+          <select id="f-kind"><option value="">Mọi loại</option><option value="FALL">Té ngã</option><option value="LYING_DOWN">Nằm xuống đột ngột</option><option value="LYING_STILL">Nằm bất động</option>
             <option value="SLUMPED">Ngồi gục</option><option value="FIGHT">Đánh nhau</option></select>
           <select id="f-place"><option value="0">Mọi địa điểm</option></select>
         </div></h2>
@@ -389,7 +389,7 @@ if(REMOTE){ const q=new URLSearchParams(location.search).get("server");
 const U = p => { const u=API+p; return TOKEN ? u+(u.includes("?")?"&":"?")+"t="+encodeURIComponent(TOKEN) : u; };  // cho <img>/<a>
 const AH = () => TOKEN ? {"Authorization":"Bearer "+TOKEN} : {};
 function setToken(t){ TOKEN=REMOTE?(t||""):""; if(REMOTE) LS.set("ares_token",TOKEN); }
-const KIND = {FALL:"Té ngã", LYING_STILL:"Nằm bất động", SLUMPED:"Ngồi gục bất động", FIGHT:"Đánh nhau / xô đẩy"};
+const KIND = {FALL:"Té ngã", LYING_DOWN:"Nằm xuống đột ngột / nằm dưới sàn", LYING_STILL:"Nằm bất động", SLUMPED:"Ngồi gục bất động", FIGHT:"Đánh nhau / xô đẩy"};
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const tfmt = t => t ? new Date(t*1000).toLocaleString("vi-VN",{hour12:false}) : "—";
 function ago(t){ if(!t) return "chưa bao giờ"; const s=Math.max(0,Date.now()/1000-t); if(s<60) return `${Math.round(s)} giây trước`; if(s<3600) return `${Math.round(s/60)} phút trước`; if(s<86400) return `${Math.round(s/3600)} giờ trước`; return `${Math.round(s/86400)} ngày trước`; }
