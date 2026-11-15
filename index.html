@@ -126,6 +126,18 @@ details.adv>.body{border-top:1px solid var(--border)}
 .stat{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
 .stat .big{font-size:22px;font-weight:800}
 a.btn{text-decoration:none;color:inherit;display:inline-block}
+.devgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px}
+.dev{border:1px solid var(--border);border-radius:12px;padding:14px;display:grid;gap:10px;align-content:start;background:var(--surface)}
+.dev h3{margin:0;font-size:16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
+.tile{border:1px solid var(--border);border-radius:10px;padding:8px 10px;background:var(--surface2)}
+.tile .l{font-size:12px;color:var(--muted)} .tile .v{font-size:20px;font-weight:800;line-height:1.2}
+.tile.alarm{border-color:var(--red);background:var(--red-bg)} .tile.alarm .v{color:var(--red)}
+.ctrl{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.spark{width:100%;height:46px;display:block}
+.steps{margin:0;padding-left:20px;display:grid;gap:8px} .steps li{line-height:1.5}
+.wire td,.wire th{padding:4px 8px;font-size:13px}
+.schips{display:flex;gap:6px;flex-wrap:wrap}
 .bar2{height:8px;border-radius:99px;background:var(--surface2);overflow:hidden;margin-top:10px;max-width:560px}
 .bar2 i{display:block;height:100%;width:0;background:var(--red);transition:width .2s}
 .prog{display:inline-block;width:90px;height:6px;border-radius:99px;background:var(--surface2);overflow:hidden;vertical-align:middle;margin-left:6px}
@@ -164,6 +176,7 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}
       <button data-view="live" class="admin-only">Trực tiếp</button>
       <button data-view="alerts">Cảnh báo<span class="badge" id="b-new" hidden>0</span></button>
       <button data-view="places">Địa điểm</button>
+      <button data-view="sensors">Cảm biến</button>
       <button data-view="videos">Thử video</button>
       <button data-view="users" class="admin-only">Tài khoản<span class="badge" id="b-pend" hidden>0</span></button>
       <button data-view="setup" class="admin-only">Thiết lập</button>
@@ -237,6 +250,25 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}
     <div id="places-box"></div>
     <p class="hint admin-only">Mỗi tài khoản có sẵn một địa điểm mang tên người đó và có thể thêm nhiều địa điểm khác. Camera của máy chủ chưa gán sẽ nằm ở địa điểm của quản trị viên — dùng ô <b>Chuyển tới</b> để gán camera cho đúng người/địa điểm.</p>
     <p class="hint viewer-only">Bạn có thể chia camera theo nhiều địa điểm (vd: Nhà, Cửa hàng). Chỉ bạn và quản trị viên thấy các địa điểm này.</p>
+  </section>
+
+  <!-- ===================== CẢM BIẾN (mạch ESP32 / ESP8266 / Arduino) ===================== -->
+  <section id="v-sensors" hidden>
+    <div class="card"><h2>Thêm mạch cảm biến</h2><div class="body">
+      <div class="row">
+        <input id="nd-name" placeholder="Tên mạch (vd: Cảm biến phòng khách)" maxlength="60" style="min-width:220px">
+        <select id="nd-kind"></select>
+        <select id="nd-place" title="Địa điểm"></select>
+        <button class="btn dark" id="nd-btn">Thêm mạch</button>
+      </div>
+      <p class="hint"><b>ESP32 / ESP8266</b>: mạch tự gửi qua Wi-Fi về máy chủ — nạp code 1 lần rồi cắm vào cục sạc bất kỳ.
+        <b>Arduino Uno/Nano/Mega</b> (không có Wi-Fi): cắm USB vào máy tính đang mở dashboard này, bấm <b>Kết nối mạch qua USB</b> — không cần cài gì thêm.
+        Hỗ trợ: nhiệt độ/độ ẩm (DHT11/22, DS18B20), ánh sáng (BH1750, quang trở), chuyển động (PIR), khí gas/khói (MQ-2/MQ-135), lửa, âm thanh,
+        cửa từ, khoảng cách (HC-SR04); điều khiển relay, đèn LED, còi.</p>
+    </div></div>
+    <div class="card" style="margin-top:20px"><h2><span id="dev-title">Mạch của tôi</span></h2><div class="body">
+      <div class="devgrid" id="devs"></div><div class="empty" id="devs-empty">Chưa có mạch nào. Thêm mạch ở trên rồi bấm <b>Hướng dẫn &amp; tải code</b>.</div>
+    </div></div>
   </section>
 
   <!-- ===================== THỬ VIDEO (tách riêng khỏi camera) ===================== -->
@@ -359,6 +391,9 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}
       <div class="ctl small muted" id="vd-sum"></div></div>
     <div class="vside"><b>Sự kiện AI phát hiện</b><div id="vd-events"></div></div>
   </div></div></dialog>
+<dialog id="sdlg" style="width:min(760px,97vw)"><div class="card" style="border:0">
+  <h2><span id="sd-title">Nạp code cho mạch</span><span class="spacer"></span><button class="btn" data-close="sdlg">Đóng</button></h2>
+  <div class="body" id="sd-body"></div></div></dialog>
 <dialog id="acdlg" style="width:min(520px,96vw)"><div class="card" style="border:0">
   <h2>Tài khoản của tôi<span class="spacer"></span><button class="btn" data-close="acdlg">Đóng</button></h2>
   <div class="body form" style="max-width:none">
@@ -465,7 +500,7 @@ function paintMe(){
 }
 
 // ------------------------------------------------ điều hướng
-const VIEWS=["home","mycams","live","alerts","places","videos","users","setup"];
+const VIEWS=["home","mycams","live","alerts","places","sensors","videos","users","setup"];
 let view="home";
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>go(b.dataset.view));
 function go(v){ view=v; document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.view===v));
@@ -513,7 +548,8 @@ function placeCard(p, withThumbs){
       <div><b>${p.cams_online}</b><span class="muted small">camera hoạt động</span></div>
       <div><b style="color:${p.new_alerts?"var(--red)":"inherit"}">${p.new_alerts}</b><span class="muted small">cảnh báo mới</span></div></div>
     ${withThumbs&&live.length?`<div class="thumbs">${live.map(c=>`<img data-live="${liveKey(c)}" alt="${esc(c.name)}" title="${esc(c.name)}">`).join("")}</div>`:""}
-    <div class="chips">${p.cams.map(camChip).join("")||'<span class="muted small">Chưa có camera</span>'}</div></div>`;
+    <div class="chips">${p.cams.map(camChip).join("")||'<span class="muted small">Chưa có camera</span>'}</div>
+    ${(p.sensors||[]).length?`<div class="schips">${p.sensors.map(d=>`<span class="pill ${d.online?(sensorAlarm(d.data)?"red":"ok"):""}" title="${esc(d.name)}"><i class="dot"></i>${esc(d.name)}${d.online?" · "+esc(sensorShort(d.data)):" · mất kết nối"}</span>`).join("")}</div>`:""}</div>`;
 }
 function setHTML(el, html){ if(el.dataset.h!==html){ el.dataset.h=html; el.innerHTML=html; } }  // tránh vẽ lại (ảnh không bị nháy)
 
@@ -551,6 +587,8 @@ async function refresh(){
       await renderMyCams();
     } else if(view==="places"){
       await renderPlaces();
+    } else if(view==="sensors"){
+      await renderSensors();
     } else if(view==="videos"){
       await renderVideos();
     } else if(view==="users"){
@@ -807,6 +845,153 @@ setInterval(()=>{
 },50);
 
 
+
+// ------------------------------------------------ cảm biến: ESP32/ESP8266 (Wi-Fi) · Arduino (USB qua Web Serial)
+const SKEY={temp:["Nhiệt độ","°C",1],temp2:["Nhiệt độ 2","°C",1],hum:["Độ ẩm","%",0],lux:["Ánh sáng","lux",0],light:["Độ sáng","%",0],
+  motion:["Chuyển động","",0],gas:["Khí gas/khói","%",0],flame:["Lửa","",0],sound:["Âm thanh","%",0],door:["Cửa","",0],dist:["Khoảng cách","cm",0],
+  co2:["CO₂","ppm",0],pm25:["Bụi PM2.5","µg/m³",0]};
+const SHIDE=new Set(["relay","led","buzzer","rssi","up"]);
+function sval(k,v){ if(k==="motion") return v?"Có người":"Không"; if(k==="flame") return v?"CÓ LỬA!":"Không"; if(k==="door") return v?"Mở":"Đóng";
+  const d=(SKEY[k]||["","",1])[2]; return `${Number(v).toFixed(d)}${(SKEY[k]||["",""])[1]?" "+SKEY[k][1]:""}`; }
+const salarm=(k,v)=>(k==="flame"&&v)||(k==="gas"&&v>=40)||(k==="temp"&&v>=45)||(k==="co2"&&v>=2000);
+const sensorAlarm=d=>Object.entries(d||{}).some(([k,v])=>salarm(k,v));
+function sensorShort(d){ const o=[]; for(const k of ["flame","gas","temp","hum","lux","light","motion","door"]) if(d&&d[k]!=null) o.push(k==="motion"?(d[k]?"có người":"không có người"):k==="flame"?(d[k]?"CÓ LỬA":""):k==="light"?"sáng "+sval(k,d[k]):k==="gas"?(d[k]>=40?"GAS ":"gas ")+sval(k,d[k]):k==="door"?"cửa "+sval(k,d[k]).toLowerCase():sval(k,d[k]));
+  return o.filter(Boolean).slice(0,4).join(" · ")||"đang gửi"; }
+function spark(pts,key){ const v=pts.filter(p=>p[key]!=null); if(v.length<2) return ""; const W=300,H=46, t0=v[0].t,t1=v[v.length-1].t;
+  const lo=Math.min(...v.map(p=>p[key])),hi=Math.max(...v.map(p=>p[key])),r=Math.max(hi-lo,0.5);
+  const xy=v.map(p=>`${((p.t-t0)/Math.max(1,t1-t0)*W).toFixed(1)},${(H-4-(p[key]-lo)/r*(H-8)).toFixed(1)}`).join(" ");
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><polyline points="${xy}" fill="none" stroke="var(--red)" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>
+    <div class="muted small">${SKEY[key]?SKEY[key][0]:key} 24 giờ: thấp ${sval(key,lo)} · cao ${sval(key,hi)}</div>`; }
+let DEVS=[], DEVPLACES=[], SERIES={}, SER={};
+async function renderSensors(){
+  const r=await api("/api/devices"); DEVS=r.items; DEVPLACES=r.places;
+  fillSel($("#nd-kind"), Object.entries(r.kinds), "—");
+  fillSel($("#nd-place"), r.places.map(p=>[String(p.id), "Địa điểm: "+p.name+(isAdmin()&&p.user_id!==ME.id?` (${(DEVS.find(d=>d.user_id===p.user_id)||{}).owner||"người khác"})`:"")]), "—");
+  $("#dev-title").textContent=isAdmin()?"Tất cả mạch cảm biến":"Mạch của tôi"; $("#devs-empty").hidden=DEVS.length>0||!!r.mqtt;
+  for(const d of DEVS){ if(d.online && (!SERIES[d.id] || Date.now()-SERIES[d.id].at>60000)) api(`/api/devices/${d.id}/series?hours=24`).then(x=>{ SERIES[d.id]={at:Date.now(),items:x.items}; }).catch(()=>{}); }
+  const now=Date.now()/1000;
+  let html=DEVS.map(d=>{ const data=d.data||{}, keys=Object.keys(data).filter(k=>!SHIDE.has(k)), usb=SER[d.id];
+    const st=usb?'<span class="pill ok"><i class="dot"></i>Đang đọc USB trên máy này</span>'
+      : d.online?`<span class="pill ok"><i class="dot"></i>Đang gửi qua ${d.via==="usb"?"USB":"Wi-Fi"} · ${ago(d.last_seen)}</span>`
+      : d.last_seen?`<span class="pill red"><i class="dot"></i>Mất kết nối · ${ago(d.last_seen)}</span>`:'<span class="pill warn">Chưa kết nối — nạp code cho mạch</span>';
+    const des=d.desired||{}, has=k=>data[k]!=null||des[k]!=null;
+    const ctrl=[has("relay")?`<button class="btn ${(des.relay??data.relay)?"dark":""}" data-dcmd="${d.id}" data-k="relay" data-val="${(des.relay??data.relay)?0:1}">Relay: ${(des.relay??data.relay)?"BẬT":"TẮT"}</button>`:"",
+      has("buzzer")?`<button class="btn ${(des.buzzer??data.buzzer)?"warn":""}" data-dcmd="${d.id}" data-k="buzzer" data-val="${(des.buzzer??data.buzzer)?0:1}">Còi: ${(des.buzzer??data.buzzer)?"BẬT":"TẮT"}</button>`:"",
+      has("led")?`<label class="small">Đèn LED <input type="range" min="0" max="100" step="5" value="${des.led??data.led??0}" data-dled="${d.id}"> <b>${des.led??data.led??0}%</b></label>`:""].join("");
+    const sp=SERIES[d.id]?spark(SERIES[d.id].items, ["temp","hum","lux","light","gas"].find(k=>data[k]!=null)||keys[0]):"";
+    return `<div class="dev"><h3>${esc(d.name)} <span class="muted small" style="font-weight:500">· ${esc(d.place_name)}${isAdmin()&&d.user_id!==ME.id?" · "+esc(d.owner):""}</span></h3>
+      <div class="row small">${st}<span class="muted">${esc(d.kind_label)}${data.rssi!=null?` · Wi-Fi ${data.rssi} dBm`:""}</span></div>
+      ${keys.length?`<div class="tiles">${keys.map(k=>`<div class="tile ${salarm(k,data[k])?"alarm":""}"><div class="l">${esc(SKEY[k]?SKEY[k][0]:k)}</div><div class="v">${esc(sval(k,data[k]))}</div></div>`).join("")}</div>`:'<div class="muted small">Chưa có số đo.</div>'}
+      ${ctrl?`<div class="ctrl">${ctrl}</div>`:""}${sp}
+      <div class="row">${d.kind==="usb"?(usb?`<button class="btn" data-dusboff="${d.id}">Ngắt USB</button>`:`<button class="btn dark" data-dusb="${d.id}">Kết nối mạch qua USB</button>`):""}
+        <button class="btn" data-dsetup="${d.id}">Hướng dẫn &amp; tải code</button>
+        <select data-dplace="${d.id}" title="Chuyển sang địa điểm khác">${DEVPLACES.map(p=>`<option value="${p.id}" ${p.id===d.place_id?"selected":""}>${esc(p.name)}</option>`).join("")}</select>
+        <button class="btn warn" data-ddel="${d.id}" data-name="${esc(d.name)}">Xoá</button></div></div>`; }).join("");
+  if(r.mqtt) html+=`<div class="dev"><h3>${esc(r.mqtt.name)} <span class="muted small" style="font-weight:500">· cảm biến MQTT phòng máy chủ</span></h3>
+    <div class="tiles">${Object.entries(r.mqtt.data).map(([k,v])=>`<div class="tile"><div class="l">${esc(SKEY[k]?SKEY[k][0]:k)}</div><div class="v">${esc(sval(k,v))}</div></div>`).join("")}</div>
+    <div class="muted small">ESP32 nối MQTT với ARES để tự chỉnh đèn / điều hoà (cấu hình trong ares.env).</div></div>`;
+  setHTML($("#devs"), html);
+}
+$("#nd-btn").onclick=async()=>{ const name=$("#nd-name").value.trim(); if(!name){ toast("Nhập tên mạch"); return; }
+  try{ const r=await api("/api/devices",{method:"POST",body:{name,kind:$("#nd-kind").value,place_id:+$("#nd-place").value||null}});
+    $("#nd-name").value=""; toast("Đã thêm mạch — làm theo hướng dẫn để nạp code"); await renderSensors(); openSetup(r.id); }catch(e){ toast(e.message); } };
+async function deviceCmd(id, k, v){
+  const r=await api(`/api/devices/${id}/cmd`,{method:"POST",body:{[k]:v}});
+  if(SER[id]) serWrite(id, r.desired);
+  toast(SER[id]?"Đã gửi lệnh qua USB":"Đã gửi lệnh — mạch Wi-Fi nhận trong vài giây"); refresh(); }
+document.addEventListener("click", async ev=>{ const t=ev.target.closest("[data-dcmd],[data-dusb],[data-dusboff],[data-dsetup],[data-ddel],[data-dl-ino]"); if(!t) return;
+  try{
+    if(t.dataset.dcmd) await deviceCmd(+t.dataset.dcmd, t.dataset.k, +t.dataset.val);
+    else if(t.dataset.dusb) await serConnect(+t.dataset.dusb, true);
+    else if(t.dataset.dusboff) { await serClose(+t.dataset.dusboff); refresh(); }
+    else if(t.dataset.dsetup) openSetup(+t.dataset.dsetup);
+    else if(t.dataset.dlIno) await downloadIno(+t.dataset.dlIno);
+    else if(t.dataset.ddel){ if(!confirm(`Xoá mạch "${t.dataset.name}"? Mạch sẽ không gửi được nữa (phải nạp lại code mới).`)) return;
+      await serClose(+t.dataset.ddel); await api(`/api/devices/${t.dataset.ddel}/delete`,{method:"POST"}); toast("Đã xoá mạch"); refresh(); }
+  }catch(e){ toast(e.message); } });
+document.addEventListener("change", async ev=>{ const t=ev.target;
+  try{
+    if(t.dataset.dled){ t.nextElementSibling.textContent=t.value+"%"; await deviceCmd(+t.dataset.dled,"led",+t.value); }
+    else if(t.dataset.dplace){ await api(`/api/devices/${t.dataset.dplace}`,{method:"POST",body:{place_id:+t.value}}); toast("Đã chuyển địa điểm"); refresh(); }
+  }catch(e){ toast(e.message); } });
+document.addEventListener("input", ev=>{ if(ev.target.dataset.dled) ev.target.nextElementSibling.textContent=ev.target.value+"%"; });
+
+let SRV_OPTS=[];
+async function openSetup(id){
+  const d=DEVS.find(x=>x.id===id); if(!d) return;
+  let info={}; try{ info=await fetch(API+"/api/app-info").then(r=>r.json()); }catch(_){}
+  const base=API||location.origin; SRV_OPTS=[...new Set([info.public_url, ...(info.lan_urls||[]), base].filter(u=>u&&!/127\.0\.0\.1|localhost/.test(u)))];
+  if(!SRV_OPTS.length) SRV_OPTS=[base];
+  const usb=d.kind==="usb";
+  $("#sd-title").textContent=`Nạp code cho "${d.name}"`;
+  const wiring=`<table class="wire"><thead><tr><th>Cảm biến</th><th>ESP32</th><th>ESP8266</th><th>Arduino Uno/Nano</th></tr></thead><tbody>
+    <tr><td>DHT11/DHT22 (DATA)</td><td>GPIO 4</td><td>D4</td><td>D2</td></tr><tr><td>DS18B20 (DATA + điện trở 4,7k lên 3,3V/5V)</td><td>GPIO 15</td><td>D3</td><td>D10</td></tr>
+    <tr><td>BH1750 (SDA / SCL)</td><td>21 / 22</td><td>D2 / D1</td><td>A4 / A5</td></tr><tr><td>Quang trở (chia áp)</td><td>GPIO 34</td><td>A0</td><td>A0</td></tr>
+    <tr><td>PIR HC-SR501 (OUT)</td><td>GPIO 27</td><td>D5</td><td>D3</td></tr><tr><td>MQ-2/MQ-135 (AO)</td><td>GPIO 35</td><td>A0</td><td>A1</td></tr>
+    <tr><td>Cảm biến lửa (DO)</td><td>GPIO 14</td><td>D6</td><td>D4</td></tr><tr><td>Âm thanh (AO)</td><td>GPIO 33</td><td>A0</td><td>A2</td></tr>
+    <tr><td>Cửa từ (1 chân vào, 1 chân GND)</td><td>GPIO 13</td><td>D7</td><td>D8</td></tr><tr><td>HC-SR04 (TRIG / ECHO)</td><td>5 / 18</td><td>D0 / D8</td><td>5 / 6</td></tr>
+    <tr><td>Relay (IN)</td><td>GPIO 26</td><td>D6</td><td>7</td></tr><tr><td>LED qua MOSFET (PWM)</td><td>GPIO 25</td><td>D7</td><td>9</td></tr><tr><td>Còi (+)</td><td>GPIO 23</td><td>D0</td><td>12</td></tr>
+    </tbody></table><p class="hint">Chân khác thì sửa trong phần "CHÂN NỐI" của code. ESP32/ESP8266 chạy 3,3 V — cảm biến 5 V (MQ, HC-SR04 ECHO) cần chia áp.</p>`;
+  $("#sd-body").innerHTML = usb ? `
+    <ol class="steps">
+      <li>Cài <b>Arduino IDE</b> (arduino.cc/en/software) — chỉ cần trên máy dùng để nạp, nạp 1 lần.</li>
+      <li><button class="btn dark" data-dl-ino="${id}">Tải code (.ino)</button> → mở bằng Arduino IDE. Ở phần <b>CẢM BIẾN</b>, đổi <code>0</code> thành <code>1</code> cho cảm biến đã gắn; cài thư viện ghi bên cạnh (Manage Libraries).</li>
+      <li>Tools → Board: chọn đúng mạch (vd Arduino Uno) · Tools → Port: cổng COM · bấm <b>Upload</b>.</li>
+      <li><b>Đóng Arduino IDE</b> (một cổng USB chỉ một chương trình mở được), cắm mạch vào máy tính đang mở dashboard này → bấm <b>Kết nối mạch qua USB</b> ở thẻ mạch → chọn cổng (vd "USB-SERIAL CH340", "Arduino Uno").</li>
+      <li>Giữ dashboard mở để số đo được gửi lên máy chủ. Lần sau mở lại, dashboard tự kết nối lại cổng đã chọn.</li>
+    </ol>${wiring}` : `
+    <div class="row"><input id="sd-ssid" placeholder="Tên Wi-Fi (2.4 GHz)" autocomplete="off" style="flex:1">
+      <input id="sd-pass" type="password" placeholder="Mật khẩu Wi-Fi" autocomplete="new-password" style="flex:1"></div>
+    <div class="row" style="margin-top:8px"><span class="small muted">Mạch gửi về:</span><select id="sd-srv" style="flex:1">${SRV_OPTS.map(u=>`<option>${esc(u)}</option>`).join("")}</select></div>
+    <p class="hint">Tên/mật khẩu Wi-Fi chỉ được ghi vào file tải về trên máy bạn, không gửi lên máy chủ. Mạch đặt ở mạng khác máy chủ: chọn địa chỉ https (chạy CHIA_SE_INTERNET.bat trên máy chủ để có).</p>
+    <ol class="steps">
+      <li>Cài <b>Arduino IDE</b> (arduino.cc/en/software) — chỉ cần lúc nạp, 1 lần. File → Preferences → <i>Additional boards manager URLs</i>, thêm:<br>
+        <code>https://espressif.github.io/arduino-esp32/package_esp32_index.json</code> (ESP32)<br><code>https://arduino.esp8266.com/stable/package_esp8266com_index.json</code> (ESP8266)<br>
+        rồi Tools → Board → Boards Manager: cài <b>esp32</b> hoặc <b>esp8266</b>.</li>
+      <li><button class="btn dark" data-dl-ino="${id}">Tải code (.ino)</button> → mở bằng Arduino IDE. Ở phần <b>CẢM BIẾN</b>, đổi <code>0</code> thành <code>1</code> cho cảm biến đã gắn; cài thư viện ghi bên cạnh.</li>
+      <li>Tools → Board: <b>ESP32 Dev Module</b> / <b>NodeMCU 1.0</b> / <b>LOLIN(WEMOS) D1</b> · Tools → Port: cổng COM · <b>Upload</b> (ESP32 không nhận thì giữ nút BOOT khi bắt đầu nạp).</li>
+      <li>Rút khỏi máy tính, cắm mạch vào cục sạc điện thoại bất kỳ. Vài giây sau thẻ mạch hiện <b>Đang gửi qua Wi-Fi</b>.</li>
+    </ol>${wiring}`;
+  $("#sdlg").showModal();
+}
+async function downloadIno(id){
+  const d=DEVS.find(x=>x.id===id), srv=$("#sd-srv")?$("#sd-srv").value:"";
+  const r=await fetch(`${API}/api/devices/${id}/firmware.ino?server=${encodeURIComponent(srv)}`,{headers:AH()});
+  if(!r.ok){ let m=""; try{ m=(await r.json()).detail; }catch(_){} toast(m||`Lỗi ${r.status}`); return; }
+  let code=await r.text();
+  if(d.kind!=="usb"){ const ss=($("#sd-ssid").value||"").replace(/["\\]/g,"\\$&"), pw=($("#sd-pass").value||"").replace(/["\\]/g,"\\$&");
+    if(!ss){ toast("Nhập tên Wi-Fi trước"); return; }
+    code=code.replace("{{WIFI_SSID}}",ss).replace("{{WIFI_PASS}}",pw); }
+  const fn=(r.headers.get("Content-Disposition")||"").match(/filename="([^"]+)"/); const name=fn?fn[1]:"ares.ino";
+  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([code],{type:"text/plain"})); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+  toast(`Đã tải ${name} — Arduino IDE sẽ hỏi tạo thư mục cùng tên, bấm OK`);
+}
+// ---- Web Serial: đọc mạch cắm USB ngay trong trình duyệt (Chrome/Edge/ARES Viewer)
+async function serConnect(id, ask){
+  if(!("serial" in navigator)){ toast("Trình duyệt này không đọc được USB — dùng Chrome/Edge trên máy tính hoặc app ARES Viewer"); return; }
+  if(SER[id]) return;
+  let port=null;
+  if(ask){ try{ port=await navigator.serial.requestPort(); }catch(_){ return; } }
+  else { const ports=await navigator.serial.getPorts(); port=ports[0]; if(!port) return; }
+  try{ await port.open({baudRate:115200}); }catch(e){ toast("Không mở được cổng USB: "+(e.message||e)+" — đóng Arduino IDE/Serial Monitor rồi thử lại"); return; }
+  const S={port, alive:true, latest:null, sentAt:0, lastCmd:"", writer:null}; SER[id]=S; LS.set("ares_usb_dev", String(id));
+  const enc=new TextEncoderStream(); enc.readable.pipeTo(port.writable).catch(()=>{}); S.writer=enc.writable.getWriter();
+  toast("Đã kết nối mạch qua USB — đang gửi số đo lên máy chủ"); refresh();
+  (async()=>{ const dec=new TextDecoderStream(); port.readable.pipeTo(dec.writable).catch(()=>{}); const rd=dec.readable.getReader(); S.reader=rd; let buf="";
+    try{ while(S.alive){ const {value,done}=await rd.read(); if(done) break; buf+=value; let i;
+      while((i=buf.indexOf("\n"))>=0){ const line=buf.slice(0,i).trim(); buf=buf.slice(i+1);
+        if(line.startsWith("{")){ try{ S.latest=JSON.parse(line); }catch(_){} } }
+      if(buf.length>2000) buf=""; } }catch(_){}
+    if(SER[id]===S){ delete SER[id]; toast("Mạch USB đã ngắt"); refresh(); } })();
+}
+async function serClose(id){ const S=SER[id]; if(!S) return; S.alive=false; delete SER[id];
+  try{ await S.reader?.cancel(); }catch(_){} try{ await S.writer?.close(); }catch(_){} try{ await S.port.close(); }catch(_){} LS.set("ares_usb_dev",""); }
+function serWrite(id, cmd){ const S=SER[id]; if(!S||!S.writer||!cmd) return; const line=JSON.stringify(cmd);
+  if(line===S.lastCmd) return; S.lastCmd=line; S.writer.write(line+"\n").catch(()=>{}); }
+setInterval(async()=>{ for(const [id,S] of Object.entries(SER)){ if(!S.latest||Date.now()-S.sentAt<1500) continue; const data=S.latest; S.latest=null; S.sentAt=Date.now();
+  try{ const r=await api(`/api/devices/${id}/data`,{method:"POST",body:data}); if(r.cmd&&Object.keys(r.cmd).length) serWrite(id, r.cmd); }catch(_){} } },500);
+if("serial" in navigator) navigator.serial.addEventListener("disconnect", e=>{ for(const [id,S] of Object.entries(SER)) if(S.port===e.target){ serClose(+id); refresh(); } });
+
 // ------------------------------------------------ thử video: tải lên -> AI máy chủ phân tích -> xem kết quả
 const VST={queued:["warn","Đang chờ"],running:["warn","Đang phân tích"],done:["ok","Xong"],error:["red","Lỗi"]};
 const mmss=t=>`${String(Math.floor(t/60)).padStart(2,"0")}:${String(Math.floor(t%60)).padStart(2,"0")}`;
@@ -909,6 +1094,7 @@ async function start(){
     if(LS.get("ares_cam_auto")==="1" && camSecure() && !CAM.timer) startCam(); }
   $("#b-pend").hidden=!m.pending; $("#b-pend").textContent=m.pending;
   $("#login").hidden=true; $("#app").hidden=false;
+  if(+LS.get("ares_usb_dev") && "serial" in navigator) serConnect(+LS.get("ares_usb_dev"), false);  // cổng đã cho phép trước đó: tự nối lại
   if(["setup","users","live"].includes(view) && ME.role!=="admin") go("home");
   else if(view==="mycams" && ME.role==="admin") go("home"); else refresh();
   if(!timer) timer=setInterval(refresh,2500);
