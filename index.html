@@ -1,0 +1,920 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARES</title>
+<style>
+:root{
+  --bg:#f6f6f7; --surface:#fff; --surface2:#f1f1f3; --text:#111214; --muted:#5d6068; --border:#e2e3e6;
+  --red:#d71920; --red-bg:#fde8e8; --ok:#16803c; --ok-bg:#e3f6e9; --warn:#a85d00; --warn-bg:#fff2dc; --ink:#111214;
+  --shadow:0 1px 2px rgba(0,0,0,.05);
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#0d0e10; --surface:#16171a; --surface2:#1e2024; --text:#ececee; --muted:#9a9ca3; --border:#2a2c31;
+    --red:#ff4b52; --red-bg:#3a1416; --ok:#4ade80; --ok-bg:#12301d; --warn:#fbbf24; --warn-bg:#3a2a0c; --ink:#ececee; --shadow:none; }
+}
+*{box-sizing:border-box} html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;font-variant-numeric:tabular-nums}
+button,input,select,textarea{font:inherit;color:inherit}
+header{position:sticky;top:0;z-index:20;background:var(--surface);border-bottom:1px solid var(--border)}
+.bar{display:flex;align-items:center;gap:12px;padding:10px 20px;max-width:1400px;margin:0 auto;flex-wrap:wrap}
+.bar .btn,#who{white-space:nowrap}
+@media (max-width:900px){ .acct .nm{display:none} }
+.logo{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.06em}
+.logo i{width:12px;height:12px;background:var(--red);display:inline-block;border-radius:2px}
+.logo small{font-weight:500;letter-spacing:0;color:var(--muted)}
+nav{display:flex;gap:4px;margin-left:12px}
+nav button{white-space:nowrap;background:none;border:0;padding:8px 14px;border-radius:8px;font-weight:600;color:var(--muted);cursor:pointer;position:relative}
+nav button.on{background:var(--ink);color:var(--surface)}
+.badge{display:inline-block;min-width:20px;padding:0 6px;margin-left:6px;border-radius:10px;background:var(--red);color:#fff;font-size:12px;line-height:20px;text-align:center}
+.spacer{flex:1}
+.muted{color:var(--muted)} .small{font-size:13px}
+main{max-width:1400px;margin:0 auto;padding:20px;display:grid;gap:20px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow)}
+.kpi .v{font-size:34px;font-weight:800;line-height:1.1}
+.kpi .l{color:var(--muted);font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:.04em}
+.kpi.alert{border-color:var(--red);background:var(--red-bg)} .kpi.alert .v{color:var(--red)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow)}
+.card>h2{margin:0;padding:14px 18px;font-size:16px;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:center}
+.card>.body{padding:14px 18px}
+.btn{border:1px solid var(--border);background:var(--surface2);padding:7px 14px;border-radius:9px;font-weight:600;cursor:pointer}
+.btn:hover{border-color:var(--ink)} .btn.dark{background:var(--ink);color:var(--surface);border-color:transparent}
+.btn.red{background:var(--red);color:#fff;border-color:transparent} .btn.ok{background:var(--ok-bg);color:var(--ok);border-color:transparent}
+.btn.warn{background:var(--warn-bg);color:var(--warn);border-color:transparent}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:700;background:var(--surface2);color:var(--muted);white-space:nowrap}
+.pill.ok{background:var(--ok-bg);color:var(--ok)} .pill.red{background:var(--red-bg);color:var(--red)} .pill.warn{background:var(--warn-bg);color:var(--warn)}
+.dot{width:8px;height:8px;border-radius:50%;background:currentColor;display:inline-block}
+.alerts{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.al{border:2px solid var(--red);border-radius:12px;overflow:hidden;background:var(--surface)}
+.al.warn{border-color:var(--warn)}
+.al .img{aspect-ratio:16/9;background:#000 center/cover no-repeat;cursor:pointer;position:relative}
+.al .img .tag{position:absolute;left:10px;top:10px;background:var(--red);color:#fff;font-weight:800;padding:3px 10px;border-radius:6px;font-size:13px}
+.al.warn .img .tag{background:var(--warn)}
+.al .in{padding:10px 12px;display:grid;gap:6px}
+.al .btn{padding:5px 10px;font-size:14px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.sites{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.site{border:1px solid var(--border);border-radius:12px;padding:14px;cursor:pointer;background:var(--surface)}
+.site:hover{border-color:var(--ink)}
+.site h3{margin:0 0 4px;font-size:16px;display:flex;align-items:center;gap:8px}
+.site .nums{display:flex;gap:18px;margin:10px 0 6px}
+.site .nums b{display:block;font-size:22px}
+table{width:100%;border-collapse:collapse} th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--border);font-size:14px;vertical-align:middle}
+th{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+tr.click{cursor:pointer} tr.click:hover{background:var(--surface2)}
+td img{height:46px;border-radius:6px;display:block}
+.empty{padding:22px;text-align:center;color:var(--muted)}
+.chart{width:100%;height:180px}
+.filters{display:flex;gap:8px;flex-wrap:wrap}
+select,input,textarea{border:1px solid var(--border);background:var(--surface);border-radius:9px;padding:7px 10px}
+.form{display:grid;gap:10px;max-width:560px}
+.keybox{font-family:ui-monospace,Consolas,monospace;background:var(--surface2);border:1px dashed var(--ink);padding:12px;border-radius:10px;word-break:break-all;font-size:14px}
+pre{background:var(--surface2);padding:12px;border-radius:10px;overflow:auto;font-size:13px}
+dialog{border:0;border-radius:14px;padding:0;width:min(960px,96vw);background:var(--surface);color:var(--text)}
+dialog::backdrop{background:rgba(0,0,0,.6)}
+.player img,.player video{width:100%;display:block;background:#000;max-height:66vh;object-fit:contain}
+.ctl{display:flex;gap:10px;align-items:center;padding:10px 16px;flex-wrap:wrap}
+.ctl input[type=range]{flex:1;min-width:180px}
+.livegrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:14px}
+.live{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#000}
+.live img{width:100%;aspect-ratio:16/9;object-fit:contain;display:block;background:#000}
+.live .cap{background:var(--surface);padding:8px 12px;display:flex;gap:8px;align-items:center;font-size:14px}
+.login{max-width:380px;margin:12vh auto;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;display:grid;gap:12px}
+#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--surface);padding:9px 16px;border-radius:10px;opacity:0;transition:.2s;pointer-events:none;z-index:50}
+#toast.on{opacity:1}
+.hint{font-size:13px;color:var(--muted)}
+[hidden]{display:none!important}
+.role-viewer .admin-only{display:none!important}
+.role-admin .viewer-only{display:none!important}
+.camgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:14px}
+.camcard{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface)}
+.camcard .pair{display:grid;grid-template-columns:1fr 1fr;gap:2px;background:#000}
+.camcard .pair.one{grid-template-columns:1fr}
+.camcard video,.camcard img{width:100%;aspect-ratio:16/9;object-fit:contain;background:#000;display:block}
+.camcard .lbl{position:relative}
+.camcard .lbl span{position:absolute;left:8px;top:8px;background:rgba(0,0,0,.65);color:#fff;font-size:12px;padding:2px 8px;border-radius:5px}
+.camcard .in{padding:10px 12px;display:grid;gap:6px}
+.warnbox{border:2px solid var(--warn);background:var(--warn-bg);border-radius:12px;padding:14px 16px}
+.login a{color:var(--text)}
+.acct{position:relative}
+.acct>button{display:flex;align-items:center;gap:8px;border:1px solid var(--border);background:var(--surface2);border-radius:999px;padding:4px 12px 4px 4px;cursor:pointer;font-weight:600}
+.acct>button:hover{border-color:var(--ink)}
+.av{width:30px;height:30px;border-radius:50%;background:var(--red);color:#fff;display:grid;place-items:center;font-weight:800;font-size:14px;flex:none}
+.av.lg{width:52px;height:52px;font-size:22px}
+.menu{position:absolute;right:0;top:calc(100% + 8px);width:290px;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.18);padding:8px;z-index:40}
+.menu .head{display:flex;gap:12px;align-items:center;padding:10px 10px 12px;border-bottom:1px solid var(--border);margin-bottom:6px}
+.menu button{display:block;width:100%;text-align:left;background:none;border:0;padding:9px 10px;border-radius:9px;cursor:pointer;font-weight:600}
+.menu button:hover{background:var(--surface2)}
+.menu button.danger{color:var(--red)}
+.places{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.place{border:1px solid var(--border);border-radius:12px;padding:14px;background:var(--surface);display:grid;gap:10px;align-content:start}
+.place.click{cursor:pointer} .place.click:hover{border-color:var(--ink)}
+.place h3{margin:0;font-size:16px;display:flex;align-items:center;gap:8px}
+.place .nums{display:flex;gap:22px}
+.place .nums b{display:block;font-size:26px;line-height:1.1}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px}
+.places.big{grid-template-columns:repeat(auto-fill,minmax(420px,1fr))} .places.big .thumbs{grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
+.thumbs img{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:8px;background:#000;display:block}
+.grp{margin:4px 0 10px;font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:flex;gap:8px;align-items:center}
+.ucard+.ucard{margin-top:16px}
+details.adv>summary{cursor:pointer;font-weight:700;padding:14px 18px;list-style:none}
+details.adv>summary::before{content:"▸ ";color:var(--muted)} details.adv[open]>summary::before{content:"▾ "}
+details.adv>.body{border-top:1px solid var(--border)}
+.stat{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.stat .big{font-size:22px;font-weight:800}
+a.btn{text-decoration:none;color:inherit;display:inline-block}
+.bar2{height:8px;border-radius:99px;background:var(--surface2);overflow:hidden;margin-top:10px;max-width:560px}
+.bar2 i{display:block;height:100%;width:0;background:var(--red);transition:width .2s}
+.prog{display:inline-block;width:90px;height:6px;border-radius:99px;background:var(--surface2);overflow:hidden;vertical-align:middle;margin-left:6px}
+.prog i{display:block;height:100%;background:var(--red)}
+.vgrid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:0}
+@media (max-width:860px){ .vgrid{grid-template-columns:1fr} }
+.vside{border-left:1px solid var(--border);padding:12px 14px;max-height:74vh;overflow:auto;display:grid;gap:8px;align-content:start}
+.vev{border:1px solid var(--border);border-radius:10px;padding:8px 10px;cursor:pointer;display:grid;gap:2px}
+.vev:hover{border-color:var(--ink)} .vev.on{border-color:var(--red);background:var(--red-bg)}
+</style>
+</head>
+<body>
+<div id="login" class="login" hidden>
+  <div class="logo"><i></i>ARES</div>
+  <h2 id="a-title" style="margin:6px 0 0;font-size:22px">Đăng nhập</h2>
+  <p class="hint" id="a-sub" style="margin:0"></p>
+  <div id="a-fields" style="display:grid;gap:10px">
+    <input id="a-srv" placeholder="Địa chỉ máy chủ, vd https://may-chu.ten.ts.net" autocapitalize="off" spellcheck="false" hidden>
+    <input id="a-name" placeholder="Họ tên (không bắt buộc)" autocomplete="name" hidden>
+    <input id="lu" placeholder="Tên đăng nhập" autocomplete="username" autocapitalize="off" spellcheck="false">
+    <input id="lp" placeholder="Mật khẩu" type="password" autocomplete="current-password">
+    <input id="lp2" placeholder="Nhập lại mật khẩu" type="password" autocomplete="new-password" hidden>
+    <button class="btn dark" id="lbtn">Đăng nhập</button>
+  </div>
+  <div class="hint" id="lmsg" role="alert"></div>
+  <div class="small"><a href="#" id="a-toggle">Chưa có tài khoản? Đăng ký</a></div>
+</div>
+
+<div id="app" hidden>
+<header>
+  <div class="bar">
+    <div class="logo"><i></i>ARES</div>
+    <nav>
+      <button data-view="home" class="on">Tổng quan</button>
+      <button data-view="mycams" class="viewer-only">Camera của tôi</button>
+      <button data-view="live" class="admin-only">Trực tiếp</button>
+      <button data-view="alerts">Cảnh báo<span class="badge" id="b-new" hidden>0</span></button>
+      <button data-view="places">Địa điểm</button>
+      <button data-view="videos">Thử video</button>
+      <button data-view="users" class="admin-only">Tài khoản<span class="badge" id="b-pend" hidden>0</span></button>
+      <button data-view="setup" class="admin-only">Thiết lập</button>
+    </nav>
+    <div class="spacer"></div>
+    <div class="acct">
+      <button id="acct-btn" aria-haspopup="true" aria-expanded="false"><span class="av" id="acct-av">?</span><span class="nm" id="acct-name">—</span><span class="muted">▾</span></button>
+      <div class="menu" id="acct-menu" hidden>
+        <div class="head"><span class="av lg" id="m-av">?</span><div><b id="m-name">—</b><div class="muted small" id="m-user">—</div><div class="small" id="m-role"></div></div></div>
+        <button id="m-profile">Thông tin tài khoản</button>
+        <button id="m-pw">Đổi mật khẩu</button>
+        <button id="m-places" class="viewer-only">Địa điểm của tôi</button>
+        <button id="logout" class="danger">Đăng xuất</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div id="neterr" class="pill red" hidden style="padding:8px 14px;font-size:14px"></div>
+  <!-- ===================== TỔNG QUAN ===================== -->
+  <section id="v-home">
+    <div class="kpis">
+      <div class="kpi" id="k-alert"><div class="l">Cảnh báo chưa xử lý</div><div class="v" id="k-new">—</div><div class="muted small" id="k-today">—</div></div>
+      <div class="kpi"><div class="l">Camera hoạt động</div><div class="v" id="k-cams">—</div><div class="muted small">đang có hình cho AI</div></div>
+      <div class="kpi"><div class="l">Địa điểm</div><div class="v" id="k-places">—</div><div class="muted small" id="k-places-sub">—</div></div>
+      <div class="kpi"><div class="l">Máy chủ AI</div><div class="v" id="k-ai">—</div><div class="muted small" id="k-ai-sub">YOLO chạy trên máy chủ</div></div>
+    </div>
+    <div class="card" style="margin-top:20px">
+      <h2>Cần xử lý ngay <span class="spacer"></span><button class="btn" id="ackall">Đánh dấu đã xem tất cả</button></h2>
+      <div class="body"><div class="alerts" id="home-alerts"></div><div class="empty" id="home-alerts-empty">Không có cảnh báo mới. Mọi thứ đang bình thường.</div></div>
+    </div>
+    <div class="card" style="margin-top:20px">
+      <h2><span id="home-places-title">Địa điểm</span><span class="spacer"></span><button class="btn viewer-only" data-goto="mycams">Kết nối camera</button></h2>
+      <div class="body" id="home-places"></div>
+    </div>
+    <div class="card" style="margin-top:20px">
+      <h2>Số người có mặt — 24 giờ qua <span class="muted small" id="chart-scope"></span></h2>
+      <div class="body"><svg class="chart" id="home-chart" viewBox="0 0 1000 180" preserveAspectRatio="none"></svg></div>
+    </div>
+  </section>
+
+  <!-- ===================== CẢNH BÁO ===================== -->
+  <section id="v-alerts" hidden>
+    <div class="card">
+      <h2>Sự kiện AI phát hiện <span class="spacer"></span>
+        <div class="filters">
+          <select id="f-status"><option value="">Tất cả</option><option value="new">Chưa xử lý</option><option value="ack">Đã xử lý</option></select>
+          <select id="f-kind"><option value="">Mọi loại</option><option value="FALL">Té ngã</option><option value="LYING_STILL">Nằm bất động</option>
+            <option value="SLUMPED">Ngồi gục</option><option value="FIGHT">Đánh nhau</option></select>
+          <select id="f-place"><option value="0">Mọi địa điểm</option></select>
+        </div></h2>
+      <div class="body" style="overflow-x:auto">
+        <table><thead><tr><th>Ảnh</th><th>Thời gian</th><th>Sự kiện</th><th>Địa điểm · camera</th><th>Trạng thái</th><th>Đánh giá</th></tr></thead><tbody id="ev-rows"></tbody></table>
+        <div class="empty" id="ev-empty">Chưa có sự kiện.</div>
+        <p class="hint">Bấm <b>Đúng</b> hoặc <b>Báo nhầm</b> sau khi kiểm tra — đánh giá giúp train lại AI chính xác hơn.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== TRỰC TIẾP (quản trị) ===================== -->
+  <section id="v-live" hidden>
+    <div class="card"><h2>Camera trực tiếp <span class="muted small">ảnh AI đã vẽ khung người / khung xương</span><span class="spacer"></span>
+      <select id="live-place"><option value="0">Mọi địa điểm</option></select></h2>
+      <div class="body"><div id="live-grid"></div>
+        <div class="empty" id="live-empty">Chưa có camera nào gửi hình. Trên máy chủ mở <code>ARES_MAY_CHU.bat</code>; người dùng bật camera trong app ARES Viewer.</div></div></div>
+  </section>
+
+  <!-- ===================== ĐỊA ĐIỂM ===================== -->
+  <section id="v-places" hidden>
+    <div id="places-box"></div>
+    <p class="hint admin-only">Mỗi tài khoản có sẵn một địa điểm mang tên người đó và có thể thêm nhiều địa điểm khác. Camera của máy chủ chưa gán sẽ nằm ở địa điểm của quản trị viên — dùng ô <b>Chuyển tới</b> để gán camera cho đúng người/địa điểm.</p>
+    <p class="hint viewer-only">Bạn có thể chia camera theo nhiều địa điểm (vd: Nhà, Cửa hàng). Chỉ bạn và quản trị viên thấy các địa điểm này.</p>
+  </section>
+
+  <!-- ===================== THỬ VIDEO (tách riêng khỏi camera) ===================== -->
+  <section id="v-videos" hidden>
+    <div class="card"><h2>Thử AI trên video <span class="muted small">tải video lên, AI trên máy chủ phân tích rồi trả kết quả</span></h2><div class="body">
+      <div class="row">
+        <label class="btn" for="vf">Chọn video…</label><input type="file" id="vf" accept="video/*,.mp4,.avi,.mov,.mkv,.webm,.m4v" hidden>
+        <span class="small" id="vf-name">Chưa chọn file</span>
+        <button class="btn dark" id="vf-up">Tải lên và phân tích</button>
+        <span class="small muted" id="vf-msg"></span>
+      </div>
+      <div class="bar2" id="vf-bar" hidden><i></i></div>
+      <p class="hint">Tối đa 500 MB/video, mỗi người tối đa 3 video chờ cùng lúc. AI phân tích 10 khung/giây: phát hiện người, té ngã, nằm bất động, ngồi gục, đánh nhau.
+        Video nên quay <b>thấy toàn thân</b>, camera cao chếch xuống. Video chỉ dùng để phân tích, bạn xoá được bất cứ lúc nào.</p>
+      <div id="vf-ai"></div>
+    </div></div>
+    <div class="card" style="margin-top:20px"><h2>Video đã tải lên</h2><div class="body" style="overflow-x:auto">
+      <table><thead><tr><th>Video</th><th class="admin-only">Người tải</th><th>Trạng thái</th><th>Thời lượng</th><th>Kết quả</th><th>Tải lên lúc</th><th></th></tr></thead><tbody id="vjobs"></tbody></table>
+      <div class="empty" id="vjobs-empty">Chưa có video nào.</div>
+    </div></div>
+  </section>
+
+  <!-- ===================== TÀI KHOẢN (quản trị) ===================== -->
+  <section id="v-users" hidden>
+    <div class="card"><h2>Tài khoản <span class="muted small">lưu trên máy chủ, mật khẩu được mã hoá</span></h2><div class="body">
+      <div class="row">
+        <input id="nu-user" placeholder="Tên đăng nhập (vd: baove1)" autocapitalize="off" spellcheck="false">
+        <input id="nu-name" placeholder="Họ tên">
+        <input id="nu-pw" type="password" placeholder="Mật khẩu (≥ 8 ký tự)" autocomplete="new-password">
+        <select id="nu-role"><option value="viewer">Người dùng</option><option value="admin">Quản trị viên</option></select>
+        <button class="btn dark" id="nu-btn">Tạo tài khoản</button>
+      </div>
+      <div style="overflow-x:auto;margin-top:12px"><table><thead><tr><th>Người dùng</th><th>Vai trò</th><th>Trạng thái</th><th>Địa điểm</th><th>Camera hoạt động</th><th>Cảnh báo mới</th><th>Hoạt động gần nhất</th><th></th></tr></thead>
+        <tbody id="users"></tbody></table></div>
+      <p class="hint">Người khác có thể tự bấm <b>Đăng ký</b> ở màn hình đăng nhập — tài khoản đó <b>Chờ duyệt</b> tới khi bạn bấm Duyệt.
+        Quên mật khẩu quản trị: trên máy chủ chạy <code>python -m ares_server reset-password &lt;tên&gt;</code>.</p>
+    </div></div>
+  </section>
+
+  <!-- ===================== CAMERA CỦA TÔI (người dùng) ===================== -->
+  <section id="v-mycams" hidden>
+    <div class="card"><h2>Kết nối camera của máy này</h2><div class="body">
+      <div class="warnbox" id="cam-insecure" hidden><b>Trình duyệt đang chặn camera.</b> Trên địa chỉ http, Chrome/Edge chỉ cho dùng camera khi mở bằng
+        app <b>ARES Viewer</b>. Tải app ở <a href="/tai-app">trang tải app</a>, mở app rồi vào lại mục này.</div>
+      <div id="cam-ctl">
+        <div class="row">
+          <select id="cam-dev"><option value="">Camera mặc định của máy</option></select>
+          <input id="cam-name" placeholder="Tên camera (vd: Phòng khách)" value="Webcam" maxlength="40">
+          <select id="cam-place" title="Địa điểm"></select>
+          <button class="btn dark" id="cam-start">Bật camera và gửi cho AI</button>
+          <button class="btn" id="cam-stop" hidden>Dừng gửi</button>
+          <label class="small"><input type="checkbox" id="cam-auto"> Tự bật lại khi mở app</label>
+        </div>
+        <p class="hint" id="cam-status">Camera của máy này chỉ gửi hình về máy chủ; YOLO người và YOLO hành vi chạy trên máy chủ rồi trả kết quả về đây.</p>
+      </div>
+    </div></div>
+    <div class="card" style="margin-top:20px"><h2>Camera của tôi</h2><div class="body">
+      <div class="camgrid" id="mycams"></div><div class="empty" id="mycams-empty">Chưa có camera nào.</div>
+    </div></div>
+  </section>
+
+  <!-- ===================== THIẾT LẬP (quản trị) ===================== -->
+  <section id="v-setup" hidden>
+    <div class="card"><h2>Máy chủ AI</h2><div class="body" id="ai-box">—</div></div>
+    <div class="card" style="margin-top:20px"><h2>App xem cho máy khác</h2><div class="body">
+      <p>Địa chỉ IP máy chủ trong mạng nội bộ: <b id="srv-ips">—</b></p>
+      <p>Trên máy khác (cùng mạng), mở trình duyệt vào địa chỉ dưới đây, tải <b>ARES Viewer</b>, mở lên và đăng nhập.</p>
+      <div class="row"><div class="keybox" id="app-url" style="flex:1"></div><button class="btn" id="app-copy">Sao chép</button></div>
+      <p class="hint">Điện thoại/máy tính bảng: mở thẳng <span id="app-root"></span> trên trình duyệt để xem (bật camera cần app trên máy tính).</p>
+    </div></div>
+    <div class="card" style="margin-top:20px"><h2>Truy cập từ mạng khác (Internet)</h2><div class="body" id="net-box">
+      <p>Chưa mở ra Internet. Trên máy chủ chạy <code>CHIA_SE_INTERNET.bat</code> (cần cài Tailscale 1 lần) — máy chủ có địa chỉ https cố định,
+        người ở mạng khác mở dashboard trên GitHub Pages hoặc thẳng địa chỉ đó, không cần cài app.</p></div></div>
+    <details class="card adv" style="margin-top:20px"><summary>Nâng cao — máy Edge, khoá thiết bị, camera IP</summary><div class="body">
+      <p class="hint">Phần kỹ thuật cho kỹ thuật viên. Chế độ máy chủ (<code>ARES_MAY_CHU.bat</code>) đã tự kết nối máy này, thường không cần sửa gì ở đây.</p>
+      <h3 style="font-size:15px">Thêm camera IP / USB cho máy chủ</h3>
+      <div class="row">
+        <select id="ac-edge"></select>
+        <input id="ac-name" placeholder="Tên camera (vd: Hành lang tầng 3)" style="min-width:200px">
+        <input id="ac-src" placeholder="rtsp://user:matkhau@192.168.1.64:554/..." style="flex:1;min-width:260px">
+        <button class="btn dark" id="ac-btn">Thêm camera</button>
+      </div>
+      <p class="hint">Camera IP: địa chỉ RTSP theo hướng dẫn hãng (Hikvision, Dahua, Imou, Ezviz...). Camera USB: nhập 0, 1, 2. Sau khi thêm, vào <b>Địa điểm</b> để gán camera cho người dùng.</p>
+      <table><tbody id="sd-cmds"></tbody></table>
+      <h3 style="font-size:15px;margin-top:18px">Máy Edge</h3>
+      <div style="overflow-x:auto"><table><thead><tr><th>Máy</th><th>Tình trạng</th><th>Liên lạc</th><th>Phiên bản</th><th>Camera</th><th></th></tr></thead><tbody id="sd-edges"></tbody></table></div>
+      <h3 style="font-size:15px;margin-top:18px">Khoá thiết bị</h3>
+      <div style="overflow-x:auto"><table><thead><tr><th>#</th><th>Nhóm máy Edge</th><th>Khoá (rút gọn)</th><th>Trạng thái</th><th></th></tr></thead><tbody id="setup-sites"></tbody></table></div>
+      <div class="row" style="margin-top:10px"><input id="ns-name" placeholder="Tên nhóm máy Edge mới (vd: Chi nhánh 2)"><button class="btn" id="ns-btn">Tạo khoá thiết bị</button></div>
+      <div id="ns-result" hidden style="margin-top:14px">
+        <p><b>Khoá thiết bị</b> — chỉ hiện <b>một lần</b>:</p>
+        <div class="keybox" id="ns-key"></div>
+        <div class="row" style="margin-top:8px"><button class="btn" id="ns-copy">Sao chép khoá</button></div>
+        <p>Trên máy Edge, thêm vào <code>ares_config\ares.env</code> rồi khởi động lại ARES:</p>
+        <pre id="ns-env"></pre>
+      </div>
+    </div></details>
+  </section>
+</main>
+</div>
+
+<dialog id="dlg">
+  <div class="card" style="border:0">
+    <h2><span id="d-title">—</span><span class="spacer"></span><button class="btn" id="d-close">Đóng</button></h2>
+    <div class="player">
+      <img id="d-img" alt="Sự kiện"><video id="d-video" controls hidden></video>
+      <div class="ctl" id="d-ctl"><button class="btn dark" id="d-play">Phát</button><input type="range" id="d-seek" min="1" max="1" value="1"><span class="muted small" id="d-pos"></span>
+        <a id="d-mp4" href="#" download hidden>Tải clip .mp4</a></div>
+      <div class="ctl"><span class="muted" id="d-msg"></span><span class="spacer"></span>
+        <button class="btn ok" id="d-true">Đúng sự kiện</button><button class="btn warn" id="d-false">Báo nhầm</button><button class="btn dark" id="d-ack">Đã xử lý</button></div>
+    </div>
+  </div>
+</dialog>
+<dialog id="vdlg" style="width:min(1100px,97vw)"><div class="card" style="border:0">
+  <h2><span id="vd-title">—</span><span class="spacer"></span><a class="btn" id="vd-mp4" href="#" download hidden>Tải video kết quả</a><button class="btn" id="vd-close">Đóng</button></h2>
+  <div class="vgrid">
+    <div class="player"><img id="vd-img" alt="Kết quả AI">
+      <div class="ctl"><button class="btn dark" id="vd-play">Phát</button><input type="range" id="vd-seek" min="1" max="1" value="1"><span class="muted small" id="vd-pos"></span>
+        <select id="vd-speed" title="Tốc độ phát"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select></div>
+      <div class="ctl small muted" id="vd-sum"></div></div>
+    <div class="vside"><b>Sự kiện AI phát hiện</b><div id="vd-events"></div></div>
+  </div></div></dialog>
+<dialog id="acdlg" style="width:min(520px,96vw)"><div class="card" style="border:0">
+  <h2>Tài khoản của tôi<span class="spacer"></span><button class="btn" data-close="acdlg">Đóng</button></h2>
+  <div class="body form" style="max-width:none">
+    <div class="row"><span class="av lg" id="ac-av">?</span><div><div class="muted small">Tên đăng nhập</div><b id="ac-user">—</b> <span class="pill" id="ac-role"></span></div></div>
+    <label class="small muted">Tên hiển thị</label>
+    <div class="row"><input id="ac-nm" maxlength="80" style="flex:1"><button class="btn dark" id="ac-save">Lưu tên</button></div>
+    <div class="small muted" id="ac-places"></div>
+  </div></div></dialog>
+<dialog id="pwdlg" style="width:min(480px,96vw)"><div class="card" style="border:0"><h2>Đổi mật khẩu<span class="spacer"></span><button class="btn" data-close="pwdlg">Đóng</button></h2>
+  <div class="body form"><input id="pw-old" type="password" placeholder="Mật khẩu hiện tại" autocomplete="current-password">
+    <input id="pw-new" type="password" placeholder="Mật khẩu mới (≥ 8 ký tự)" autocomplete="new-password">
+    <input id="pw-new2" type="password" placeholder="Nhập lại mật khẩu mới" autocomplete="new-password">
+    <button class="btn dark" id="pw-save">Lưu mật khẩu mới</button></div></div></dialog>
+<div id="toast"></div>
+
+<script>window.ARES_REMOTE=true;window.ARES_DEFAULT_SERVER="";</script>
+<script>
+const $ = s => document.querySelector(s);
+const LS={get:k=>{try{return localStorage.getItem(k);}catch(_){return null;}}, set:(k,v)=>{try{localStorage.setItem(k,v);}catch(_){}}};
+// Dashboard mở từ chính máy chủ: dùng cookie, API cùng địa chỉ. Bản đặt trên GitHub Pages (ARES_REMOTE): gọi về máy chủ
+// theo địa chỉ https đã lưu, đăng nhập bằng token (link có ?server=https://... thì tự nhớ địa chỉ đó).
+const REMOTE=!!window.ARES_REMOTE;
+const normSrv=u=>{ u=String(u||"").trim().replace(/\/+$/,""); if(u && !/^https?:\/\//i.test(u)) u="https://"+u; return u; };
+let API="", TOKEN="";
+if(REMOTE){ const q=new URLSearchParams(location.search).get("server");
+  if(q){ LS.set("ares_server", normSrv(q)); history.replaceState(null,"",location.pathname); }
+  API=normSrv(LS.get("ares_server")||window.ARES_DEFAULT_SERVER||""); TOKEN=LS.get("ares_token")||""; }
+const U = p => { const u=API+p; return TOKEN ? u+(u.includes("?")?"&":"?")+"t="+encodeURIComponent(TOKEN) : u; };  // cho <img>/<a>
+const AH = () => TOKEN ? {"Authorization":"Bearer "+TOKEN} : {};
+function setToken(t){ TOKEN=REMOTE?(t||""):""; if(REMOTE) LS.set("ares_token",TOKEN); }
+const KIND = {FALL:"Té ngã", LYING_STILL:"Nằm bất động", SLUMPED:"Ngồi gục bất động", FIGHT:"Đánh nhau / xô đẩy"};
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const tfmt = t => t ? new Date(t*1000).toLocaleString("vi-VN",{hour12:false}) : "—";
+function ago(t){ if(!t) return "chưa bao giờ"; const s=Math.max(0,Date.now()/1000-t); if(s<60) return `${Math.round(s)} giây trước`; if(s<3600) return `${Math.round(s/60)} phút trước`; if(s<86400) return `${Math.round(s/3600)} giờ trước`; return `${Math.round(s/86400)} ngày trước`; }
+let toastT; function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("on");clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove("on"),3500);}
+async function api(path, opts={}){
+  const o={method:"GET",...opts,headers:{...AH(),...(opts.headers||{})}};
+  if(o.method!=="GET"){o.headers["X-ARES"]="1"; if(o.body&&typeof o.body!=="string"){o.body=JSON.stringify(o.body);o.headers["Content-Type"]="application/json";}}
+  const r=await fetch(API+path,o); let d=null; try{d=await r.json();}catch(_){}
+  if(r.status===401 && path!=="/api/login"){ start(); throw new Error("Cần đăng nhập"); }
+  if(!r.ok){ let m=d&&d.detail; if(Array.isArray(m)) m=m.map(x=>x.msg||JSON.stringify(x)).join("; "); throw new Error(m||`Lỗi ${r.status}`); }
+  return d;
+}
+const liveSrc = (s,e,c) => `/api/live/${s}/${encodeURIComponent(e)}/${encodeURIComponent(c)}.jpg`;  // dùng qua U()
+const liveKey = c => `${c.site_id}/${esc(c.edge_id)}/${esc(c.cam_id)}`;
+const initial = u => ((u.name||u.username||"?").trim().split(/\s+/).pop()[0]||"?").toUpperCase();
+
+// ------------------------------------------------ đăng nhập
+let authMode="login";
+function setAuth(mode){
+  authMode=mode; $("#app").hidden=true; $("#login").hidden=false; $("#lmsg").textContent="";
+  const T={login:["Đăng nhập","Dùng tài khoản đã được cấp hoặc đã đăng ký.","Đăng nhập","Chưa có tài khoản? Đăng ký"],
+    register:["Đăng ký tài khoản","Tài khoản mới cần quản trị viên duyệt rồi mới đăng nhập được.","Gửi đăng ký","Đã có tài khoản? Đăng nhập"],
+    setup:["Tạo tài khoản quản trị","Lần đầu chạy máy chủ: tạo tài khoản quản trị viên. Tài khoản lưu trên máy chủ, mật khẩu được mã hoá.","Tạo tài khoản và vào dashboard",""],
+    nosetup:["Máy chủ chưa có tài khoản","Mở dashboard trên CHÍNH MÁY CHỦ (http://127.0.0.1:8200) để tạo tài khoản quản trị đầu tiên, rồi quay lại đây đăng nhập.","",""]}[mode];
+  $("#a-title").textContent=T[0]; $("#a-sub").textContent=T[1]; $("#lbtn").textContent=T[2];
+  $("#a-fields").hidden = mode==="nosetup"; $("#a-toggle").textContent=T[3]; $("#a-toggle").hidden=!T[3];
+  $("#a-name").hidden = $("#lp2").hidden = !(mode==="register"||mode==="setup");
+  $("#lp").autocomplete = mode==="login" ? "current-password" : "new-password";
+  if(mode==="setup" && !$("#lu").value) $("#lu").value="admin";
+  $("#a-srv").hidden=!REMOTE; if(REMOTE && !$("#a-srv").value) $("#a-srv").value=API;
+  setTimeout(()=>(mode==="nosetup"?null:$(REMOTE&&!API?"#a-srv":"#lu").focus()),50);
+}
+$("#a-toggle").onclick = e=>{ e.preventDefault(); setAuth(authMode==="login"?"register":"login"); };
+$("#lbtn").onclick = async()=>{
+  const user=$("#lu").value.trim(), pw=$("#lp").value;
+  try{
+    if(REMOTE){ const sv=normSrv($("#a-srv").value); if(!sv){ $("#lmsg").textContent="Nhập địa chỉ máy chủ"; return; }
+      if(sv!==API){ API=sv; LS.set("ares_server",API); setToken(""); } }
+    if(authMode==="login"){ const r=await api("/api/login",{method:"POST",body:{user,password:pw}}); setToken(r.token); $("#lp").value=""; start(); return; }
+    if(pw!==$("#lp2").value){ $("#lmsg").textContent="Hai lần nhập mật khẩu không khớp"; return; }
+    const body={username:user,password:pw,name:$("#a-name").value.trim()};
+    if(authMode==="setup"){ const r=await api("/api/setup",{method:"POST",body}); setToken(r.token); $("#lp").value=$("#lp2").value=""; start(); return; }
+    const r=await api("/api/register",{method:"POST",body}); $("#lp").value=$("#lp2").value=""; setAuth("login"); $("#lmsg").textContent=r.message;
+  }catch(e){ $("#lmsg").textContent=e.message; }
+};
+["#lu","#lp","#lp2"].forEach(s=>$(s).addEventListener("keydown",e=>{ if(e.key==="Enter") $("#lbtn").click(); }));
+function isAdmin(){ return !!(ME && ME.role==="admin"); }
+
+// ------------------------------------------------ tài khoản (menu góc phải)
+const menu=$("#acct-menu");
+$("#acct-btn").onclick = e=>{ e.stopPropagation(); menu.hidden=!menu.hidden; $("#acct-btn").setAttribute("aria-expanded", String(!menu.hidden)); };
+document.addEventListener("click", e=>{ if(!menu.hidden && !e.target.closest(".acct")) menu.hidden=true; });
+document.addEventListener("keydown", e=>{ if(e.key==="Escape") menu.hidden=true; });
+document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>$("#"+b.dataset.close).close());
+$("#logout").onclick = async()=>{ stopCam(true); await api("/api/logout",{method:"POST"}).catch(()=>{}); setToken(""); location.reload(); };
+$("#m-pw").onclick = ()=>{ menu.hidden=true; ["#pw-old","#pw-new","#pw-new2"].forEach(s=>$(s).value=""); $("#pwdlg").showModal(); };
+$("#m-places").onclick = ()=>{ menu.hidden=true; go("places"); };
+$("#m-profile").onclick = async()=>{ menu.hidden=true;
+  $("#ac-av").textContent=initial(ME); $("#ac-user").textContent=ME.username; $("#ac-role").textContent=isAdmin()?"Quản trị viên":"Người dùng";
+  $("#ac-nm").value=ME.name||""; $("#ac-places").textContent="";
+  $("#acdlg").showModal();
+  try{ const pl=(await api("/api/places")).items.filter(p=>p.user_id===ME.id);
+    $("#ac-places").textContent=`Địa điểm của bạn: ${pl.map(p=>`${p.name} (${p.cams_total} camera)`).join(", ")||"chưa có"}`; }catch(_){}
+};
+$("#ac-save").onclick = async()=>{ const name=$("#ac-nm").value.trim(); if(!name){toast("Nhập tên hiển thị");return;}
+  try{ await api("/api/me",{method:"POST",body:{name}}); ME.name=name; paintMe(); toast("Đã lưu tên"); $("#acdlg").close(); refresh(); }catch(e){toast(e.message);} };
+$("#pw-save").onclick = async()=>{ if($("#pw-new").value!==$("#pw-new2").value){toast("Hai lần nhập không khớp");return;}
+  try{ await api("/api/me/password",{method:"POST",body:{old:$("#pw-old").value,password:$("#pw-new").value}}); $("#pwdlg").close(); toast("Đã đổi mật khẩu"); }catch(e){toast(e.message);} };
+function paintMe(){
+  const nm=ME.name||ME.username, role=isAdmin()?"Quản trị viên":"Người dùng";
+  $("#acct-av").textContent=$("#m-av").textContent=initial(ME); $("#acct-name").textContent=nm;
+  $("#m-name").textContent=nm; $("#m-user").textContent=ME.username; $("#m-role").innerHTML=`<span class="pill ${isAdmin()?"red":""}">${role}</span>`;
+}
+
+// ------------------------------------------------ điều hướng
+const VIEWS=["home","mycams","live","alerts","places","videos","users","setup"];
+let view="home";
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>go(b.dataset.view));
+function go(v){ view=v; document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.view===v));
+  for(const s of VIEWS) $("#v-"+s).hidden = s!==v; refresh(); }
+
+// ------------------------------------------------ biểu đồ
+function chart(svg, series){
+  const W=1000,H=180,P=28, t1=Date.now()/1000, t0=t1-24*3600;
+  const pts0=series.filter(p=>p.t>=t0-900);
+  const mx=Math.max(1,...pts0.map(p=>p.people));
+  const X=t=>P+Math.max(0,(t-t0))/(t1-t0)*(W-2*P), Y=v=>H-P-(v/mx)*(H-2*P);
+  const grid=[]; for(let k=0;k<=6;k++){ const t=t0+(t1-t0)*k/6, x=X(t);
+    grid.push(`<line x1="${x}" x2="${x}" y1="${P-8}" y2="${H-P}" stroke="currentColor" opacity=".07"/><text x="${x}" y="${H-6}" font-size="12" fill="currentColor" opacity=".55" text-anchor="middle">${new Date(t*1000).toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"})}</text>`); }
+  let body="";
+  if(!pts0.length) body=`<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="currentColor" opacity=".5" font-size="15">Chưa có số liệu trong 24 giờ qua</text>`;
+  else { const pts=pts0.map(p=>`${X(p.t).toFixed(1)},${Y(p.people).toFixed(1)}`).join(" ");
+    body=`<polyline points="${X(pts0[0].t)},${H-P} ${pts} ${X(pts0[pts0.length-1].t)},${H-P}" fill="var(--red)" opacity=".10" stroke="none"/>
+      <polyline points="${pts}" fill="none" stroke="var(--red)" stroke-width="2.5" vector-effect="non-scaling-stroke"/>`
+      + pts0.slice(-1).map(p=>`<circle cx="${X(p.t)}" cy="${Y(p.people)}" r="4" fill="var(--red)"/>`).join("")
+      + `<text x="${P}" y="14" font-size="12" fill="currentColor" opacity=".55">cao nhất ${Math.round(mx)} người · hiện tại ${Math.round(pts0[pts0.length-1].people)}</text>`; }
+  svg.innerHTML = `<line x1="${P}" x2="${W-P}" y1="${H-P}" y2="${H-P}" stroke="currentColor" opacity=".2"/>${grid.join("")}${body}`;
+}
+
+// ------------------------------------------------ thẻ
+const evWhere = e => `${e.place_name?esc(e.place_name)+" · ":""}${esc(e.cam_name)}`;
+function alertCard(e){
+  const img = e.snapshot ? `style="background-image:url('${U(`/api/events/${e.id}/snapshot.jpg`)}')"` : "";
+  return `<div class="al ${e.severity==="error"?"":"warn"}">
+    <div class="img" ${img} data-open="${e.id}"><span class="tag">${esc(KIND[e.kind]||e.label)}</span></div>
+    <div class="in"><b>${evWhere(e)}</b><span class="muted small">${tfmt(e.t)} (${ago(e.t)})</span>
+    <span class="small">${esc(e.message)}</span>
+    <div class="row"><button class="btn dark" data-open="${e.id}">Xem</button><button class="btn" data-ack="${e.id}">Đã xử lý</button>
+      <button class="btn ok" data-v="true" data-id="${e.id}">Đúng</button><button class="btn warn" data-v="false" data-id="${e.id}">Báo nhầm</button></div></div></div>`;
+}
+const statusPill = e => e.status==="new" ? '<span class="pill red">Chưa xử lý</span>' : `<span class="pill">Đã xử lý${e.handled_by?" · "+esc(e.handled_by):""}</span>`;
+const verdictPill = e => e.verdict==="true" ? '<span class="pill ok">Đúng</span>' : e.verdict==="false" ? '<span class="pill warn">Báo nhầm</span>' : '<span class="muted">—</span>';
+const evRow = e => `<tr class="click" data-open="${e.id}"><td>${e.snapshot?`<img src="${U(`/api/events/${e.id}/snapshot.jpg`)}" alt="">`:'<span class="muted small">không ảnh</span>'}</td>
+  <td>${tfmt(e.t)}</td><td><b>${esc(KIND[e.kind]||e.label)}</b></td><td>${evWhere(e)}</td><td>${statusPill(e)}</td><td>${verdictPill(e)}</td></tr>`;
+function camChip(c){ return `<span class="pill ${c.online?"ok":""}" title="${c.online?"AI đang xử lý":"không có hình"}"><i class="dot"></i>${esc(c.name)}${c.online?" · "+c.n_people:""}</span>`; }
+function placeCard(p, withThumbs){
+  const live=p.cams.filter(c=>c.live);
+  return `<div class="place ${isAdmin()?"click":""}" ${isAdmin()?`data-gplace="${p.id}"`:""}>
+    <h3>${esc(p.name)}${isAdmin()&&p.owner!==p.name?`<span class="muted small" style="font-weight:500">· ${esc(p.owner)}</span>`:""}</h3>
+    <div class="nums"><div><b>${p.people}</b><span class="muted small">người</span></div>
+      <div><b>${p.cams_online}</b><span class="muted small">camera hoạt động</span></div>
+      <div><b style="color:${p.new_alerts?"var(--red)":"inherit"}">${p.new_alerts}</b><span class="muted small">cảnh báo mới</span></div></div>
+    ${withThumbs&&live.length?`<div class="thumbs">${live.map(c=>`<img data-live="${liveKey(c)}" alt="${esc(c.name)}" title="${esc(c.name)}">`).join("")}</div>`:""}
+    <div class="chips">${p.cams.map(camChip).join("")||'<span class="muted small">Chưa có camera</span>'}</div></div>`;
+}
+function setHTML(el, html){ if(el.dataset.h!==html){ el.dataset.h=html; el.innerHTML=html; } }  // tránh vẽ lại (ảnh không bị nháy)
+
+// ------------------------------------------------ làm mới
+let lastNew=null, PLACES=[];
+function fillPlaceSelect(sel, places, first){
+  const cur=sel.value; const html=(first?`<option value="0">${first}</option>`:"")+places.map(p=>`<option value="${p.id}">${esc(p.name)}${isAdmin()&&p.user_id!==ME.id?" — "+esc(p.owner):""}</option>`).join("");
+  if(sel.dataset.h!==html){ sel.dataset.h=html; sel.innerHTML=html; if([...sel.options].some(o=>o.value===cur)) sel.value=cur; }
+}
+async function refresh(){
+  try{
+    if(view==="home"){
+      const o=await api("/api/overview"), T=o.totals; PLACES=o.places;
+      $("#k-new").textContent=T.new_alerts; $("#k-alert").classList.toggle("alert",T.new_alerts>0);
+      $("#k-today").textContent=`${Object.values(o.today).reduce((a,b)=>a+b,0)} sự kiện hôm nay`;
+      $("#k-cams").textContent=T.cams_online;
+      $("#k-places").textContent=T.places; $("#k-places-sub").textContent=isAdmin()?`của ${T.users} tài khoản`:"của bạn";
+      paintAi(o.ai, $("#k-ai"), $("#k-ai-sub"));
+      $("#home-places-title").textContent=isAdmin()?"Các địa điểm":"Địa điểm của tôi";
+      let html;
+      html=o.places.length?`<div class="places ${isAdmin()?"":"big"}">${o.places.map(p=>placeCard(p,!isAdmin())).join("")}</div>`:"";
+      setHTML($("#home-places"), html||'<div class="empty">Chưa có địa điểm.</div>');
+      $("#chart-scope").textContent=isAdmin()?"(mọi địa điểm)":"(camera của bạn)";
+      chart($("#home-chart"), o.series);
+      const nw=(await api("/api/events?status=new&limit=12")).items;
+      setHTML($("#home-alerts"), nw.map(alertCard).join("")); $("#home-alerts-empty").hidden=nw.length>0;
+      notify(T.new_alerts, nw[0]);
+    } else if(view==="alerts"){
+      if(!PLACES.length) PLACES=(await api("/api/places")).items;
+      fillPlaceSelect($("#f-place"), PLACES, "Mọi địa điểm");
+      const q=`status=${$("#f-status").value}&kind=${$("#f-kind").value}&place=${$("#f-place").value||0}&limit=200`;
+      const items=(await api("/api/events?"+q)).items; setHTML($("#ev-rows"), items.map(evRow).join("")); $("#ev-empty").hidden=items.length>0;
+      notify((await api("/api/events?status=new&limit=500")).items.length);
+    } else if(view==="mycams"){
+      await renderMyCams();
+    } else if(view==="places"){
+      await renderPlaces();
+    } else if(view==="videos"){
+      await renderVideos();
+    } else if(view==="users"){
+      await renderUsers();
+    } else if(view==="live"){
+      await renderLive();
+    } else if(view==="setup"){
+      await renderSetup();
+    }
+    $("#neterr").hidden=true;
+  }catch(e){ if(e.message!=="Cần đăng nhập"){ console.warn(e); $("#neterr").hidden=false; $("#neterr").textContent="Không tải được dữ liệu từ máy chủ: "+e.message; } }
+}
+function paintAi(ai, v, sub){
+  if(!ai||!ai.online){ v.innerHTML='<span style="color:var(--red)">Mất kết nối</span>'; sub.textContent="mở ARES_MAY_CHU.bat trên máy chủ"; return; }
+  const gpu=ai.device&&ai.device!=="cpu";
+  v.innerHTML=`<span style="color:${ai.fallback?"var(--warn)":"var(--ok)"}">Đang chạy</span>`;
+  sub.textContent=gpu?`trên GPU (${ai.device})`:(ai.fallback?"trên CPU — GPU lỗi, chậm hơn":"trên CPU");
+}
+let blink=null; const baseTitle=document.title;
+function notify(n, newest){
+  $("#b-new").hidden=!n; $("#b-new").textContent=n;
+  if(n && !blink){ let on=false; blink=setInterval(()=>{document.title=(on=!on)?`(${n}) CẢNH BÁO — ARES`:baseTitle;},900); }
+  if(!n && blink){ clearInterval(blink); blink=null; document.title=baseTitle; }
+  if(lastNew!==null && n>lastNew && newest) toast(`Cảnh báo mới: ${KIND[newest.kind]||newest.label} — ${newest.place_name||""} · ${newest.cam_name}`);
+  lastNew=n;
+}
+
+// ------------------------------------------------ trực tiếp (quản trị): nhóm theo người dùng → địa điểm
+let LIVE_PLACE=0;
+$("#live-place").onchange=e=>{ LIVE_PLACE=+e.target.value; refresh(); };
+async function renderLive(){
+  if(!PLACES.length) PLACES=(await api("/api/places")).items;
+  fillPlaceSelect($("#live-place"), PLACES, "Mọi địa điểm"); $("#live-place").value=String(LIVE_PLACE);
+  const items=(await api("/api/live")).items.filter(i=>!LIVE_PLACE||i.place_id===LIVE_PLACE);
+  $("#live-empty").hidden=items.length>0;
+  const groups={}; for(const i of items){ const k=i.owner===i.place_name?i.owner:`${i.owner} · ${i.place_name}`; (groups[k]=groups[k]||[]).push(i); }
+  setHTML($("#live-grid"), Object.entries(groups).map(([g,cs])=>`<div class="grp">${esc(g)}</div><div class="livegrid" style="margin-bottom:18px">${cs.map(i=>
+    `<div class="live"><img data-live="${liveKey(i)}" alt="${esc(i.name)}"><div class="cap"><b>${esc(i.name)}</b><span class="spacer"></span><span class="pill" data-np="${liveKey(i)}"></span></div></div>`).join("")}</div>`).join(""));
+  for(const i of items){ const p=$("#live-grid").querySelector(`[data-np="${CSS.escape(liveKey(i))}"]`); if(!p) continue;
+    p.textContent=i.age_s>10?`mất hình ${Math.round(i.age_s)}s`:`${i.n_people} người`; p.className="pill "+(i.age_s>10?"red":""); }
+}
+
+// ------------------------------------------------ địa điểm
+async function renderPlaces(){
+  const pl=(await api("/api/places")).items; PLACES=pl;
+  let users=[{id:ME.id,name:ME.name,username:ME.username,role:ME.role}];
+  if(isAdmin()) users=(await api("/api/users")).items.filter(u=>u.status!=="pending");
+  const opts=p=>pl.filter(x=>isAdmin()||x.user_id===ME.id).map(x=>`<option value="${x.id}" ${x.id===p.id?"selected":""}>${esc(x.name)}${isAdmin()?" — "+esc(x.owner):""}</option>`).join("");
+  const html=users.map(u=>{ const mine=pl.filter(p=>p.user_id===u.id);
+    return `<div class="card ucard"><h2><span class="av">${esc(initial(u))}</span>${esc(u.name||u.username)} <span class="muted small">${esc(u.username)} · ${u.role==="admin"?"Quản trị viên":"Người dùng"}</span>
+      <span class="spacer"></span><button class="btn" data-addplace="${u.id}">+ Thêm địa điểm</button></h2><div class="body" style="overflow-x:auto">
+      <table><thead><tr><th>Địa điểm</th><th>Người</th><th>Camera hoạt động</th><th>Cảnh báo mới</th><th>Camera</th><th></th></tr></thead><tbody>
+      ${mine.map(p=>`<tr><td><b>${esc(p.name)}</b></td><td><b>${p.people}</b></td><td>${p.cams_online}</td>
+        <td>${p.new_alerts?`<b style="color:var(--red)">${p.new_alerts}</b>`:"0"}</td>
+        <td>${p.cams.map(c=>`<div class="row small" style="margin:3px 0">${camChip(c)}${(isAdmin()||c.client_id)&&pl.length>1?`<select data-mv="${c.site_id}|${esc(c.edge_id)}|${esc(c.cam_id)}" title="Chuyển camera sang địa điểm khác"><option value="">Chuyển tới…</option>${opts({}).replace(`value="${p.id}"`,`value="${p.id}" disabled`)}</select>`:""}</div>`).join("")||'<span class="muted small">Chưa có camera</span>'}</td>
+        <td><div class="row"><button class="btn" data-rnplace="${p.id}" data-name="${esc(p.name)}">Đổi tên</button>${mine.length>1?`<button class="btn warn" data-delplace="${p.id}" data-name="${esc(p.name)}">Xoá</button>`:""}</div></td></tr>`).join("")
+        ||'<tr><td colspan="6" class="empty">Chưa có địa điểm.</td></tr>'}
+      </tbody></table></div></div>`; }).join("");
+  setHTML($("#places-box"), html);
+}
+document.addEventListener("change", async ev=>{
+  const m=ev.target.closest("[data-mv]"); if(m&&m.value){ const [site_id,edge_id,cam_id]=m.dataset.mv.split("|");
+    try{ await api("/api/places/assign",{method:"POST",body:{site_id:+site_id,edge_id,cam_id,place_id:+m.value}}); toast("Đã chuyển camera"); }catch(e){toast(e.message);} refresh(); return; }
+  const s=ev.target.closest("[data-role]"); if(!s) return;
+  try{ await api(`/api/users/${s.dataset.role}`,{method:"POST",body:{role:s.value}}); toast("Đã đổi vai trò"); }catch(e){ toast(e.message); refresh(); } });
+
+// ------------------------------------------------ tài khoản (quản trị)
+async function renderUsers(){
+  const us=(await api("/api/users")).items; const ST={active:'<span class="pill ok">Hoạt động</span>',pending:'<span class="pill warn">Chờ duyệt</span>',disabled:'<span class="pill">Đã khoá</span>'};
+  setHTML($("#users"), us.map(u=>{ const me=ME&&u.id===ME.id; const act=Math.max(u.last_login||0,u.last_frame||0);
+    return `<tr><td><div class="row" style="flex-wrap:nowrap"><span class="av">${esc(initial(u))}</span><div><b>${esc(u.name||u.username)}</b>${me?' <span class="muted small">(bạn)</span>':""}<div class="muted small">${esc(u.username)}${u.note?" · "+esc(u.note):""}</div></div></div></td>
+    <td><select data-role="${u.id}" ${me?"disabled":""}><option value="viewer" ${u.role==="viewer"?"selected":""}>Người dùng</option><option value="admin" ${u.role==="admin"?"selected":""}>Quản trị viên</option></select></td>
+    <td>${ST[u.status]||esc(u.status)}</td>
+    <td class="small">${u.places.map(p=>`${esc(p.name)} <span class="muted">(${p.people} người)</span>`).join("<br>")||"—"}</td>
+    <td>${u.cams_online}</td>
+    <td>${u.new_alerts?`<b style="color:var(--red)">${u.new_alerts}</b>`:"0"}</td><td class="small">${act?ago(act):"chưa"}</td>
+    <td><div class="row">${u.status==="pending"?`<button class="btn dark" data-ustatus="${u.id}" data-to="active">Duyệt</button>`:""}
+      ${!me&&u.status==="active"?`<button class="btn" data-ustatus="${u.id}" data-to="disabled">Khoá</button>`:""}
+      ${u.status==="disabled"?`<button class="btn" data-ustatus="${u.id}" data-to="active">Mở khoá</button>`:""}
+      <button class="btn" data-upw="${u.id}" data-name="${esc(u.username)}">Đặt lại mật khẩu</button>
+      ${!me?`<button class="btn warn" data-udel="${u.id}" data-name="${esc(u.username)}">Xoá</button>`:""}</div></td></tr>`; }).join(""));
+}
+$("#nu-btn").onclick=async()=>{ const body={username:$("#nu-user").value.trim(),name:$("#nu-name").value.trim(),password:$("#nu-pw").value,role:$("#nu-role").value};
+  try{ await api("/api/users",{method:"POST",body}); toast(`Đã tạo tài khoản ${body.username}`); ["#nu-user","#nu-name","#nu-pw"].forEach(x=>$(x).value=""); refresh(); }catch(e){ toast(e.message); } };
+
+// ------------------------------------------------ thiết lập (quản trị)
+let SETUP_SITE=null;
+async function renderSetup(){
+  const o=await api("/api/overview"), ai=o.ai;
+  let h;
+  if(!ai.online) h=`<div class="stat"><span class="pill red"><i class="dot"></i>Mất kết nối</span><span>Chưa có máy chạy AI trực tuyến. Trên máy chủ mở <code>ARES_MAY_CHU.bat</code>.</span></div>`;
+  else { const gpu=ai.device&&ai.device!=="cpu";
+    h=`<div class="stat"><span class="pill ok"><i class="dot"></i>Đang chạy</span><span class="big">${gpu?"GPU":"CPU"}</span><span class="muted">${esc(ai.device||"")} · phiên bản ${esc(ai.version||"")} · AI hành vi: ${({running:"đang chạy",loading:"đang khởi động",error:"lỗi",off:"tắt"})[ai.behavior]||ai.behavior}</span></div>`
+      + (ai.fallback?`<div class="warnbox" style="margin-top:12px"><b>GPU không chạy được, AI đang chạy bằng CPU nên bị chậm/trễ.</b><br><span class="small">${esc(ai.fallback)}</span><br>
+         Cách sửa: tắt ARES, chạy <code>NANG_CAP_GPU.bat</code> trong thư mục C:\\yolo-al (cài PyTorch hợp với card), rồi mở lại <code>ARES_MAY_CHU.bat</code>.</div>`:""); }
+  setHTML($("#ai-box"), h);
+  const s=(await api("/api/sites")).items;
+  setHTML($("#setup-sites"), s.map(x=>`<tr><td>${x.id}</td><td>${esc(x.name)}</td><td><code>${esc(x.key_hint)}</code></td>
+    <td>${x.active?'<span class="pill ok">Đang bật</span>':'<span class="pill">Đã tắt</span>'}</td>
+    <td><div class="row"><button class="btn" data-rotate="${x.id}">Đổi khoá</button><button class="btn" data-toggle="${x.id}" data-active="${x.active}">${x.active?"Tắt":"Bật"}</button></div></td></tr>`).join(""));
+  const det=await Promise.all(s.map(x=>api(`/api/sites/${x.id}`)));
+  const edges=det.flatMap(d=>d.edges.map(e=>({...e,cams:d.cameras.filter(c=>c.edge_id===e.edge_id)})));
+  setHTML($("#sd-edges"), edges.map(e=>`<tr><td><b>${esc(e.name||e.edge_id)}</b><div class="muted small">${esc(e.edge_id)} · ${esc(e.ip)}</div></td>
+    <td>${e.online?'<span class="pill ok">Trực tuyến</span>':'<span class="pill red">Mất kết nối</span>'}</td><td>${ago(e.last_seen)}</td><td>${esc(e.version)}</td>
+    <td class="small">${e.cams.map(c=>`${esc(c.name||c.cam_id)}${!/^k\d+$/.test(c.cam_id)&&c.cam_id!=="main"?` <a href="#" data-rmcam="${esc(c.cam_id)}" data-edge="${esc(e.edge_id)}" data-site="${e.site_id}">gỡ</a>`:""}`).join(", ")||"—"}</td><td></td></tr>`).join("")
+    ||'<tr><td colspan="6" class="empty">Chưa có máy Edge nào kết nối.</td></tr>');
+  const sel=$("#ac-edge"); fillSel(sel, edges.map(e=>[`${e.site_id}|${e.edge_id}`, e.name||e.edge_id]), "(chưa có máy Edge)");
+  const CT={add_camera:"Thêm camera",remove_camera:"Gỡ camera"};
+  setHTML($("#sd-cmds"), det.flatMap(d=>d.commands||[]).filter(c=>!String(c.cmd.source||"").startsWith("ares://")&&!/^k\d+$/.test(c.cmd.cam_id||"")).slice(0,6)
+    .map(c=>`<tr><td class="small">${tfmt(c.created)}</td><td>${esc(CT[c.cmd.type]||c.cmd.type)} ${esc(c.cmd.name||c.cmd.cam_id||"")}</td>
+    <td>${c.done?(c.ok?'<span class="pill ok">Xong</span>':'<span class="pill red">Lỗi</span>'):(c.delivered?'<span class="pill warn">Đang xử lý</span>':'<span class="pill">Chờ máy Edge</span>')}</td><td class="small">${esc(c.message||"")}</td></tr>`).join(""));
+}
+function fillSel(sel, pairs, empty){ const cur=sel.value; const html=pairs.map(([v,t])=>`<option value="${esc(v)}">${esc(t)}</option>`).join("")||`<option value="">${empty}</option>`;
+  if(sel.dataset.h!==html){ sel.dataset.h=html; sel.innerHTML=html; if(cur) sel.value=cur; } }
+$("#ac-btn").onclick=async()=>{ const [sid,edge]=($("#ac-edge").value||"").split("|"), name=$("#ac-name").value.trim(), source=$("#ac-src").value.trim();
+  if(!edge){toast("Chưa có máy Edge kết nối");return;} if(!name||!source){toast("Nhập tên và địa chỉ camera");return;}
+  try{ await api(`/api/sites/${sid}/edges/${encodeURIComponent(edge)}/cameras`,{method:"POST",body:{name,source}}); toast("Đã gửi lệnh thêm camera (trong vòng 30 giây)"); $("#ac-name").value=""; $("#ac-src").value=""; refresh(); }catch(e){toast(e.message);} };
+["#f-status","#f-kind","#f-place"].forEach(s=>$(s).onchange=refresh);
+
+// ------------------------------------------------ hành động
+document.addEventListener("click", async ev=>{
+  const t=ev.target.closest("[data-open],[data-ack],[data-v],[data-rotate],[data-toggle],[data-rmcam],[data-ustatus],[data-upw],[data-udel],[data-goto],[data-delcam],[data-addplace],[data-rnplace],[data-delplace],[data-gplace]"); if(!t) return;
+  if(t.tagName==="A") ev.preventDefault();
+  try{
+    if(t.dataset.ack){ await api(`/api/events/${t.dataset.ack}/ack`,{method:"POST"}); toast("Đã đánh dấu đã xử lý"); refresh(); }
+    else if(t.dataset.v){ await api(`/api/events/${t.dataset.id}/verdict`,{method:"POST",body:{verdict:t.dataset.v}}); toast(t.dataset.v==="true"?"Đã ghi: đúng sự kiện":"Đã ghi: báo nhầm"); refresh(); }
+    else if(t.dataset.open){ openEvent(+t.dataset.open); }
+    else if(t.dataset.goto){ go(t.dataset.goto); }
+    else if(t.dataset.gplace){ LIVE_PLACE=+t.dataset.gplace; go("live"); }
+    else if(t.dataset.addplace){ const name=prompt("Tên địa điểm mới (vd: Nhà, Cửa hàng, Phòng 101):"); if(!name||!name.trim()) return;
+      await api("/api/places",{method:"POST",body:{name:name.trim(),user_id:+t.dataset.addplace}}); PLACES=[]; toast("Đã thêm địa điểm"); refresh(); }
+    else if(t.dataset.rnplace){ const name=prompt("Tên mới:", t.dataset.name); if(!name||!name.trim()) return;
+      await api(`/api/places/${t.dataset.rnplace}`,{method:"POST",body:{name:name.trim()}}); PLACES=[]; toast("Đã đổi tên"); refresh(); }
+    else if(t.dataset.delplace){ if(!confirm(`Xoá địa điểm "${t.dataset.name}"? Camera trong đó sẽ chuyển sang địa điểm khác của cùng người dùng.`)) return;
+      await api(`/api/places/${t.dataset.delplace}/delete`,{method:"POST"}); PLACES=[]; toast("Đã xoá địa điểm"); refresh(); }
+    else if(t.dataset.delcam){ if(!confirm("Gỡ camera này? Máy chủ sẽ ngừng chạy AI trên camera này.")) return;
+      if(CAM.id===+t.dataset.delcam) stopCam(true); await api(`/api/my/cameras/${t.dataset.delcam}/delete`,{method:"POST"}); LS.set("ares_cam_id",""); toast("Đã gỡ camera"); refresh(); }
+    else if(t.dataset.ustatus){ await api(`/api/users/${t.dataset.ustatus}`,{method:"POST",body:{status:t.dataset.to}}); toast(t.dataset.to==="active"?"Đã kích hoạt tài khoản":"Đã khoá tài khoản"); refresh(); }
+    else if(t.dataset.upw){ const pw=prompt(`Mật khẩu mới cho "${t.dataset.name}" (≥ 8 ký tự):`); if(!pw) return;
+      await api(`/api/users/${t.dataset.upw}/password`,{method:"POST",body:{password:pw}}); toast("Đã đặt lại mật khẩu"); }
+    else if(t.dataset.udel){ if(!confirm(`Xoá tài khoản "${t.dataset.name}"? Địa điểm và camera của tài khoản này cũng bị xoá.`)) return; await api(`/api/users/${t.dataset.udel}/delete`,{method:"POST"}); toast("Đã xoá tài khoản"); refresh(); }
+    else if(t.dataset.rmcam){ if(!confirm(`Gỡ camera ${t.dataset.rmcam} khỏi máy ${t.dataset.edge}?`)) return;
+      await api(`/api/sites/${t.dataset.site}/edges/${encodeURIComponent(t.dataset.edge)}/cameras/${encodeURIComponent(t.dataset.rmcam)}/remove`,{method:"POST"}); toast("Đã gửi lệnh gỡ camera"); refresh(); }
+    else if(t.dataset.rotate){ if(!confirm("Đổi khoá? Máy Edge dùng khoá cũ sẽ mất kết nối cho tới khi cập nhật khoá mới.")) return;
+      const r=await api(`/api/sites/${t.dataset.rotate}/rotate-key`,{method:"POST"}); showKey(r.key); refresh(); }
+    else if(t.dataset.toggle){ await api(`/api/sites/${t.dataset.toggle}`,{method:"POST",body:{active:t.dataset.active!=="1"}}); refresh(); }
+  }catch(e){ toast(e.message); }
+});
+$("#ackall").onclick=async()=>{ try{ const r=await api("/api/events/ack-all",{method:"POST"}); toast(`Đã đánh dấu ${r.acked} cảnh báo`); refresh(); }catch(e){toast(e.message);} };
+function showKey(key){ $("#ns-result").hidden=false; $("#ns-key").textContent=key; $("#ns-env").textContent=`ARES_UPLINK_URL=${location.origin}\nARES_UPLINK_KEY=${key}`; }
+$("#ns-btn").onclick=async()=>{ const name=$("#ns-name").value.trim(); if(!name){toast("Nhập tên");return;}
+  try{ const r=await api("/api/sites",{method:"POST",body:{name}}); showKey(r.key); $("#ns-name").value=""; refresh(); }catch(e){toast(e.message);} };
+let appBase=location.origin;
+fetch(API+"/api/app-info").then(r=>r.json()).then(i=>{
+  const local=["127.0.0.1","localhost","[::1]"].includes(location.hostname);
+  if(local && i.lan_urls && i.lan_urls.length) appBase=i.lan_urls[0];
+  $("#app-url").textContent=appBase+"/tai-app"; $("#app-root").textContent=appBase;
+  $("#srv-ips").textContent=(i.lan_ips&&i.lan_ips.length)?i.lan_ips.join(", "):"không xác định — trên máy chủ gõ ipconfig";
+  if(i.public_url){ const link=i.share_link||i.public_url;
+    $("#net-box").innerHTML=`<p>Máy chủ đang mở ra Internet qua https: <b>${esc(i.public_url)}</b></p>
+      <p>Gửi link này cho người ở mạng khác (mở bằng trình duyệt bất kỳ, đăng nhập là dùng, bật được camera):</p>
+      <div class="row"><div class="keybox" style="flex:1" id="share-link">${esc(link)}</div><button class="btn" id="share-copy">Sao chép</button></div>
+      <p class="hint">Tắt: trên máy chủ chạy <code>CHIA_SE_INTERNET.bat tat</code>. Mỗi người cần tài khoản do bạn tạo/duyệt; đặt mật khẩu mạnh.</p>`;
+    $("#share-copy").onclick=()=>navigator.clipboard.writeText(link).then(()=>toast("Đã sao chép"),()=>toast("Bôi đen để chép")); }
+  if(local && !i.exposed) $("#app-url").insertAdjacentHTML("afterend",'<span class="pill warn">Máy chủ đang chỉ mở cho máy này — chạy ARES_MAY_CHU.bat để máy khác vào được</span>');
+}).catch(()=>{ $("#app-url").textContent=appBase+"/tai-app"; });
+$("#app-copy").onclick=()=>{ navigator.clipboard.writeText(appBase+"/tai-app").then(()=>toast("Đã sao chép"),()=>toast("Bôi đen để sao chép")); };
+$("#ns-copy").onclick=()=>{ navigator.clipboard.writeText($("#ns-key").textContent).then(()=>toast("Đã sao chép khoá"),()=>toast("Bôi đen để chép")); };
+
+// ------------------------------------------------ camera của máy này -> máy chủ AI (người dùng)
+let CAM={stream:null,id:null,timer:null,busy:false,sent:0,t0:0,err:""}, MYCAMS=[];
+function camSecure(){ return !!(window.isSecureContext && navigator.mediaDevices && navigator.mediaDevices.getUserMedia); }
+async function renderMyCams(){
+  const r=await api("/api/my/cameras"); MYCAMS=r.items;
+  fillSel($("#cam-place"), r.places.map(p=>[String(p.id), "Địa điểm: "+p.name]), "—");
+  if(!$("#cam-place").dataset.init && LS.get("ares_cam_place")){ $("#cam-place").value=LS.get("ares_cam_place"); $("#cam-place").dataset.init="1"; }
+  $("#cam-insecure").hidden=camSecure(); $("#cam-ctl").hidden=!camSecure();
+  $("#mycams-empty").hidden=MYCAMS.length>0;
+  const pname=id=>(r.places.find(p=>p.id===id)||{}).name||"";
+  const box=$("#mycams"), key=MYCAMS.map(c=>c.id).join(",")+"|"+(CAM.id||"");
+  if(box.dataset.key!==key){ box.dataset.key=key;
+    box.innerHTML=MYCAMS.map(c=>`<div class="camcard" data-cam="${c.id}"><div class="pair ${CAM.id===c.id?"":"one"}">
+      ${CAM.id===c.id?`<div class="lbl"><video data-preview autoplay muted playsinline></video><span>Máy này</span></div>`:""}
+      <div class="lbl"><img data-live="${liveKey(c)}" alt="Kết quả AI"><span>Kết quả AI từ máy chủ</span></div></div>
+      <div class="in"><div class="row"><b>${esc(c.name)}</b><span class="muted small" data-pl></span><span class="spacer"></span><span data-st></span></div>
+      <div class="row small"><span data-np></span><span class="spacer"></span><button class="btn warn" data-delcam="${c.id}">Gỡ camera</button></div></div></div>`).join("");
+    const v=box.querySelector("[data-preview]"); if(v && CAM.stream){ v.srcObject=CAM.stream; v.play().catch(()=>{}); } }
+  for(const c of MYCAMS){ const el=box.querySelector(`[data-cam="${c.id}"]`); if(!el) continue;
+    const st = !r.server_ai ? '<span class="pill red">Máy chủ AI mất kết nối</span>'
+      : c.sending ? (c.ai_online ? '<span class="pill ok">AI đang xử lý</span>' : '<span class="pill warn">Máy chủ đang mở camera…</span>')
+      : '<span class="pill">Không gửi hình</span>';
+    el.querySelector("[data-st]").innerHTML=st; el.querySelector("[data-pl]").textContent="· "+pname(c.place_id);
+    el.querySelector("[data-np]").textContent=c.ai_online?`${c.n_people} người trong khung hình`:""; }
+}
+async function listDevices(){
+  try{ const ds=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==="videoinput"); const sel=$("#cam-dev"), cur=sel.value||LS.get("ares_cam_dev")||"";
+    sel.innerHTML='<option value="">Camera mặc định của máy</option>'+ds.map((d,i)=>`<option value="${esc(d.deviceId)}">${esc(d.label||("Camera "+(i+1)))}</option>`).join(""); sel.value=cur; }catch(_){}
+}
+const SEND_W=640, SEND_Q=0.7, SEND_MS=80;  // khung gửi lên máy chủ: đủ cho YOLO (imgsz 640), nhẹ mạng -> ít trễ
+async function startCam(){
+  if(!camSecure()){ $("#cam-insecure").hidden=false; return; }
+  stopCam(true);
+  const dev=$("#cam-dev").value, name=($("#cam-name").value||"Webcam").trim(), place=+$("#cam-place").value||null;
+  try{ CAM.stream=await navigator.mediaDevices.getUserMedia({audio:false,video:dev?{deviceId:{exact:dev},width:{ideal:960},height:{ideal:540},frameRate:{ideal:20}}:{width:{ideal:960},height:{ideal:540},frameRate:{ideal:20}}}); }
+  catch(e){ toast("Không mở được camera: "+(e.name==="NotAllowedError"?"bạn chưa cho phép dùng camera":e.message)); return; }
+  await listDevices(); LS.set("ares_cam_dev",dev); LS.set("ares_cam_name",name); if(place) LS.set("ares_cam_place",String(place));
+  const mine=(await api("/api/my/cameras")).items; let id=+LS.get("ares_cam_id")||0;
+  if(!mine.some(c=>c.id===id)){ try{ id=(await api("/api/my/cameras",{method:"POST",body:{name,place_id:place}})).id; }catch(e){ toast(e.message); stopCam(); return; } }
+  CAM.id=id; LS.set("ares_cam_id",String(id)); CAM.sent=0; CAM.t0=Date.now();
+  const video=document.createElement("video"); video.muted=true; video.playsInline=true; video.srcObject=CAM.stream; await video.play().catch(()=>{});
+  const canvas=document.createElement("canvas"), ctx=canvas.getContext("2d");
+  const tick=()=>{
+    if(!CAM.timer) return;
+    if(CAM.busy||!video.videoWidth){ CAM.timer=setTimeout(tick,20); return; }
+    CAM.busy=true; const t0=performance.now();
+    const W=Math.min(SEND_W,video.videoWidth); canvas.width=W; canvas.height=Math.round(video.videoHeight*W/video.videoWidth);
+    ctx.drawImage(video,0,0,canvas.width,canvas.height);
+    canvas.toBlob(b=>{ if(!b){CAM.busy=false;return;}
+      fetch(`${API}/api/my/cameras/${CAM.id}/frame`,{method:"POST",headers:{...AH(),"X-ARES":"1","Content-Type":"image/jpeg"},body:b})
+        .then(r=>{ if(r.status===401){ stopCam(); start(); } else if(r.status===404){ stopCam(); LS.set("ares_cam_id",""); toast("Camera đã bị gỡ"); } else { CAM.sent++; CAM.err=""; } })
+        .catch(e=>{ CAM.err=e.message; }).finally(()=>{ CAM.busy=false; });
+    },"image/jpeg",SEND_Q);
+    // gửi tiếp ngay khi khung trước đã đi (không dồn hàng đợi) — tối đa ~12 khung/giây
+    CAM.timer=setTimeout(tick, Math.max(10, SEND_MS-(performance.now()-t0)));
+  };
+  CAM.timer=setTimeout(tick,0);
+  $("#cam-start").hidden=true; $("#cam-stop").hidden=false; toast("Đang gửi hình camera cho AI trên máy chủ");
+  $("#mycams").dataset.key=""; if(view==="mycams") renderMyCams();
+}
+function stopCam(silent){
+  if(CAM.timer) clearTimeout(CAM.timer); CAM.timer=null;
+  if(CAM.stream) CAM.stream.getTracks().forEach(t=>t.stop()); CAM.stream=null; const had=CAM.id; CAM.id=null;
+  $("#cam-start").hidden=false; $("#cam-stop").hidden=true; $("#mycams").dataset.key="";
+  if(had && !silent) toast("Đã dừng gửi hình");
+}
+setInterval(()=>{ if(CAM.timer){ const s=(Date.now()-CAM.t0)/1000; $("#cam-status").textContent=`Đang gửi ~${(CAM.sent/Math.max(1,s)).toFixed(1)} khung/giây cho máy chủ AI${CAM.err?" · lỗi mạng: "+CAM.err:""}. Giữ app mở để AI tiếp tục theo dõi.`; } },1000);
+$("#cam-start").onclick=startCam; $("#cam-stop").onclick=()=>{ LS.set("ares_cam_auto", $("#cam-auto").checked?"1":"0"); stopCam(); };
+$("#cam-auto").onchange=e=>LS.set("ares_cam_auto", e.target.checked?"1":"0");
+
+// ------------------------------------------------ hình trực tiếp: tải nối tiếp từng ảnh (xong ảnh này mới tải ảnh sau)
+// -> không dồn request, ảnh luôn là khung mới nhất; chỉ tải ảnh đang hiện trên màn hình.
+const LIVE_MS=150;
+setInterval(()=>{
+  if(document.hidden) return;
+  const now=performance.now();
+  document.querySelectorAll("img[data-live]").forEach(img=>{
+    if(img._busy || img.offsetParent===null || now-(img._t||0)<LIVE_MS) return;
+    img._busy=true; img._t=now;
+    const [s,e,c]=img.dataset.live.split("/"), pre=new Image();
+    pre.onload=()=>{ img.src=pre.src; img._busy=false; img._fail=0; };
+    pre.onerror=()=>{ img._busy=false; img._t=now+Math.min(5000,500*(img._fail=(img._fail||0)+1)); };
+    pre.src=U(`${liveSrc(s,e,c)}?_=${Date.now()}`);
+  });
+},50);
+
+
+// ------------------------------------------------ thử video: tải lên -> AI máy chủ phân tích -> xem kết quả
+const VST={queued:["warn","Đang chờ"],running:["warn","Đang phân tích"],done:["ok","Xong"],error:["red","Lỗi"]};
+const mmss=t=>`${String(Math.floor(t/60)).padStart(2,"0")}:${String(Math.floor(t%60)).padStart(2,"0")}`;
+const mb=b=>b>=1048576?`${(b/1048576).toFixed(1)} MB`:`${Math.max(1,Math.round(b/1024))} KB`;
+async function renderVideos(){
+  const r=await api("/api/videos"), ai=r.ai;
+  setHTML($("#vf-ai"), ai.online?(ai.fallback?'<span class="pill warn">Máy chủ AI đang chạy bằng CPU — video sẽ phân tích chậm</span>':`<span class="pill ok">Máy chủ AI sẵn sàng (${ai.device&&ai.device!=="cpu"?"GPU":"CPU"})</span>`)
+    :'<span class="pill red">Máy chủ AI chưa chạy — video sẽ chờ tới khi máy chủ mở ARES_MAY_CHU.bat</span>');
+  $("#vjobs-empty").hidden=r.items.length>0;
+  setHTML($("#vjobs"), r.items.map(j=>{ const [c,t]=VST[j.status]||["",j.status];
+    const st=`<span class="pill ${c}">${t}</span>`+(j.status==="running"?`<span class="prog"><i style="width:${Math.round(j.progress*100)}%"></i></span> ${Math.round(j.progress*100)}%`:"")
+      +(j.status==="queued"&&j.queue_pos>1?` <span class="muted small">thứ ${j.queue_pos} trong hàng</span>`:"")
+      +(j.message&&j.status!=="done"?`<div class="muted small">${esc(j.message)}</div>`:"");
+    return `<tr><td><b>${esc(j.name)}</b><div class="muted small">${mb(j.size)}</div></td><td class="admin-only">${esc(j.owner)}</td><td>${st}</td>
+      <td>${j.duration!=null?mmss(j.duration):"—"}</td><td>${j.status==="done"?(j.n_events?`<b style="color:var(--red)">${j.n_events} sự kiện</b>`:"Không có sự kiện")+`<div class="muted small">tối đa ${j.people_max??0} người</div>`:"—"}</td><td class="small">${tfmt(j.created)}</td>
+      <td><div class="row">${j.status==="done"?`<button class="btn dark" data-vopen="${j.id}">Xem kết quả</button>`:""}<button class="btn warn" data-vdel="${j.id}" data-name="${esc(j.name)}">Xoá</button></div></td></tr>`; }).join(""));
+}
+$("#vf").onchange=()=>{ const f=$("#vf").files[0]; $("#vf-name").textContent=f?`${f.name} (${mb(f.size)})`:"Chưa chọn file"; $("#vf-msg").textContent=""; };
+$("#vf-up").onclick=()=>{
+  const f=$("#vf").files[0]; if(!f){ toast("Chọn file video trước"); return; }
+  if(f.size>500*1048576){ toast("Video tối đa 500 MB"); return; }
+  const xhr=new XMLHttpRequest(); xhr.open("POST",`${API}/api/videos?name=${encodeURIComponent(f.name)}`);
+  xhr.setRequestHeader("X-ARES","1"); if(TOKEN) xhr.setRequestHeader("Authorization","Bearer "+TOKEN); xhr.setRequestHeader("Content-Type", f.type||"application/octet-stream");
+  $("#vf-bar").hidden=false; $("#vf-up").disabled=true;
+  xhr.upload.onprogress=e=>{ if(e.lengthComputable){ const p=e.loaded/e.total; $("#vf-bar i").style.width=`${p*100}%`; $("#vf-msg").textContent=`Đang tải lên ${Math.round(p*100)}% (${mb(e.loaded)}/${mb(e.total)})`; } };
+  xhr.onload=()=>{ $("#vf-up").disabled=false; $("#vf-bar").hidden=true; $("#vf-bar i").style.width="0";
+    let d={}; try{ d=JSON.parse(xhr.responseText); }catch(_){}
+    if(xhr.status===200){ $("#vf-msg").textContent="Đã tải lên — AI trên máy chủ đang xử lý, kết quả hiện ở bảng dưới."; $("#vf").value=""; $("#vf-name").textContent="Chưa chọn file"; refresh(); }
+    else if(xhr.status===401) start(); else $("#vf-msg").textContent=(d.detail||`Lỗi ${xhr.status}`); };
+  xhr.onerror=()=>{ $("#vf-up").disabled=false; $("#vf-bar").hidden=true; $("#vf-msg").textContent="Mất kết nối khi tải lên"; };
+  xhr.send(f);
+};
+let V={id:null,n:0,i:1,timer:null,fps:10,ev:[]};
+async function openVideo(id){
+  let j; try{ j=await api(`/api/videos/${id}`); }catch(e){ toast(e.message); return; }
+  vstop(); const R=j.result||{}; V={id,n:j.n_frames||0,i:1,timer:null,fps:R.fps||10,ev:R.events||[]};
+  $("#vd-title").textContent=`Kết quả AI — ${j.name}`;
+  $("#vd-mp4").hidden=!j.has_mp4; $("#vd-mp4").href=U(`/api/videos/${id}/result.mp4`);
+  $("#vd-seek").max=Math.max(1,V.n);
+  $("#vd-sum").textContent=`Thời lượng ${mmss(R.duration||0)} · ${R.frames||V.n} khung phân tích · tối đa ${R.people_max??"?"} người cùng lúc · xử lý ${R.processing_s??"?"} giây trên ${String(R.device||"?").toUpperCase()}${R.mode?" · chế độ "+R.mode:""}`;
+  $("#vd-events").innerHTML=V.ev.length?V.ev.map((e,k)=>`<div class="vev" data-vk="${k}"><b>${esc(KIND[e.kind]||e.label)}</b><span class="small muted">${esc(e.time)} · người ${esc((e.tracks||[]).join(", "))}${e.source?" · "+esc(e.source):""}</span></div>`).join("")
+    :'<div class="muted small">Không phát hiện sự kiện nguy hiểm nào trong video.</div>';
+  if(V.n){ vshow(1); } else { $("#vd-img").removeAttribute("src"); $("#vd-pos").textContent="không có khung kết quả"; }
+  $("#vdlg").showModal(); if(V.n) vplay();
+}
+function vshow(i){ V.i=i; $("#vd-seek").value=i; $("#vd-img").src=U(`/api/videos/${V.id}/frames/${i}.jpg`);
+  const t=(i-1)/V.fps; $("#vd-pos").textContent=`${mmss(t)} / ${mmss((V.n-1)/V.fps)}`;
+  let cur=-1; V.ev.forEach((e,k)=>{ if(e.t<=t+0.05 && t-e.t<4) cur=k; });
+  document.querySelectorAll(".vev").forEach(el=>el.classList.toggle("on", +el.dataset.vk===cur)); }
+function vplay(){ vstop(); $("#vd-play").textContent="Dừng"; const sp=+$("#vd-speed").value||1;
+  V.timer=setInterval(()=>{ if(V.i>=V.n){ vstop(); return; } vshow(V.i+1); }, 1000/(V.fps*sp)); }
+function vstop(){ if(V.timer){ clearInterval(V.timer); V.timer=null; } $("#vd-play").textContent="Phát"; }
+$("#vd-play").onclick=()=>{ if(V.timer) vstop(); else { if(V.i>=V.n) vshow(1); vplay(); } };
+$("#vd-seek").oninput=e=>{ vstop(); vshow(+e.target.value); };
+$("#vd-speed").onchange=()=>{ if(V.timer) vplay(); };
+$("#vd-close").onclick=()=>{ vstop(); $("#vdlg").close(); }; $("#vdlg").addEventListener("close",vstop);
+$("#vd-events").addEventListener("click",e=>{ const el=e.target.closest("[data-vk]"); if(!el) return; const ev=V.ev[+el.dataset.vk];
+  vstop(); vshow(Math.max(1,Math.min(V.n, ev.frame||Math.round(ev.t*V.fps)+1))); });
+document.addEventListener("click", async ev=>{ const t=ev.target.closest("[data-vopen],[data-vdel]"); if(!t) return;
+  if(t.dataset.vopen) openVideo(+t.dataset.vopen);
+  else { if(!confirm(`Xoá video "${t.dataset.name}" và kết quả? Nếu đang phân tích, máy chủ sẽ dừng.`)) return;
+    try{ await api(`/api/videos/${t.dataset.vdel}/delete`,{method:"POST"}); toast("Đã xoá video"); refresh(); }catch(e){ toast(e.message); } } });
+
+// ------------------------------------------------ trình phát sự kiện
+let P={id:null,n:0,i:1,timer:null,fps:8};
+async function openEvent(id){
+  let e; try{ e=await api(`/api/events/${id}`); }catch(err){ toast(err.message); return; }
+  stop(); P={id,n:e.n_frames||0,i:1,timer:null,fps:8};
+  $("#d-title").textContent=`${KIND[e.kind]||e.label} — ${e.place_name?e.place_name+" · ":""}${e.cam_name} — ${tfmt(e.t)}`;
+  $("#d-msg").textContent=e.message; $("#d-video").hidden=true; $("#d-img").hidden=false;
+  $("#d-mp4").hidden=!e.clip; $("#d-mp4").href=U(`/api/events/${id}/clip.mp4`);
+  $("#d-ctl").hidden=!P.n && !e.clip; $("#d-play").hidden=$("#d-seek").hidden=!P.n;
+  if(P.n){ $("#d-seek").max=P.n; show(1); play(); }
+  else { $("#d-img").src = e.snapshot?U(`/api/events/${id}/snapshot.jpg`):""; $("#d-pos").textContent = e.snapshot?"chỉ có ảnh chụp":"máy chạy AI chỉ gửi thông tin (không gửi ảnh)"; }
+  $("#dlg").showModal();
+}
+function show(i){ P.i=i; $("#d-seek").value=i; $("#d-pos").textContent=`${i}/${P.n} · ≈${((i-1)/P.fps).toFixed(1)} s`; $("#d-img").src=U(`/api/events/${P.id}/frames/${i}.jpg`); }
+function play(){ stop(); $("#d-play").textContent="Dừng"; P.timer=setInterval(()=>show(P.i>=P.n?1:P.i+1),1000/P.fps); }
+function stop(){ if(P.timer){clearInterval(P.timer);P.timer=null;} $("#d-play").textContent="Phát"; }
+$("#d-play").onclick=()=>P.timer?stop():play(); $("#d-seek").oninput=e=>{stop();show(+e.target.value);};
+$("#d-close").onclick=()=>{stop();$("#dlg").close();}; $("#dlg").addEventListener("close",stop);
+$("#d-true").onclick=async()=>{ await api(`/api/events/${P.id}/verdict`,{method:"POST",body:{verdict:"true"}}); toast("Đã ghi: đúng sự kiện"); refresh(); };
+$("#d-false").onclick=async()=>{ await api(`/api/events/${P.id}/verdict`,{method:"POST",body:{verdict:"false"}}); toast("Đã ghi: báo nhầm"); refresh(); };
+$("#d-ack").onclick=async()=>{ await api(`/api/events/${P.id}/ack`,{method:"POST"}); stop(); $("#dlg").close(); refresh(); };
+
+// ------------------------------------------------ khởi động
+let timer=null, ME=null;
+async function start(){
+  if(REMOTE && !API){ setAuth("login"); $("#lmsg").textContent="Nhập địa chỉ máy chủ ARES (https://...ts.net) rồi đăng nhập."; return; }
+  let netErr=false;
+  const m=await fetch(API+"/api/me",{headers:AH()}).then(r=>r.json()).catch(()=>{ netErr=true; return {}; });
+  if(!m.user){ if(timer){clearInterval(timer);timer=null;}
+    if(REMOTE && TOKEN && !netErr) setToken("");  // token hết hạn
+    setAuth(m.need_setup?(m.can_setup?"setup":"nosetup"):"login");
+    if(netErr) $("#lmsg").textContent=REMOTE?`Không kết nối được máy chủ ${API}. Máy chủ đã bật và đã chạy CHIA_SE_INTERNET.bat chưa?`:"Không kết nối được máy chủ.";
+    return; }
+  ME=m.user; document.body.classList.toggle("role-viewer", ME.role!=="admin"); document.body.classList.toggle("role-admin", ME.role==="admin");
+  paintMe();
+  if(ME.role!=="admin"){ $("#cam-auto").checked=LS.get("ares_cam_auto")==="1"; $("#cam-name").value=LS.get("ares_cam_name")||"Webcam";
+    if(LS.get("ares_cam_auto")==="1" && camSecure() && !CAM.timer) startCam(); }
+  $("#b-pend").hidden=!m.pending; $("#b-pend").textContent=m.pending;
+  $("#login").hidden=true; $("#app").hidden=false;
+  if(["setup","users","live"].includes(view) && ME.role!=="admin") go("home");
+  else if(view==="mycams" && ME.role==="admin") go("home"); else refresh();
+  if(!timer) timer=setInterval(refresh,2500);
+}
+setInterval(()=>{ if(ME) fetch(API+"/api/me",{headers:AH()}).then(r=>r.json()).then(m=>{ if(!m.user){ start(); return; } $("#b-pend").hidden=!m.pending; $("#b-pend").textContent=m.pending; }).catch(()=>{}); },10000);
+start();
+</script>
+</body>
+</html>
