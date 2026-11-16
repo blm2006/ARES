@@ -202,6 +202,10 @@ class VisionTracker:
             self.al.offer(img, dets, self.clock.now(), camera_id=self.cam_id)  # không chặn; xem ActiveLearner.offer
         if self.pca is not None:
             self.pca.offer_corpus(self.cam_id, img)  # khung mẫu cho PCA (vài ms, rất thưa)
+        self.last_raw = (img, dets, t)  # cho hình trực tiếp gửi server (không vẽ vùng đèn)
+        beh = getattr(self, "behavior", None)
+        if beh is not None:
+            beh.offer(self.cam_id, img, t)  # nhận diện hành vi (luồng riêng, chỉ giữ ảnh mới nhất)
         return True
 
     # ---------------------------------------------------------------- độ sáng camera (HSV-V) từng vùng

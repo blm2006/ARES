@@ -171,6 +171,7 @@ th{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.05
     <button role="tab" aria-selected="false" data-tab="models">Model</button>
     <button role="tab" aria-selected="false" data-tab="habits">Thói quen</button>
     <button role="tab" aria-selected="false" data-tab="tune">Thiết bị</button>
+    <a href="/behavior" style="color:var(--bad);padding:9px 14px;font-weight:600;text-decoration:none;white-space:nowrap" title="Té ngã, nằm/ngồi gục bất động, đánh nhau">Hành vi<span class="badge" id="b-behavior" hidden>0</span></a>
   </nav>
 </header>
 
@@ -498,6 +499,8 @@ function renderLive(s) {
 
   const pend = (s.al && s.al.counts && s.al.counts.PENDING) || 0;
   const bp = $("#b-pending"); bp.hidden = !pend; bp.textContent = pend;
+  const bn = (s.behavior && s.behavior.new) || 0;  // cảnh báo hành vi chưa xử lý (trang /behavior)
+  const bb = $("#b-behavior"); if (bb) { bb.hidden = !bn; bb.textContent = bn; }
 }
 
 let busy = false;

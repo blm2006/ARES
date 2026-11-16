@@ -1,0 +1,10 @@
+# Dataset MẪU dò biển số trên ảnh cắt phương tiện (YOLO detect).
+# Nên gán 2 lớp để biết biển 1 dòng (ô tô) / 2 dòng (xe máy, ô tô biển vuông).
+# Tham khảo bộ benchmark biển số VN công khai trên HuggingFace (vd neitpm/vn-plate-detection-benchmark, giấy phép MIT)
+# — tải về, chuyển nhãn sang YOLO nếu cần, rồi trộn thêm ảnh tự thu tại địa điểm.
+path: C:/yolo-al/data_train/plate     # ĐỔI thành đường dẫn TUYỆT ĐỐI tới dữ liệu của bạn
+train: images/train
+val: images/val
+names:
+  0: plate_1line
+  1: plate_2line

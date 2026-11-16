@@ -1,0 +1,12 @@
+# Dataset MẪU cho model mũ bảo hiểm (RB-01). Định dạng YOLO detect.
+# Cấu trúc thư mục:
+#   helmet/images/train/*.jpg   helmet/labels/train/*.txt   (mỗi dòng: lớp cx cy w h, chuẩn hoá 0..1)
+#   helmet/images/val/*.jpg     helmet/labels/val/*.txt
+# Gợi ý dữ liệu: tự cắt ảnh từ camera cổng trường (đa dạng giờ, nắng/mưa, mũ lưỡi trai/nón lá = KHÔNG mũ BH);
+# có thể tham khảo các bộ công khai về mũ bảo hiểm xe máy (kiểm tra giấy phép trước khi dùng).
+path: C:/yolo-al/data_train/helmet     # ĐỔI thành đường dẫn TUYỆT ĐỐI tới dữ liệu của bạn
+train: images/train
+val: images/val
+names:
+  0: helmet
+  1: no_helmet

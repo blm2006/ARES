@@ -58,7 +58,7 @@ class CameraSpec:
     id: str
     name: str
     source: str
-    kind: str = "usb"  # usb | rtsp | file | sim
+    kind: str = "usb"  # usb | rtsp | file | sim | remote
 
     def public(self) -> dict:
         return {"id": self.id, "name": self.name, "source": mask_source(self.source), "kind": self.kind}
@@ -91,6 +91,8 @@ def guess_kind(source: str) -> str:
     s = str(source).strip().lower()
     if s.isdigit():
         return "usb"
+    if s.startswith("ares://"):
+        return "remote"  # camera của máy khác, gửi hình qua server (ares/remote_cam.py)
     if s.startswith(("rtsp://", "rtmp://", "http://", "https://", "udp://")):
         return "rtsp"
     return "file"
@@ -186,6 +188,9 @@ class CameraHub:
 
     # ------------------------------------------------------------------ mở nguồn
     def _default_source(self, spec: CameraSpec):
+        if spec.kind == "remote":
+            from ares.remote_cam import AresPullSource
+            return AresPullSource(self.cfg, spec)
         from ares.vision_tracker import CvFrameSource
 
         return CvFrameSource(spec.id, spec.source, self.cfg.camera_loop, self.cfg.hub_interval_s)
@@ -326,6 +331,9 @@ class CameraHub:
             self.al.offer(img, dets, self.clock.now(), camera_id=cam.spec.id)
         if self.pca is not None:
             self.pca.offer_corpus(cam.spec.id, img)
+        beh = getattr(self, "behavior", None)
+        if beh is not None:
+            beh.offer(cam.spec.id, img, t)  # nhận diện hành vi (luồng riêng, chỉ giữ ảnh mới nhất)
         return True
 
     # ------------------------------------------------------------------ cho dashboard

@@ -1,0 +1,21 @@
+# Cấu hình MẪU cho video thử C:\yolo-al\samples\Download.mp4 (576×1024, quay dọc, đường cao tốc ban đêm từ cầu vượt).
+# Khung hình có nhiều đường (đường nhánh bên trái, hai chiều xe) → KHÔNG khai báo làn/mũi tên ở đây (khai báo sai
+# một đa giác phủ cả hai chiều sẽ bị báo ngược chiều hàng loạt). Chỉ dùng để thử nhận diện ban đêm + ĐẾM LƯU LƯỢNG.
+#   python -m traffic_safety_ai run --source samples\Download.mp4 --scene traffic_safety_ai\configs\mau_video_cao_toc_dem.yaml --show
+# Muốn thử ngược chiều: chạy `calibrate` và vẽ RIÊNG từng lòng đường với mũi tên đúng chiều xe chạy.
+camera:
+  id: MAU-DEM
+  name: "Video mẫu cao tốc ban đêm (chỉ để thử)"
+  location: "Video mẫu — đường cao tốc nhìn từ cầu vượt"
+  channel: cctv
+  frame_size: [576, 1024]
+lines:
+  counting:
+    - id: MC
+      name: "Mặt cắt ngang khung"
+      points: [[0, 800], [576, 800]]
+      direction: [[420, 860], [420, 740]]
+      positive_label: "Đi xa camera"
+      negative_label: "Về phía camera"
+speed:
+  limit_kmh: 80

@@ -1,0 +1,114 @@
+# Cấu hình MẪU cho một camera CCTV cố định trước cổng trường.
+# Toạ độ là PIXEL theo camera.frame_size; video khác kích thước sẽ được co giãn tự động.
+# KHÔNG dùng nguyên các toạ độ dưới đây cho camera thật — vẽ lại bằng:
+#     python -m traffic_safety_ai calibrate --source <video> --scene <file mới>.yaml
+# rồi kiểm tra bằng:
+#     python -m traffic_safety_ai preview --source <video> --scene <file mới>.yaml
+
+camera:
+  id: CAM-01
+  name: "Cổng trường mẫu — hướng ra đường chính"
+  location: "Đường mẫu, phường mẫu, TP. Hồ Chí Minh"
+  channel: cctv                    # cctv | pov
+  timezone: Asia/Ho_Chi_Minh
+  frame_size: [1920, 1080]
+  detect_unit: "Hệ thống AI giám sát ATGT khu vực trường học (thử nghiệm)"
+
+# Hiệu chuẩn mặt đường: 4+ điểm trên MẶT ĐƯỜNG (vd 4 góc một ô vạch kẻ) và toạ độ thực (mét) tương ứng.
+# Thứ tự gợi ý: gần-trái, gần-phải, xa-phải, xa-trái. Không có hiệu chuẩn thì RB-08/RB-10 tự tắt.
+calibration:
+  image_points: [[620, 980], [1300, 980], [1180, 520], [760, 520]]
+  world_points: [[0, 0], [7.0, 0], [7.0, 18.0], [0, 18.0]]
+  max_reproj_error_m: 0.5
+
+zones:
+  sidewalks:
+    - id: VH-TRAI
+      name: "Vỉa hè trái (trước cổng trường)"
+      polygon: [[0, 600], [560, 520], [600, 1080], [0, 1080]]
+  crosswalks:
+    - id: VACH-1
+      name: "Vạch qua đường trước cổng"
+      polygon: [[600, 760], [1340, 760], [1360, 860], [580, 860]]
+  lanes:
+    - id: LAN-PHAI
+      name: "Chiều đi vào trung tâm"
+      polygon: [[960, 480], [1240, 480], [1500, 1080], [960, 1080]]
+      direction: [[1100, 560], [1220, 1000]]      # mũi tên = hướng đi ĐÚNG
+    - id: LAN-TRAI
+      name: "Chiều đi ra"
+      polygon: [[700, 480], [960, 480], [960, 1080], [480, 1080]]
+      direction: [[700, 1000], [840, 560]]
+  restricted: []                  # vd làn chỉ dành cho ô tô: allowed_classes: [car, bus, truck]
+  no_parking:
+    - id: CAM-DO-CONG
+      name: "Trước cổng trường"
+      kind: no_stopping           # crosswalk | no_stopping | no_parking | sidewalk
+      polygon: [[600, 860], [1100, 860], [1120, 1000], [580, 1000]]
+      max_stationary_s: 30
+      active_hours: ["06:30-07:30", "10:30-11:30", "16:00-17:30"]
+    - id: VACH-1-DUNG
+      name: "Dừng trên vạch qua đường"
+      kind: crosswalk
+      polygon: [[600, 760], [1340, 760], [1360, 860], [580, 860]]
+  sightline:
+    - id: TAM-NHIN-CONG
+      name: "Tam giác tầm nhìn lối ra cổng"
+      polygon: [[560, 700], [760, 700], [760, 880], [560, 880]]
+  roadway:
+    - id: LONG-DUONG
+      name: "Lòng đường"
+      polygon: [[600, 480], [1300, 480], [1700, 1080], [560, 1080]]
+  speed_zone: []                  # để trống = mọi điểm trong vùng hiệu chuẩn
+
+lines:
+  stop_lines:
+    - id: VD-1
+      name: "Vạch dừng nút giao"
+      points: [[980, 640], [1300, 640]]
+      direction: [[1140, 700], [1140, 560]]        # hướng xe chạy qua vạch
+      confirm_points: [[960, 470], [1250, 470]]    # vạch xác nhận phía bên kia giao lộ
+      light_id: DEN-1
+      exempt_zones: []                             # vd làn rẽ phải được đi khi đèn đỏ
+  solid_lines:
+    - id: VACH-LIEN-TIM
+      name: "Vạch liền tim đường"
+      points: [[960, 1080], [960, 480]]
+  counting:
+    - id: DEM-1
+      name: "Mặt cắt đếm xe trước cổng"
+      points: [[560, 900], [1500, 900]]
+      direction: [[1000, 850], [1000, 950]]
+      positive_label: "Hướng đi ra"
+      negative_label: "Hướng đi vào"
+  speed_traps: []                 # vd: {id: T1, line_a: [...], line_b: [...], distance_m: 10, direction: [...]}
+
+traffic_lights:
+  - id: DEN-1
+    name: "Đèn nút giao phía trước"
+    roi: [1480, 140, 1520, 250]
+    layout: vertical
+
+speed:
+  limit_kmh: 40                   # THEO BIỂN BÁO TẠI CHỖ (TT 38/2024: khu đông dân cư 50–60 km/h nếu không có biển)
+  limits_by_class: {}
+  tolerance_kmh: 3
+
+privacy:
+  blur_bystanders_in_export: true
+  store_plates_of_non_violators: false
+  retention_days: 90
+
+evidence:
+  pre_roll_s: 3
+  post_roll_s: 2
+  max_plate_wait_s: 6
+
+# Tham số từng rule (bỏ trống = mặc định trong code). Ví dụ:
+rules:
+  RB-02: {severity: nghi_van}
+  RB-04:
+    exempt_zones:                 # lối vào cổng trường/nhà dân: đi qua vỉa hè để vào là hợp lệ
+      - [[300, 760], [460, 760], [470, 900], [290, 900]]
+  RB-05: {red_grace_s: 0.4, report_stop_over_line: false}
+  RB-09: {max_width_m: 1.35}

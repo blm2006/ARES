@@ -1,0 +1,16 @@
+# Gói traffic_safety_ai — cài vào venv sẵn có của yolo-al:
+#   C:\yolo-al\.venv\Scripts\python.exe -m pip install -r traffic_safety_ai\requirements.txt
+# torch + CUDA đã cài theo gói yolo-al (torch 2.6 cu124) → KHÔNG cài lại torch ở đây.
+ultralytics>=8.3          # YOLO11/YOLOv8 (đã thử với 8.4.x)
+opencv-python>=4.9
+numpy>=1.26
+scipy>=1.11               # ghép cặp Hungarian cho tracker (có sẵn khi cài ultralytics)
+pyyaml>=6.0
+pydantic>=2.5
+pillow>=10.0              # chữ tiếng Việt có dấu trên ảnh bằng chứng
+fastapi>=0.110            # dashboard
+uvicorn>=0.27
+# --- tuỳ chọn ---
+# fast-plate-ocr[onnx]    # OCR biển số một bước (plate_ocr.backend: fast_plate_ocr)
+# easyocr                 # OCR dự phòng (chậm, kém với biển 2 dòng)
+# pytest, httpx           # chạy bộ kiểm thử: python -m pytest traffic_safety_ai/tests -q

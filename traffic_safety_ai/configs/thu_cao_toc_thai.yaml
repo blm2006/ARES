@@ -1,0 +1,40 @@
+# Chạy (trong C:\yolo-al):  .venv\Scripts\python -m traffic_safety_ai run --source samples\cao_toc_thai.mkv --scene traffic_safety_ai\configs\thu_cao_toc_thai.yaml --save-video
+# Video thử 2: camera cố định trên cầu vượt, đường đôi ở Thái Lan (852×480, 19 s).
+# Nguồn: kho mã sriramcu/yolov4_wrong_side_driving_detection (tệp demo "bad_editing.mkv" — video đã CHỈNH SỬA
+# để mô phỏng xe đi ngược chiều). Thái Lan đi bên TRÁI: lòng đường trái đi xa camera, lòng đường phải đi về phía camera.
+camera:
+  id: THU-THAI
+  name: "Video thử — đường đôi nhìn từ cầu vượt (Thái Lan)"
+  location: "Video mẫu từ GitHub sriramcu/yolov4_wrong_side_driving_detection"
+  channel: cctv
+  frame_size: [852, 480]
+zones:
+  lanes:
+    - id: TRAI
+      name: "Lòng đường trái (đi xa camera)"
+      polygon: [[150, 60], [200, 60], [125, 470], [0, 470], [0, 150]]
+      direction: [[90, 400], [170, 120]]
+    - id: PHAI
+      name: "Lòng đường phải (đi về phía camera)"
+      polygon: [[250, 60], [330, 60], [650, 300], [700, 470], [270, 470]]
+      direction: [[330, 120], [440, 420]]
+lines:
+  counting:
+    - id: DEM-TRAI
+      name: "Mặt cắt lòng đường trái"
+      points: [[0, 300], [140, 300]]
+      direction: [[70, 350], [70, 250]]
+      positive_label: "Đi xa camera"
+      negative_label: "Về phía camera"
+    - id: DEM-PHAI
+      name: "Mặt cắt lòng đường phải"
+      points: [[270, 300], [660, 300]]
+      direction: [[450, 250], [450, 350]]
+      positive_label: "Về phía camera (đúng chiều)"
+      negative_label: "Đi xa camera (ngược chiều)"
+speed:
+  limit_kmh: 80
+
+# Chưa hiệu chuẩn mét nên xe ở xa đi chậm trên ảnh, RB-03 khó bắt. Muốn thử nhạy hơn thì bỏ dấu # hai dòng dưới:
+# rules:
+#   RB-03: {min_disp_box: 0.3}

@@ -1,0 +1,46 @@
+# Chạy (trong C:\yolo-al):  .venv\Scripts\python -m traffic_safety_ai run --source samples\nga_tu_my.mp4 --scene traffic_safety_ai\configs\thu_nga_tu_my.yaml --save-video
+# Video thử 1: camera giao thông cố định tại một nút giao ở Mỹ (640×360, 13 s).
+# Nguồn: kho mã ManhLe18/TPTM trên GitHub (video demo vượt đèn đỏ). Chỉ dùng để thử nội bộ.
+# Đèn chuyển VÀNG → ĐỎ ở khoảng giây 3,8; có xe đi qua vạch dừng sau đó; có người đạp xe trên vỉa hè.
+camera:
+  id: THU-MY
+  name: "Video thử — nút giao có đèn (Mỹ)"
+  location: "Video mẫu từ GitHub ManhLe18/TPTM"
+  channel: cctv
+  frame_size: [640, 360]
+zones:
+  lanes:
+    - id: LAN-GAN
+      name: "Các làn hướng vào nút (đi xa camera)"
+      polygon: [[0, 150], [505, 188], [440, 360], [0, 360]]
+      direction: [[200, 330], [330, 170]]
+  sidewalks:
+    - id: VH-PHAI
+      name: "Vỉa hè bên phải"
+      polygon: [[505, 185], [560, 180], [565, 360], [432, 360]]
+  roadway:
+    - id: LONG-DUONG
+      name: "Lòng đường gần camera"
+      polygon: [[0, 150], [505, 188], [440, 360], [0, 360]]
+lines:
+  stop_lines:
+    - id: VD-1
+      name: "Vạch dừng hướng vào nút"
+      points: [[0, 138], [505, 188]]
+      direction: [[250, 230], [250, 120]]
+      light_id: DEN-1
+  counting:
+    - id: DEM-1
+      name: "Mặt cắt đếm xe"
+      points: [[0, 250], [470, 250]]
+      direction: [[230, 300], [230, 200]]
+      positive_label: "Vào nút giao"
+      negative_label: "Ra khỏi nút"
+traffic_lights:
+  - id: DEN-1
+    name: "phải cùng, trên cột vươn"
+    roi: [450, 25, 463, 47]
+    layout: vertical
+speed:
+  limit_kmh: 60
+  tolerance_kmh: 3

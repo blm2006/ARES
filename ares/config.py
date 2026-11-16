@@ -226,6 +226,57 @@ class AresSettings(BaseSettings):
     sim_seed: int = 42
     sim_cameras: int = Field(1, ge=1, le=36)  # số camera giả (camera 1 là camera điều khiển)
 
+    # ------------------------------------------------------------- hành vi (té ngã / bất động / ngồi gục / đánh nhau)
+    # Module ares/behavior: chạy ĐỘC LẬP với điều khiển đèn/điều hòa (không đọc/ghi gì của control_engine).
+    behavior_enabled: bool = True
+    behavior_cameras: str = "all"  # "all" hoặc danh sách id cách nhau dấu phẩy, ví dụ "main,usb1"
+    behavior_weights: str = "yolo11n-pose.pt"  # model khung xương (Ultralytics, pretrained COCO-17 keypoint)
+    behavior_device: str = ""  # rỗng = dùng chung ARES_DEVICE
+    behavior_imgsz: int = 640
+    behavior_conf: float = Field(0.35, ge=0.05, le=0.95)  # ngưỡng người của model pose
+    behavior_fps: float = Field(10.0, ge=1.0, le=30.0)  # số lần phân tích / giây cho MỖI camera (tối đa)
+    behavior_mode: Literal["rules", "model", "hybrid"] = "hybrid"  # hybrid = luật OR model (model chỉ dùng khi đã train)
+    behavior_classifier: str = ""  # rỗng = <storage_root>/behavior/models/current.pt (tạo bởi python -m ares.behavior.train)
+    behavior_model_thr: float = Field(0.7, ge=0.3, le=0.99)  # xác suất tối thiểu để model tự báo
+    behavior_still_s: float = Field(15.0, ge=3.0, le=600.0)  # nằm/ngồi gục BẤT ĐỘNG thật sự chừng này giây thì báo
+    behavior_still_motion: float = Field(0.05, ge=0.001, le=0.5)  # cử động (khớp cử động nhiều nhất, theo chiều cao người / giây) dưới mức này = "bất động"
+    behavior_lying_s: float = Field(5.0, ge=0.0, le=600.0)  # nằm liên tục chừng này giây thì báo "nằm dưới sàn" DÙ VẪN CỬ ĐỘNG (0 = tắt)
+    behavior_sudden_lying_s: float = Field(2.0, ge=0.5, le=60.0)  # ... nếu vừa đứng/ngồi rồi nằm xuống đột ngột: báo nhanh hơn
+    behavior_sudden_window_s: float = Field(3.0, ge=0.5, le=6.0)  # "đột ngột" = trong chừng này giây trước đó còn đứng/ngồi
+    behavior_fall_window_s: float = Field(1.5, ge=0.3, le=5.0)  # cú ngã: từ đứng -> nằm trong chừng này giây
+    behavior_fall_drop: float = Field(0.35, ge=0.05, le=2.0)  # hông tụt ít nhất chừng này x chiều cao người trong cửa sổ ngã
+    behavior_fall_confirm_s: float = Field(1.0, ge=0.0, le=10.0)  # sau khi ngã phải còn nằm chừng này giây mới báo (lọc cúi nhặt đồ)
+    behavior_fight_dist: float = Field(1.5, ge=0.2, le=5.0)  # 2 người cách nhau < chừng này x chiều cao TB => "sát nhau"
+    behavior_fight_speed: float = Field(1.5, ge=0.2, le=20.0)  # tốc độ cổ tay/cổ chân (chiều cao người / giây) coi là "vung mạnh"
+    behavior_fight_s: float = Field(0.8, ge=0.2, le=10.0)  # sát nhau + vung mạnh tích luỹ chừng này giây => đánh nhau / xô đẩy
+    # (đo trên 300 clip Surveillance Camera Fight: luật bắt ~32% clip đánh nhau, báo nhầm ~5% clip thường -> nên train model)
+    behavior_cooldown_s: float = Field(60.0, ge=0.0, le=3600.0)  # cùng 1 người + cùng loại sự kiện: không báo lại trong chừng này giây
+    behavior_fight_cam_cooldown_s: float = Field(30.0, ge=0.0, le=3600.0)  # 1 vụ ẩu đả có nhiều cặp người: cả camera chỉ báo 1 lần / chừng này giây
+    behavior_clip_pre_s: float = Field(5.0, ge=0.0, le=30.0)  # clip bằng chứng: giây TRƯỚC sự kiện
+    behavior_clip_post_s: float = Field(10.0, ge=0.0, le=60.0)  # ... và giây SAU sự kiện
+    behavior_clip_fps: float = Field(8.0, ge=2.0, le=30.0)
+    behavior_clip_width: int = Field(640, ge=160, le=1920)
+    behavior_keep_days: int = Field(30, ge=0)  # 0 = giữ mãi; >0 = tự xoá sự kiện cũ hơn chừng này ngày
+
+    # ------------------------------------------------------------- gửi lên server trung tâm (ares_server)
+    # Rỗng = không gửi (máy chạy một mình, chế độ local). Edge vẫn chạy đầy đủ khi mất mạng; sự kiện được xếp hàng gửi lại.
+    uplink_url: str = ""  # ví dụ http://127.0.0.1:8200 (cùng máy) hoặc https://ares.ten-mien.vn
+    uplink_key: str = ""  # khoá thiết bị của địa điểm, tạo trên dashboard server (Thiết lập) hoặc python -m ares_server add-site
+    uplink_edge_id: str = ""  # mã máy Edge; rỗng = tên máy tính
+    uplink_name: str = ""  # tên hiển thị trên server; rỗng = camera_name / "Phòng <room_id>"
+    uplink_interval_s: float = Field(30.0, ge=5.0, le=600.0)  # chu kỳ gửi số liệu (heartbeat)
+    uplink_media: Literal["none", "snapshot", "clip"] = "clip"  # gửi kèm sự kiện: không ảnh | ảnh chụp | ảnh + clip
+    uplink_timeout_s: float = Field(15.0, ge=2.0, le=120.0)
+    uplink_max_age_days: int = Field(7, ge=1, le=90)  # sự kiện cũ hơn chừng này (mất mạng lâu) thì không gửi bù nữa
+    # Hình trực tiếp cho dashboard server (ảnh nhỏ có khung xương, mỗi N giây). 0 = TẮT (mặc định: hình không rời máy Edge).
+    # Bật khi server là máy của chính bạn / cùng mạng nội bộ (chế độ máy chủ đặt sẵn 2).
+    uplink_live_s: float = Field(0.0, ge=0.0, le=60.0)
+    uplink_live_width: int = Field(640, ge=160, le=1280)  # ảnh đã <= chừng này thì gửi nguyên, không nén lại (nhanh hơn)
+    uplink_remote_cameras: bool = True  # cho phép quản trị viên server thêm/xoá camera RTSP của máy này từ dashboard
+    uplink_video_jobs: bool = True  # nhận video người dùng tải lên dashboard (mục "Thử video") để chạy AI
+    uplink_video_fps: float = Field(10.0, ge=1.0, le=30.0)  # số khung/giây phân tích trên video tải lên
+    uplink_video_width: int = Field(640, ge=320, le=1920)  # thu nhỏ video tải lên về chiều rộng này trước khi chạy AI
+
     # ================================================================ kiểm tra
     @field_validator("storage_root", "zones_file", "schedule_file", "replay_dir", "cameras_file", mode="before")
     @classmethod
@@ -304,6 +355,10 @@ class AresSettings(BaseSettings):
     @property
     def runs_dir(self) -> Path:
         return self.storage_root / "runs"
+
+    @property
+    def behavior_dir(self) -> Path:
+        return self.storage_root / "behavior"
 
     @property
     def tuning_file(self) -> Path:

@@ -1,9 +1,28 @@
+# Bí mật / cấu hình riêng từng máy (dùng các file *.example làm mẫu)
 .env
-var/
-runs/
+ares_config/ares.env
+ares_config/server.env
+deploy/mosquitto/passwd
+
+# Môi trường, cache
+.venv/
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# Dữ liệu chạy ra, video, bằng chứng (có hình người / biển số) — không đưa lên GitHub
+var/
+runs/
+samples/
+ket_qua_thu_video_mau/
+traffic_safety_ai/data/
+_to_delete/
+Claude outputs/
+*.db
+*.sqlite*
+
+# File nặng: model tự tải lại được, gói nén
 *.pt
-ares_config/ares.env
-deploy/mosquitto/passwd
+*.zip
+*.tgz
+zi3Y9Bex

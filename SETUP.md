@@ -100,6 +100,7 @@ Phase 3 (worker) dùng embedder histogram màu, vốn không cần GPU — phầ
 
 ## Tài liệu khác
 
-- `README.md` — thiết kế: 7 ràng buộc và chỗ thực thi bằng code
+- `README.md` — hướng dẫn sử dụng chung cả kho mã
+- `YOLO_AL.md` — thiết kế yolo-al: 7 ràng buộc và chỗ thực thi bằng code
 - `scripts/README.md` — từng script làm gì, chạy từng phase
 - `.env` — mọi ngưỡng, kèm chú thích vì sao chọn số đó

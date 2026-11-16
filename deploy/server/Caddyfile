@@ -1,0 +1,7 @@
+{$ARES_DOMAIN} {
+	encode gzip
+	request_body {
+		max_size 30MB
+	}
+	reverse_proxy server:8200
+}

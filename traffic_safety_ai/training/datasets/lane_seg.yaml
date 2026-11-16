@@ -1,0 +1,9 @@
+# Dataset MẪU phân vùng cho camera hành trình (RB-04 kênh POV). Định dạng YOLO segment (đa giác).
+path: C:/yolo-al/data_train/lane_seg     # ĐỔI thành đường dẫn TUYỆT ĐỐI tới dữ liệu của bạn
+train: images/train
+val: images/val
+names:
+  0: road
+  1: sidewalk
+  2: crosswalk
+  3: solid_line

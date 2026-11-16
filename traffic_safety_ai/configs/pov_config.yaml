@@ -1,0 +1,29 @@
+# Cấu hình MẪU cho camera hành trình (POV) gắn trên xe máy/mũ bảo hiểm.
+
+camera:
+  id: POV-01
+  name: "Camera hành trình xe khảo sát"
+  location: "Tuyến khảo sát quanh trường (ghi theo video)"
+  channel: pov
+  timezone: Asia/Ho_Chi_Minh
+  frame_size: [1920, 1080]
+
+pov:
+  horizon_y_ratio: 0.45           # độ cao đường chân trời trong khung (0 = mép trên, 1 = mép dưới)
+  camera_height_m: 1.2            # chiều cao gắn camera so với mặt đường
+  hfov_deg: 110                   # góc nhìn ngang của camera (camera hành trình thường 100–140°)
+  # hành lang phía trước xe (toạ độ chuẩn hoá 0..1). Để null = tự dựng từ hình học mặt đường
+  # (rộng ±1,6 m, dài 30 m theo chân trời/chiều cao/góc nhìn ở trên). Ví dụ khai báo tay:
+  # ego_corridor: [[0.30, 1.0], [0.46, 0.48], [0.54, 0.48], [0.70, 1.0]]
+  ego_corridor: null
+  phone_mount_roi: null           # vùng giá đỡ điện thoại (chuẩn hoá) — loại khỏi RB-02
+
+privacy:
+  blur_bystanders_in_export: true
+  store_plates_of_non_violators: false
+
+rules:
+  RB-08: {ttc_s: 1.5, pov_headway_s: 0.8}     # TTC < 1,5 s; khoảng cách thời gian tới xe trước < 0,8 s
+  HZ-01: {lat_thr_ms: 0.8}                    # vận tốc ngang (m/s) coi là đang rẽ/chuyển làn
+  HZ-02: {near_m: 15}                         # vật che khuất trong 15 m phía trước
+  HZ-03: {near_m: 15}

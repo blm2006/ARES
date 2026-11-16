@@ -133,6 +133,29 @@ class AresRuntime:
         if self.sim:
             self._add_sim_cameras()
 
+        # ---- nhận diện hành vi (té ngã / bất động / ngồi gục / đánh nhau) — độc lập với điều khiển thiết bị ----
+        # Không chạy ở chế độ mô phỏng: khung hình giả không có người thật để dựng khung xương.
+        self.behavior = None
+        if cfg.behavior_enabled and not self.sim:
+            from ares.behavior.monitor import BehaviorMonitor
+            self.behavior = BehaviorMonitor(cfg, self.clock, emit=emit, name_of=self._camera_name)
+            self.tracker.behavior = self.behavior
+            self.hub.behavior = self.behavior
+
+        # ---- gửi lên server trung tâm (tuỳ chọn) -------------------------------------------------------------------
+        self.uplink = None
+        if cfg.uplink_url and cfg.uplink_key:
+            from ares.uplink import Uplink
+            self.uplink = Uplink(cfg, self, emit=emit)
+
+    def _camera_name(self, cam_id: str) -> str:
+        if cam_id == MAIN_ID:
+            return self.hub.control_name
+        for sp in self.hub.specs():
+            if sp.id == cam_id:
+                return sp.name
+        return cam_id
+
     # ================================================================== dựng phần giả
     def _build_sim(self, bus, source, detector):
         from ares.simulation import OccupancyScenario, SimBus, SimDetector, SimFrameSource, SimWorld
@@ -192,6 +215,10 @@ class AresRuntime:
         self.bus.start()
         if not self.sim:
             self.hub.rescan()  # dò camera USB cắm thêm + đọc cameras.json (nền, không chặn khởi động)
+        if self.behavior is not None:
+            self.behavior.start()  # nạp YOLO-pose ở luồng nền, không chặn khởi động
+        if self.uplink is not None:
+            self.uplink.start()
         mode = "MÔ PHỎNG (không cần ESP32/camera)" if self.sim else "THẬT"
         self.engine.emit(Event(self.clock.time(), "SYSTEM_START", "info",
                                f"ARES khởi động, phòng {cfg.room_id}, chế độ {mode}, model {self.state.model_version}.",
@@ -241,7 +268,9 @@ class AresRuntime:
             self.engine.emit(Event(self.clock.time(), "SYSTEM_STOP", "info", "ARES dừng."))
         except Exception:
             pass
-        for fn in (self.tracker.close, self.hub.close, lambda: self.al.drain(5), self.al.stop,
+        for fn in ((self.uplink.stop if self.uplink else (lambda: None)), self.tracker.close, self.hub.close,
+                   (self.behavior.stop if self.behavior else (lambda: None)),
+                   lambda: self.al.drain(5), self.al.stop,
                    (self.pca.close if self.pca else (lambda: None)), self.bus.stop):
             try:
                 fn()
@@ -364,6 +393,10 @@ class AresRuntime:
             "mqtt_devices": dict(getattr(self.bus, "device_status", {}) or {}),
             "db": {"dropped": self.db.dropped, "write_errors": self.db.write_errors},
             "events": self.state.recent_events(30),
+            "behavior": None if self.behavior is None else {
+                "new": self.behavior.store.counts().get("new", 0), "error": self.behavior.error,
+                "loading": self.behavior.loading},
+            "uplink": None if self.uplink is None else self.uplink.status(),
         })
         if self.sim and self.world is not None:
             m = self.world.metrics

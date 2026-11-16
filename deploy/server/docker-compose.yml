@@ -1,0 +1,22 @@
+# Chạy server trung tâm trên VPS (Ubuntu + Docker) kèm HTTPS tự động (Caddy + Let's Encrypt).
+#   1) Trỏ tên miền (vd ares.ten-mien.vn) về IP VPS
+#   2) Sửa ARES_DOMAIN và ARES_SERVER_ADMIN_PASSWORD trong deploy/server/.env (xem .env.example)
+#   3) Tại thư mục gốc repo:  docker compose -f deploy/server/docker-compose.yml up -d --build
+#   4) Tạo địa điểm:          docker compose -f deploy/server/docker-compose.yml exec server python -m ares_server add-site "Trường A"
+services:
+  server:
+    build: { context: ../.., dockerfile: deploy/server/Dockerfile }
+    restart: unless-stopped
+    env_file: .env
+    volumes: [ "ares_data:/data" ]
+    expose: [ "8200" ]
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on: [ server ]
+    ports: [ "80:80", "443:443" ]
+    environment: [ "ARES_DOMAIN=${ARES_DOMAIN:-localhost}" ]
+    volumes: [ "./Caddyfile:/etc/caddy/Caddyfile:ro", "caddy_data:/data" ]
+volumes:
+  ares_data: {}
+  caddy_data: {}

@@ -1,0 +1,357 @@
+# Bảng tra cứu căn cứ pháp lý cho từng mã tình huống.
+# Dùng để điền trường "Hành vi vi phạm / Căn cứ / Mức phạt tham khảo" trên phiếu ghi nhận.
+#
+# CẢNH BÁO: bảng do AI tổng hợp ngày 04/11/2026 từ Nghị định 168/2024/NĐ-CP (đã sửa đổi, bổ sung bởi
+# Nghị định 238/2026/NĐ-CP, hiệu lực 15/8/2026), Luật Trật tự, an toàn giao thông đường bộ 2024 và các bài
+# phổ biến pháp luật. Dòng có "da_doi_chieu: false" là chưa khớp được điểm/khoản với văn bản gốc.
+# PHẢI đối chiếu văn bản gốc trước khi dùng cho bất kỳ mục đích chính thức nào.
+# Hệ thống AI không có thẩm quyền xử phạt — mọi bản ghi chỉ là dữ liệu chờ người có thẩm quyền xác minh
+# (NĐ 135/2021/NĐ-CP cho phép cá nhân, tổ chức cung cấp dữ liệu để cơ quan chức năng xác minh).
+
+phien_ban: "2026-11-04"
+van_ban: "NĐ 168/2024/NĐ-CP (sửa đổi bởi NĐ 238/2026/NĐ-CP); Luật TTATGTĐB 2024 (36/2024/QH15)"
+canh_bao: "Căn cứ và mức phạt chỉ để tham khảo — cần đối chiếu văn bản gốc; AI không có thẩm quyền xử phạt."
+
+rules:
+  RB-01:
+    ten: "Không đội mũ bảo hiểm"
+    ten_en: "No helmet - motorcycle"
+    nhom: vi_pham
+    hanh_vi:
+      - khi: {loai_xe: [motorcycle], bien_the: driver}
+        mo_ta: "Người điều khiển xe không đội mũ bảo hiểm cho người đi mô tô, xe máy hoặc đội không cài quai đúng quy cách"
+        can_cu: "Điểm h khoản 2 Điều 7 NĐ 168/2024/NĐ-CP"
+        muc_phat: "400.000 – 600.000 đồng"
+        da_doi_chieu: true
+      - khi: {loai_xe: [motorcycle], bien_the: passenger}
+        mo_ta: "Chở người ngồi trên xe không đội mũ bảo hiểm (trừ chở người bệnh đi cấp cứu, trẻ em dưới 06 tuổi, áp giải người có hành vi vi phạm pháp luật)"
+        can_cu: "Điểm i khoản 2 Điều 7 NĐ 168/2024/NĐ-CP (người được chở: điểm b khoản 5 Điều 12)"
+        muc_phat: "400.000 – 600.000 đồng"
+        da_doi_chieu: true
+
+  RB-02:
+    ten: "Sử dụng điện thoại khi điều khiển xe"
+    ten_en: "Phone use while riding"
+    nhom: nghi_van
+    hanh_vi:
+      - khi: {loai_xe: [motorcycle]}
+        mo_ta: "Người điều khiển xe dùng tay cầm và sử dụng điện thoại hoặc thiết bị điện tử khác"
+        can_cu: "Điểm đ khoản 4 Điều 7 NĐ 168/2024/NĐ-CP"
+        muc_phat: "800.000 – 1.000.000 đồng"
+        tru_diem: "Trừ 04 điểm GPLX (điểm b khoản 13 Điều 7)"
+        da_doi_chieu: true
+      - khi: {loai_xe: [car, bus, truck]}
+        mo_ta: "Người điều khiển xe dùng tay cầm và sử dụng điện thoại khi xe đang di chuyển"
+        can_cu: "Điểm h khoản 5 Điều 6 NĐ 168/2024/NĐ-CP"
+        muc_phat: "4.000.000 – 6.000.000 đồng"
+        tru_diem: "Trừ 04 điểm GPLX (điểm b khoản 16 Điều 6)"
+        da_doi_chieu: true
+      - khi: {loai_xe: [bicycle]}
+        mo_ta: "Người điều khiển xe đạp dùng tay cầm và sử dụng điện thoại"
+        can_cu: "Điểm h khoản 1 Điều 9 NĐ 168/2024/NĐ-CP"
+        muc_phat: "100.000 – 200.000 đồng"
+        da_doi_chieu: true
+
+  RB-03:
+    ten: "Đi ngược chiều"
+    ten_en: "Wrong-direction riding"
+    nhom: vi_pham
+    hanh_vi:
+      - khi: {loai_xe: [motorcycle]}
+        mo_ta: "Đi ngược chiều của đường một chiều, đi ngược chiều trên đường có biển “Cấm đi ngược chiều”"
+        can_cu: "Điểm a khoản 7 Điều 7 NĐ 168/2024/NĐ-CP"
+        muc_phat: "4.000.000 – 6.000.000 đồng"
+        tru_diem: "Trừ 02 điểm GPLX (điểm a khoản 13 Điều 7)"
+        da_doi_chieu: true
+      - khi: {loai_xe: [car, bus, truck]}
+        mo_ta: "Đi ngược chiều của đường một chiều, đi ngược chiều trên đường có biển “Cấm đi ngược chiều”"
+        can_cu: "Điểm d khoản 9 Điều 6 NĐ 168/2024/NĐ-CP"
+        muc_phat: "18.000.000 – 20.000.000 đồng"
+        tru_diem: "Trừ 04 điểm GPLX (điểm b khoản 16 Điều 6)"
+        da_doi_chieu: true
+      - khi: {loai_xe: [bicycle]}
+        mo_ta: "Người điều khiển xe đạp đi không đúng phần đường, chiều đường quy định"
+        can_cu: "Điều 9 NĐ 168/2024/NĐ-CP (cần đối chiếu điểm, khoản)"
+        muc_phat: "Theo Điều 9 (xe thô sơ)"
+        da_doi_chieu: false
+
+  RB-04:
+    ten: "Đi trên vỉa hè / sai làn / đè vạch liền"
+    ten_en: "Lane or pavement violation"
+    nhom: vi_pham
+    hanh_vi:
+      - khi: {loai_xe: [motorcycle], bien_the: via_he}
+        mo_ta: "Điều khiển xe đi trên vỉa hè (trừ trường hợp đi qua vỉa hè để vào nhà, cơ quan)"
+        can_cu: "Điểm a khoản 7 Điều 7 NĐ 168/2024/NĐ-CP"
+        muc_phat: "4.000.000 – 6.000.000 đồng"
+        tru_diem: "Trừ 02 điểm GPLX (điểm a khoản 13 Điều 7)"
+        da_doi_chieu: true
+      - khi: {loai_xe: [car, bus, truck], bien_the: via_he}
+        mo_ta: "Điều khiển xe đi trên vỉa hè (trừ trường hợp đi qua vỉa hè để vào nhà, cơ quan)"
+        can_cu: "Điểm d khoản 6 Điều 6 NĐ 168/2024/NĐ-CP"
+        muc_phat: "6.000.000 – 8.000.000 đồng"
+        tru_diem: "Trừ 04 điểm GPLX (điểm b khoản 16 Điều 6)"
+        da_doi_chieu: true
+      - khi: {loai_xe: [car, bus, truck], bien_the: sai_lan}
+        mo_ta: "Đi không đúng phần đường hoặc làn đường quy định"
+        can_cu: "Điểm b khoản 5 Điều 6 NĐ 168/2024/NĐ-CP"
+        muc_phat: "4.000.000 – 6.000.000 đồng"
+        da_doi_chieu: true
+      - khi: {loai_xe: [motorcycle], bien_the: sai_lan}
+        mo_ta: "Đi không đúng phần đường, làn đường quy định"
+        can_cu: "Khoản 3 Điều 7 NĐ 168/2024/NĐ-CP (cần đối chiếu điểm)"
+        muc_phat: "600.000 – 800.000 đồng"
+        da_doi_chieu: false
+      - khi: {loai_xe: [motorcycle], bien_the: de_vach}
+        mo_ta: "Không chấp hành chỉ dẫn của vạch kẻ đường (đè, cắt vạch liền)"
+        can_cu: "Điểm a khoản 1 Điều 7 NĐ 168/2024/NĐ-CP"
+        muc_phat: "200.000 – 400.000 đồng"
+        da_doi_chieu: true
+      - khi: {loai_xe: [car, bus, truck], bien_the: de_vach}
+        mo_ta: "Không chấp hành chỉ dẫn của vạch kẻ đường (đè, cắt vạch liền)"
+        can_cu: "Khoản 1 Điều 6 NĐ 168/2024/NĐ-CP (cần đối chiếu điểm)"
+        muc_phat: "400.000 – 600.000 đồng"
+        da_doi_chieu: false
+      - khi: {loai_xe: [bicycle]}
+        mo_ta: "Người điều khiển xe đạp đi không đúng phần đường quy định"
+        can_cu: "Điều 9 NĐ 168/2024/NĐ-CP (cần đối chiếu điểm, khoản)"
+        muc_phat: "Theo Điều 9 (xe thô sơ)"
+        da_doi_chieu: false
+
+  RB-05:
+    ten: "Không chấp hành hiệu lệnh đèn tín hiệu (vượt đèn đỏ)"
+    ten_en: "Signal violation"
+    nhom: vi_pham
+    hanh_vi:
+      - khi: {loai_xe: [motorcycle], bien_the: dung_qua_vach}
+        mo_ta: "Dừng xe vượt quá vạch dừng khi đèn đỏ (không chấp hành chỉ dẫn vạch kẻ đường)"
+        can_cu: "Điểm a khoản 1 Điều 7 NĐ 168/2024/NĐ-CP"
+        muc_phat: "200.000 – 400.000 đồng"
+        da_doi_chieu: true
+      - khi: {loai_xe: [motorcycle]}
+        mo_ta: "Không chấp hành hiệu lệnh của đèn tín hiệu giao thông"
+        can_cu: "Điểm c khoản 7 Điều 7 NĐ 168/2024/NĐ-CP"
+        muc_phat: "4.000.000 – 6.000.000 đồng"
+        tru_diem: "Trừ 04 điểm GPLX (điểm b khoản 13 Điều 7)"
+        da_doi_chieu: true
+      - khi: {loai_xe: [car, bus, truck]}
+        mo_ta: "Không chấp hành hiệu lệnh của đèn tín hiệu giao thông"
+        can_cu: "Điểm b khoản 9 Điều 6 NĐ 168/2024/NĐ-CP"
+        muc_phat: "18.000.000 – 20.000.000 đồng"
+        tru_diem: "Trừ 04 điểm GPLX (điểm b khoản 16 Điều 6)"
+        da_doi_chieu: true
+      - khi: {loai_xe: [bicycle]}
+        mo_ta: "Không chấp hành hiệu lệnh của đèn tín hiệu giao thông (xe đạp, xe thô sơ)"
+        can_cu: "Điểm đ khoản 2 Điều 9 NĐ 168/2024/NĐ-CP"
+        muc_phat: "150.000 – 250.000 đồng"
+        da_doi_chieu: true
+
+  RB-06:
+    ten: "Chở quá số người quy định"
+    ten_en: "Excess passengers"
+    nhom: vi_pham
+    hanh_vi:
+      - khi: {loai_xe: [motorcycle], bien_the: "3_nguoi"}
+        mo_ta: "Chở theo 02 người trên xe — trừ trường hợp chở người bệnh đi cấp cứu, áp giải người vi phạm, trẻ em dưới 12 tuổi, người già yếu hoặc người khuyết tật (khoản 1 Điều 33 Luật TTATGTĐB 2024)"
+        can_cu: "Điểm g khoản 2 Điều 7 NĐ 168/2024/NĐ-CP"
+        muc_phat: "400.000 – 600.000 đồng"
+        da_doi_chieu: true
+      - khi: {loai_xe: [motorcycle], bien_the: "4_nguoi_tro_len"}
+        mo_ta: "Chở theo từ 03 người trở lên trên xe"
+        can_cu: "Điểm b khoản 3 Điều 7 NĐ 168/2024/NĐ-CP"
+        muc_phat: "600.000 – 800.000 đồng"
+        tru_diem: "Trừ 02 điểm GPLX (điểm a khoản 13 Điều 7)"
+        da_doi_chieu: true
+
+  RB-07:
+    ten: "Xung đột với người đi bộ (không nhường đường)"
+    ten_en: "Pedestrian conflict"
+    nhom: nghi_van
+    hanh_vi:
+      - khi: {bien_the: pet}
+        mo_ta: "Xung đột nguy hiểm tại vạch qua đường (thời gian sau lấn chiếm PET thấp) — chỉ số an toàn"
+        can_cu: "Không phải hành vi xử phạt độc lập; dùng để đánh giá an toàn điểm qua đường"
+        muc_phat: "—"
+        da_doi_chieu: true
+      - khi: {loai_xe: [car, bus, truck]}
+        mo_ta: "Không giảm tốc độ và nhường đường cho người đi bộ tại nơi có vạch kẻ đường dành cho người đi bộ"
+        can_cu: "Điểm l khoản 5 Điều 6 NĐ 168/2024/NĐ-CP (cần đối chiếu)"
+        muc_phat: "4.000.000 – 6.000.000 đồng"
+        da_doi_chieu: false
+      - khi: {loai_xe: [motorcycle]}
+        mo_ta: "Không giảm tốc độ và nhường đường cho người đi bộ tại nơi có vạch kẻ đường dành cho người đi bộ"
+        can_cu: "Khoản 5 Điều 7 NĐ 168/2024/NĐ-CP (cần đối chiếu điểm)"
+        muc_phat: "1.000.000 – 2.000.000 đồng"
+        da_doi_chieu: false
+      - khi: {}
+        mo_ta: "Nguy cơ va chạm với người đi bộ"
+        can_cu: "Chỉ số an toàn — không phải căn cứ xử phạt"
+        muc_phat: "—"
+        da_doi_chieu: true
+
+  RB-08:
+    ten: "Dừng đột ngột / bám đuôi không an toàn"
+    ten_en: "Abrupt stop or following"
+    nhom: nguy_co
+    hanh_vi:
+      - khi: {}
+        mo_ta: "Chỉ số an toàn (phanh gấp, khoảng cách thời gian ngắn, TTC thấp). Chỉ bị xử phạt khi không giữ khoảng cách mà xảy ra va chạm hoặc nơi có biển “Cự ly tối thiểu giữa hai xe”"
+        can_cu: "Tham khảo: điểm l khoản 4 Điều 6 NĐ 168/2024/NĐ-CP (ô tô); TT 38/2024/TT-BGTVT về khoảng cách an toàn"
+        muc_phat: "—"
+        da_doi_chieu: true
+
+  RB-09:
+    ten: "Chở hàng cồng kềnh / vượt giới hạn"
+    ten_en: "Overloading"
+    nhom: nghi_van
+    hanh_vi:
+      - khi: {loai_xe: [motorcycle]}
+        mo_ta: "Mang vác vật cồng kềnh khi điều khiển xe; hàng xếp vượt giới hạn (tham khảo: mỗi bên ≤ 0,3 m so với giá đèo hàng, phía sau ≤ 0,5 m, cao ≤ 2 m tính từ mặt đường)"
+        can_cu: "Điểm e khoản 3 Điều 7 NĐ 168/2024/NĐ-CP"
+        muc_phat: "600.000 – 800.000 đồng"
+        da_doi_chieu: true
+
+  RB-10:
+    ten: "Chạy quá tốc độ quy định"
+    ten_en: "School-zone speeding"
+    nhom: vi_pham
+    hanh_vi:
+      - khi: {bien_the: moto_5_10}
+        mo_ta: "Điều khiển xe chạy quá tốc độ quy định từ 05 km/h đến dưới 10 km/h"
+        can_cu: "Điểm b khoản 2 Điều 7 NĐ 168/2024/NĐ-CP"
+        muc_phat: "400.000 – 600.000 đồng"
+        da_doi_chieu: true
+      - khi: {bien_the: moto_10_20}
+        mo_ta: "Điều khiển xe chạy quá tốc độ quy định từ 10 km/h đến 20 km/h"
+        can_cu: "Điểm a khoản 4 Điều 7 NĐ 168/2024/NĐ-CP"
+        muc_phat: "800.000 – 1.000.000 đồng"
+        da_doi_chieu: true
+      - khi: {bien_the: moto_20_plus}
+        mo_ta: "Điều khiển xe chạy quá tốc độ quy định trên 20 km/h"
+        can_cu: "Điểm a khoản 8 Điều 7 NĐ 168/2024/NĐ-CP"
+        muc_phat: "6.000.000 – 8.000.000 đồng"
+        tru_diem: "Trừ 04 điểm GPLX (điểm b khoản 13 Điều 7)"
+        da_doi_chieu: true
+      - khi: {bien_the: car_5_10}
+        mo_ta: "Điều khiển xe chạy quá tốc độ quy định từ 05 km/h đến dưới 10 km/h"
+        can_cu: "Điểm a khoản 3 Điều 6 NĐ 168/2024/NĐ-CP"
+        muc_phat: "800.000 – 1.000.000 đồng"
+        da_doi_chieu: true
+      - khi: {bien_the: car_10_20}
+        mo_ta: "Điều khiển xe chạy quá tốc độ quy định từ 10 km/h đến 20 km/h"
+        can_cu: "Điểm đ khoản 5 Điều 6 NĐ 168/2024/NĐ-CP"
+        muc_phat: "4.000.000 – 6.000.000 đồng"
+        da_doi_chieu: true
+      - khi: {bien_the: car_20_35}
+        mo_ta: "Điều khiển xe chạy quá tốc độ quy định trên 20 km/h đến 35 km/h"
+        can_cu: "Điểm a khoản 6 Điều 6 NĐ 168/2024/NĐ-CP"
+        muc_phat: "6.000.000 – 8.000.000 đồng"
+        tru_diem: "Trừ 04 điểm GPLX (điểm b khoản 16 Điều 6)"
+        da_doi_chieu: true
+      - khi: {bien_the: car_35_plus}
+        mo_ta: "Điều khiển xe chạy quá tốc độ quy định trên 35 km/h"
+        can_cu: "Điểm a khoản 7 Điều 6 NĐ 168/2024/NĐ-CP"
+        muc_phat: "12.000.000 – 14.000.000 đồng"
+        tru_diem: "Trừ 06 điểm GPLX (điểm c khoản 16 Điều 6)"
+        da_doi_chieu: true
+
+  RB-11:
+    ten: "Dừng, đỗ xe sai quy định (cổng trường, vạch qua đường, nơi cấm)"
+    ten_en: "Illegal stopping / parking"
+    nhom: vi_pham
+    hanh_vi:
+      - khi: {loai_xe: [car, bus, truck], bien_the: crosswalk}
+        mo_ta: "Dừng xe, đỗ xe trên phần đường dành cho người đi bộ qua đường"
+        can_cu: "Điểm đ khoản 2 Điều 6 NĐ 168/2024/NĐ-CP"
+        muc_phat: "600.000 – 800.000 đồng"
+        da_doi_chieu: true
+      - khi: {loai_xe: [car, bus, truck], bien_the: no_stopping}
+        mo_ta: "Dừng xe nơi có biển “Cấm dừng xe và đỗ xe”"
+        can_cu: "Điểm đ khoản 2 Điều 6 NĐ 168/2024/NĐ-CP"
+        muc_phat: "600.000 – 800.000 đồng"
+        da_doi_chieu: true
+      - khi: {loai_xe: [car, bus, truck], bien_the: no_parking}
+        mo_ta: "Đỗ xe nơi có biển “Cấm đỗ xe”"
+        can_cu: "Điểm e khoản 3 Điều 6 NĐ 168/2024/NĐ-CP"
+        muc_phat: "800.000 – 1.000.000 đồng"
+        da_doi_chieu: true
+      - khi: {loai_xe: [car, bus, truck], bien_the: sidewalk}
+        mo_ta: "Đỗ, để xe ở vỉa hè trái quy định của pháp luật"
+        can_cu: "Điểm e khoản 3 Điều 6 NĐ 168/2024/NĐ-CP"
+        muc_phat: "800.000 – 1.000.000 đồng"
+        da_doi_chieu: true
+      - khi: {loai_xe: [motorcycle]}
+        mo_ta: "Dừng xe, đỗ xe sai quy định (lòng đường gây cản trở, vỉa hè trái phép, nơi cấm dừng/đỗ)"
+        can_cu: "Điểm d khoản 2 Điều 7 NĐ 168/2024/NĐ-CP (cần đối chiếu theo từng vị trí)"
+        muc_phat: "400.000 – 600.000 đồng"
+        da_doi_chieu: false
+
+  RB-12:
+    ten: "Đi dàn hàng ngang từ 03 xe trở lên"
+    ten_en: "Riding abreast (3+)"
+    nhom: vi_pham
+    hanh_vi:
+      - khi: {loai_xe: [motorcycle]}
+        mo_ta: "Điều khiển xe chạy dàn hàng ngang từ 03 xe trở lên"
+        can_cu: "Khoản 3 Điều 7 NĐ 168/2024/NĐ-CP (cần đối chiếu điểm)"
+        muc_phat: "600.000 – 800.000 đồng"
+        da_doi_chieu: false
+      - khi: {loai_xe: [bicycle]}
+        mo_ta: "Người điều khiển xe đạp đi dàn hàng ngang từ 03 xe trở lên"
+        can_cu: "Điều 9 NĐ 168/2024/NĐ-CP (cần đối chiếu điểm, khoản)"
+        muc_phat: "Theo Điều 9 (xe thô sơ)"
+        da_doi_chieu: false
+
+  HZ-01:
+    ten: "Chuyển hướng không bật tín hiệu"
+    ten_en: "Other user turns without signalling"
+    nhom: nghi_van
+    hanh_vi:
+      - khi: {loai_xe: [car, bus, truck]}
+        mo_ta: "Chuyển hướng không có tín hiệu báo hướng rẽ"
+        can_cu: "Điểm c khoản 3 Điều 6 NĐ 168/2024/NĐ-CP"
+        muc_phat: "800.000 – 1.000.000 đồng"
+        da_doi_chieu: true
+      - khi: {loai_xe: [motorcycle]}
+        mo_ta: "Chuyển hướng không bật tín hiệu báo rẽ"
+        can_cu: "Khoản 3 Điều 7 NĐ 168/2024/NĐ-CP (cần đối chiếu điểm)"
+        muc_phat: "600.000 – 800.000 đồng"
+        da_doi_chieu: false
+      - khi: {}
+        mo_ta: "Phương tiện chuyển hướng không thấy tín hiệu báo rẽ"
+        can_cu: "Cần xác minh loại phương tiện"
+        muc_phat: "—"
+        da_doi_chieu: false
+
+  HZ-02:
+    ten: "Khuất tầm nhìn"
+    ten_en: "Blocked sightline"
+    nhom: nguy_co
+    hanh_vi:
+      - khi: {}
+        mo_ta: "Phương tiện lớn/đỗ che khuất tầm nhìn tại khu vực trường học, giao lộ hoặc lối ra hẻm"
+        can_cu: "Chỉ số an toàn — dùng để kiến nghị tổ chức giao thông, cấm đỗ"
+        muc_phat: "—"
+        da_doi_chieu: true
+
+  HZ-03:
+    ten: "Xuất hiện bất ngờ"
+    ten_en: "Sudden emergence"
+    nhom: nguy_co
+    hanh_vi:
+      - khi: {}
+        mo_ta: "Người/xe lao ra bất ngờ từ sau vật che khuất ngay trước đầu xe"
+        can_cu: "Chỉ số an toàn"
+        muc_phat: "—"
+        da_doi_chieu: true
+
+  HZ-04:
+    ten: "Đi bộ băng qua đường ngoài vạch"
+    ten_en: "Mid-block pedestrian crossing"
+    nhom: nguy_co
+    hanh_vi:
+      - khi: {}
+        mo_ta: "Người đi bộ băng qua lòng đường ngoài khu vực vạch kẻ đường — dùng để đề xuất vị trí qua đường an toàn cho học sinh, KHÔNG nhằm xử phạt trẻ em"
+        can_cu: "Chỉ số an toàn / dữ liệu quy hoạch"
+        muc_phat: "—"
+        da_doi_chieu: true

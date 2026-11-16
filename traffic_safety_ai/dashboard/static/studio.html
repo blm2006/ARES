@@ -1,0 +1,790 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Studio — Giám sát ATGT trường học</title>
+<link rel="icon" href="data:,">
+<style>
+  :root { --navy:#1f2a44; --red:#e53935; --amber:#f59e0b; --blue:#1e88e5; --green:#2e7d32; --bg:#f4f6fa;
+          --line:#d9dfeb; --ink:#1c2333; --mute:#667085; }
+  * { box-sizing:border-box; }
+  html, body { height:100%; }
+  body { margin:0; font:14px/1.45 "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; color:var(--ink);
+         background:var(--bg); display:flex; flex-direction:column; overflow:hidden; }
+  header { background:var(--navy); color:#fff; padding:8px 16px; display:flex; align-items:center; gap:14px; flex:none; }
+  header h1 { font-size:16px; margin:0; font-weight:600; }
+  header .sp { flex:1; }
+  header a { color:#cfd6e6; text-decoration:none; padding:6px 10px; border-radius:6px; }
+  header a:hover { background:rgba(255,255,255,.14); color:#fff; }
+  #cur-name { color:#cfd6e6; font-size:13px; }
+  .wrap { flex:1; display:grid; grid-template-columns:250px minmax(0,1fr) 320px; min-height:0; }
+  aside { background:#fff; border-right:1px solid var(--line); overflow:auto; padding:12px; min-height:0; }
+  aside.right { border-right:0; border-left:1px solid var(--line); }
+  h2 { font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--mute); margin:14px 0 6px; }
+  h2:first-child { margin-top:0; }
+  button, select, input { font:inherit; }
+  button { border:1px solid var(--line); background:#fff; border-radius:6px; padding:6px 10px; cursor:pointer; color:var(--ink); }
+  button:hover { border-color:#9aa6bd; }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  button.primary { background:var(--navy); color:#fff; border-color:var(--navy); }
+  button.go { background:var(--red); color:#fff; border-color:var(--red); font-weight:600; }
+  button.mini { padding:1px 7px; font-size:12px; }
+  input[type=text], input[type=number], select { border:1px solid var(--line); border-radius:6px; padding:5px 8px; width:100%; background:#fff; }
+  label.f { display:block; font-size:12px; color:var(--mute); margin:8px 0 3px; }
+
+  #drop { border:2px dashed #9aa6bd; border-radius:10px; padding:16px 10px; text-align:center; color:var(--mute); cursor:pointer; }
+  #drop b { color:var(--ink); display:block; font-size:15px; margin-bottom:2px; }
+  #drop:hover { border-color:var(--navy); }
+  #overlay { position:fixed; inset:0; background:rgba(31,42,68,.86); color:#fff; display:none; align-items:center;
+             justify-content:center; font-size:26px; font-weight:600; z-index:50; border:6px dashed #fff; pointer-events:none; }
+  #overlay.on { display:flex; }
+  .vid { border:1px solid var(--line); border-radius:8px; padding:7px 9px; margin-top:6px; cursor:pointer; position:relative; }
+  .vid:hover { border-color:#9aa6bd; }
+  .vid.on { border-color:var(--navy); box-shadow:inset 3px 0 0 var(--navy); background:#f7f9fd; }
+  .vid .n { font-weight:600; word-break:break-all; padding-right:18px; }
+  .vid .m { font-size:12px; color:var(--mute); }
+  .vid .x { position:absolute; right:6px; top:5px; border:0; background:none; color:var(--mute); padding:0 4px; }
+  .vid .bar { height:4px; background:#e6eaf2; border-radius:2px; margin-top:5px; overflow:hidden; }
+  .vid .bar i { display:block; height:100%; background:var(--blue); width:0; }
+  .pill { display:inline-block; font-size:11px; border-radius:9px; padding:0 7px; background:#eef1f7; color:var(--mute); }
+  .pill.ok { background:#e3f3e5; color:var(--green); }
+
+  .stage { display:flex; flex-direction:column; min-width:0; min-height:0; }
+  .bar1 { background:#fff; border-bottom:1px solid var(--line); padding:7px 12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; flex:none; }
+  .bar1 .sp { flex:1; }
+  .bar1 input[type=range] { width:170px; }
+  #hint { background:#fff8e1; border-bottom:1px solid #f1dfa3; padding:5px 12px; font-size:13px; flex:none; height:48px; overflow:hidden;
+          display:flex; align-items:center; }
+  #hint > div { max-height:38px; overflow:hidden; }
+  #hint.draw { background:#e8f1fd; border-color:#bcd4f5; }
+  #hint b { color:var(--navy); }
+  #view { flex:1; position:relative; background:#11151f; min-height:0; overflow:hidden; }
+  #cv { position:absolute; inset:0; width:100%; height:100%; display:block; cursor:crosshair; }
+  #live { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; background:#11151f; display:none; }
+  #wait { position:absolute; inset:0; display:none; align-items:center; justify-content:center; color:#dfe5f2; font-size:17px; background:rgba(17,21,31,.78); }
+  #empty { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#aab4c8; text-align:center; font-size:17px; padding:30px; }
+  #runbar { background:#fff; border-top:1px solid var(--line); padding:8px 12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; flex:none; }
+  #runbar label { font-size:13px; white-space:nowrap; }
+  #prog { flex:1 1 260px; min-width:200px; }
+  #prog .t { font-size:12px; color:var(--mute); }
+  #prog .b { height:8px; background:#e6eaf2; border-radius:4px; overflow:hidden; }
+  #prog .b i { display:block; height:100%; width:0; background:var(--green); transition:width .4s; }
+
+  .tools { display:grid; grid-template-columns:1fr 1fr; gap:5px; }
+  .tool { text-align:left; padding:6px 8px; font-size:13px; display:flex; gap:6px; align-items:center; }
+  .tool i { width:11px; height:11px; border-radius:3px; flex:none; }
+  .tool.on { border-color:var(--navy); background:#eef2fb; font-weight:600; }
+  .tool kbd { margin-left:auto; font:11px ui-monospace, monospace; color:var(--mute); }
+  .shape { display:flex; gap:6px; align-items:center; padding:4px 6px; border-radius:6px; cursor:pointer; font-size:13px; }
+  .shape:hover { background:#f1f4fa; }
+  .shape.on { background:#e3eafa; }
+  .shape i { width:10px; height:10px; border-radius:3px; flex:none; }
+  .shape span { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .none { color:var(--mute); font-size:13px; }
+  #props { border:1px solid var(--line); border-radius:8px; padding:8px 10px 10px; margin-top:8px; }
+  .chk { display:flex; flex-wrap:wrap; gap:4px 10px; font-size:13px; }
+  .rule { display:flex; gap:7px; font-size:12.5px; padding:3px 0; border-bottom:1px dashed #edf0f6; }
+  .rule b { flex:none; width:44px; }
+  .rule .dot { flex:none; width:9px; height:9px; border-radius:50%; margin-top:5px; background:#c5ccda; }
+  .rule.ok .dot { background:var(--green); }
+  .rule small { color:var(--mute); display:block; }
+  .warn { color:#b45309; font-size:12px; margin-top:4px; }
+  #toast { position:fixed; left:50%; bottom:70px; transform:translateX(-50%); background:var(--navy); color:#fff; padding:9px 16px;
+           border-radius:8px; display:none; z-index:60; max-width:70vw; box-shadow:0 4px 18px rgba(0,0,0,.25); }
+  #toast.err { background:#b3261e; }
+  details summary { cursor:pointer; color:var(--mute); font-size:13px; margin-top:8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Studio — thả video, tự vẽ, bấm chạy</h1>
+  <span id="cur-name"></span>
+  <span class="sp"></span>
+  <a href="/vi-pham">Xử lý vi phạm →</a>
+  <a href="/">Tổng quan &amp; báo cáo</a>
+</header>
+
+<div class="wrap">
+  <aside>
+    <h2>1 · Video</h2>
+    <div id="drop"><b>Kéo-thả video vào đây</b>hoặc bấm để chọn tệp<br><small>mp4 · mkv · avi · mov · webm</small></div>
+    <input type="file" id="file" accept="video/*,.mkv,.avi,.ts" multiple hidden>
+    <div id="vids"></div>
+    <details>
+      <summary>Video rất lớn? Thêm theo đường dẫn (không chép)</summary>
+      <input type="text" id="link-path" placeholder="C:\video\cong_truong.mp4" style="margin-top:6px">
+      <button id="link-btn" style="margin-top:6px; width:100%">Thêm đường dẫn</button>
+    </details>
+  </aside>
+
+  <div class="stage">
+    <div class="bar1">
+      <button id="undo" title="Ctrl+Z">↶ Hoàn tác</button>
+      <button id="fit">Vừa khung</button>
+      <label style="font-size:13px; color:var(--mute)">Khung hình nền
+        <input type="range" id="pos" min="0" max="100" value="0" style="vertical-align:middle"></label>
+      <span class="sp"></span>
+      <span id="dirty" class="pill">chưa có thay đổi</span>
+      <button id="save" class="primary" title="Ctrl+S">Lưu hình vẽ</button>
+    </div>
+    <div id="hint"><div>Chọn một video ở cột trái để bắt đầu.</div></div>
+    <div id="view">
+      <canvas id="cv"></canvas>
+      <div id="wait">Đang nạp model AI... (lần đầu có thể mất 10–30 giây)</div>
+      <img id="live" alt="Khung hình đang phân tích">
+      <div id="empty">Kéo-thả tệp video vào cửa sổ này<br>rồi vẽ vỉa hè, vạch dừng, ô đèn... ngay trên hình.</div>
+    </div>
+    <div id="runbar">
+      <button id="run" class="go" disabled>▶ Lưu &amp; chạy phân tích</button>
+      <button id="stop" style="display:none">■ Dừng</button>
+      <label><input type="checkbox" id="o-lpr" checked> Đọc biển số</label>
+      <label><input type="checkbox" id="o-vid" checked> Lưu video chú thích</label>
+      <label title="Bỏ chọn: video gọn, chỉ xe vi phạm mới có chữ"><input type="checkbox" id="o-full"> Ghi tên mọi xe lên video</label>
+      <label>Tốc độ <select id="o-stride" style="width:auto">
+        <option value="1">đủ mọi khung (chính xác nhất)</option>
+        <option value="2">bỏ cách 1 khung (nhanh ×2)</option>
+        <option value="3">lấy 1/3 khung (nhanh ×3)</option></select></label>
+      <div id="prog"><div class="t" id="prog-t">Chưa chạy.</div><div class="b"><i id="prog-b"></i></div></div>
+      <span id="result"></span>
+    </div>
+  </div>
+
+  <aside class="right">
+    <h2>2 · Chọn thứ cần vẽ</h2>
+    <div class="tools" id="tools"></div>
+    <h2>Đã vẽ</h2>
+    <div id="shapes"><div class="none">Chưa có hình nào.</div></div>
+    <div id="props" style="display:none"></div>
+    <h2>Thông tin camera</h2>
+    <label class="f">Tên camera / video</label><input type="text" id="cam-name">
+    <label class="f">Địa điểm</label><input type="text" id="cam-loc">
+    <label class="f">Tốc độ tối đa theo biển (km/h)</label><input type="number" id="cam-limit" min="5" max="120" step="5">
+    <h2>3 · Tình huống AI sẽ kiểm tra</h2>
+    <div id="rules"><div class="none">Chọn video để xem.</div></div>
+  </aside>
+</div>
+<div id="overlay">Thả video vào đây</div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const HDR = {"X-TSA": "1", "Content-Type": "application/json"};
+async function api(url, opt) {
+  const r = await fetch(url, opt);
+  let data = null;
+  try { data = await r.json(); } catch (e) { /* không phải JSON */ }
+  if (!r.ok) throw new Error((data && data.detail) ? (typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail)) : ("Lỗi " + r.status));
+  return data;
+}
+let toastT = 0;
+function toast(msg, err) {
+  const t = $("#toast"); t.textContent = msg; t.className = err ? "err" : ""; t.style.display = "block";
+  clearTimeout(toastT); toastT = setTimeout(() => t.style.display = "none", err ? 6500 : 2600);
+}
+
+// ====================================================================== công cụ vẽ
+// kind: poly = đa giác kín (≥3 điểm) · path = đường gấp khúc (≥2) · line = đúng 2 điểm · arrow = mũi tên 2 điểm · rect = 2 góc · quad = 4 điểm
+const CLASSES = [["motorcycle", "Xe máy"], ["bicycle", "Xe đạp"], ["car", "Ô tô"], ["bus", "Xe buýt"], ["truck", "Xe tải"]];
+const TOOLS = {
+  sidewalks:     { label: "Vỉa hè", key: "1", color: "#f59e0b", at: "zones", pre: "via-he", why: "Xe chạy/đỗ trên vỉa hè",
+                   steps: [{ k: "polygon", kind: "poly", t: "bấm lần lượt các góc của vỉa hè" }] },
+  crosswalks:    { label: "Vạch qua đường", key: "2", color: "#22c55e", at: "zones", pre: "vach-qua-duong", why: "Không nhường người đi bộ",
+                   steps: [{ k: "polygon", kind: "poly", t: "bấm 4 góc phần vạch kẻ cho người đi bộ" }] },
+  lanes:         { label: "Làn + hướng đi", key: "3", color: "#3b82f6", at: "zones", pre: "lan", why: "Đi ngược chiều",
+                   steps: [{ k: "polygon", kind: "poly", t: "bấm các góc của làn xe" },
+                           { k: "direction", kind: "arrow", t: "bấm 2 điểm: ĐUÔI rồi ĐẦU mũi tên theo hướng xe ĐƯỢC PHÉP chạy" }] },
+  no_parking:    { label: "Cấm dừng / đỗ", key: "4", color: "#ef4444", at: "zones", pre: "cam-do", why: "Dừng đỗ sai quy định",
+                   steps: [{ k: "polygon", kind: "poly", t: "bấm các góc của khu vực cấm dừng/đỗ (vd trước cổng trường)" }] },
+  roadway:       { label: "Lòng đường", key: "5", color: "#a78bfa", at: "zones", pre: "long-duong", why: "Trẻ/người đi bộ dưới lòng đường",
+                   steps: [{ k: "polygon", kind: "poly", t: "bấm các góc của phần lòng đường xe chạy" }] },
+  restricted:    { label: "Làn hạn chế", key: "6", color: "#ec4899", at: "zones", pre: "lan-han-che", why: "Xe đi sai làn quy định",
+                   steps: [{ k: "polygon", kind: "poly", t: "bấm các góc của làn chỉ dành cho một số loại xe" }] },
+  sightline:     { label: "Vùng tầm nhìn", key: "7", color: "#14b8a6", at: "zones", pre: "tam-nhin", why: "Xe che khuất tầm nhìn",
+                   steps: [{ k: "polygon", kind: "poly", t: "bấm các góc của vùng cần giữ thoáng tầm nhìn" }] },
+  privacy_mask:  { label: "Che riêng tư", key: "8", color: "#64748b", at: "zones", pre: "che", why: "Luôn bôi mờ vùng này (cửa sổ nhà dân...)",
+                   steps: [{ k: "polygon", kind: "poly", t: "bấm các góc của vùng luôn cần che" }] },
+  stop_lines:    { label: "Vạch dừng đèn đỏ", key: "S", color: "#f43f5e", at: "lines", pre: "vach-dung", why: "Vượt đèn đỏ (cần thêm Ô đèn)",
+                   steps: [{ k: "points", kind: "line", t: "bấm 2 đầu của VẠCH DỪNG" },
+                           { k: "direction", kind: "arrow", t: "bấm 2 điểm mũi tên theo hướng xe chạy QUA vạch" },
+                           { k: "confirm_points", kind: "line", opt: true, t: "bấm 2 đầu VẠCH XÁC NHẬN phía bên kia giao lộ (Enter = bỏ qua)" }] },
+  traffic_lights:{ label: "Ô đèn tín hiệu", key: "L", color: "#eab308", at: "root", pre: "den", why: "Đọc màu đèn cho vạch dừng",
+                   steps: [{ k: "roi", kind: "rect", t: "bấm 2 góc đối diện, khoanh sát cụm đèn (lăn chuột để phóng to)" }] },
+  solid_lines:   { label: "Vạch liền", key: "N", color: "#f8fafc", at: "lines", pre: "vach-lien", why: "Đè / lấn vạch liền",
+                   steps: [{ k: "points", kind: "path", t: "bấm dọc theo vạch liền" }] },
+  counting:      { label: "Vạch đếm xe", key: "C", color: "#06b6d4", at: "lines", pre: "vach-dem", why: "Đếm lưu lượng theo chiều",
+                   steps: [{ k: "points", kind: "line", t: "bấm 2 đầu vạch đếm cắt ngang đường" },
+                           { k: "direction", kind: "arrow", t: "bấm 2 điểm mũi tên CHIỀU THUẬN" }] },
+  speed_traps:   { label: "Cặp vạch đo tốc độ", key: "V", color: "#fb923c", at: "lines", pre: "do-toc-do", why: "Chạy quá tốc độ (đo theo quãng đường thật)",
+                   steps: [{ k: "line_a", kind: "line", t: "bấm 2 đầu VẠCH A (xe gặp trước)" },
+                           { k: "line_b", kind: "line", t: "bấm 2 đầu VẠCH B (xe gặp sau)" },
+                           { k: "direction", kind: "arrow", t: "bấm 2 điểm mũi tên từ A sang B" }] },
+  calibration:   { label: "Hiệu chuẩn mét", key: "H", color: "#d946ef", at: "root", pre: "hieu-chuan", why: "Đổi pixel → mét (tốc độ, khoảng cách)",
+                   steps: [{ k: "image_points", kind: "quad", t: "bấm 4 góc một HÌNH CHỮ NHẬT trên mặt đường đã biết kích thước, theo thứ tự: gần-trái → gần-phải → xa-phải → xa-trái" }] },
+};
+const KIND_VI = { no_stopping: "Cấm dừng và đỗ", no_parking: "Cấm đỗ", crosswalk: "Trên vạch qua đường", sidewalk: "Trên vỉa hè" };
+
+// ====================================================================== trạng thái
+const S = { videos: [], cur: null, scene: null, meta: null, dirty: false, sel: null, draw: null, undo: [],
+            view: { s: 1, ox: 0, oy: 0 }, mouse: null, drag: null, pan: null, job: null, showLive: false };
+const img = new Image();
+const cv = $("#cv"), ctx = cv.getContext("2d");
+
+function listOf(tool) {
+  const T = TOOLS[tool], sc = S.scene;
+  if (!sc) return [];
+  if (tool === "calibration") return (sc.calibration.image_points || []).length >= 4 ? [sc.calibration] : [];
+  if (tool === "traffic_lights") return sc.traffic_lights;
+  return sc[T.at][tool];
+}
+function items() {
+  const out = [];
+  for (const tool in TOOLS) listOf(tool).forEach((it, idx) => out.push({ tool, it, idx }));
+  return out;
+}
+function parts(tool, it) {
+  if (tool === "traffic_lights") return [{ k: "roi", kind: "rect", pts: [[it.roi[0], it.roi[1]], [it.roi[2], it.roi[3]]] }];
+  return TOOLS[tool].steps.filter(s => it[s.k] && it[s.k].length).map(s => ({ k: s.k, kind: s.kind, pts: it[s.k] }));
+}
+function setPt(tool, it, k, i, p) {
+  if (tool === "traffic_lights") { it.roi[i * 2] = p[0]; it.roi[i * 2 + 1] = p[1]; } else it[k][i] = p;
+}
+function label(tool, it) {
+  if (tool === "calibration") return "Hiệu chuẩn mét";
+  return it.name || it.id;
+}
+function newId(tool) {
+  const used = new Set(items().map(x => x.it.id)), pre = TOOLS[tool].pre;
+  for (let i = 1; ; i++) if (!used.has(pre + "-" + i)) return pre + "-" + i;
+}
+function calSize() {
+  const w = (S.scene.calibration.world_points || []);
+  return w.length >= 4 ? [w[1][0], w[2][1]] : [3.5, 10];
+}
+function snapshot() {
+  const sc = S.scene;
+  return JSON.stringify({ zones: sc.zones, lines: sc.lines, traffic_lights: sc.traffic_lights, calibration: sc.calibration });
+}
+function pushUndo() { S.undo.push(snapshot()); if (S.undo.length > 60) S.undo.shift(); }
+function changed() { S.dirty = true; paintDirty(); renderShapes(); draw(); scheduleCheck(); }
+function paintDirty() {
+  const d = $("#dirty");
+  d.textContent = !S.scene ? "—" : S.dirty ? "có thay đổi chưa lưu" : "đã lưu";
+  d.className = "pill" + (S.scene && !S.dirty ? " ok" : "");
+}
+
+// ====================================================================== video
+async function loadVideos(pick) {
+  const d = await api("/api/studio/videos");
+  S.videos = d.videos;
+  renderVideos();
+  if (pick) openVideo(pick);
+}
+function renderVideos() {
+  $("#vids").innerHTML = S.videos.map(v => `
+    <div class="vid ${v.name === S.cur ? "on" : ""}" data-n="${esc(v.name)}">
+      <div class="n">${esc(v.name)}</div>
+      <div class="m">${v.size_mb} MB · ${esc(v.kind)} · <span class="pill ${v.has_scene ? "ok" : ""}">${v.has_scene ? "đã vẽ" : "chưa vẽ"}</span></div>
+      ${v.kind === "mẫu" ? "" : `<button class="x" title="Gỡ khỏi danh sách">✕</button>`}
+    </div>`).join("") || `<div class="none" style="margin-top:8px">Chưa có video nào.</div>`;
+}
+$("#vids").addEventListener("click", async (e) => {
+  const row = e.target.closest(".vid"); if (!row) return;
+  const name = row.dataset.n;
+  if (e.target.closest(".x")) {
+    if (!confirm(`Gỡ "${name}" khỏi Studio?\n(Tệp đã thả vào sẽ bị xoá khỏi thư mục Studio; hình vẽ đã lưu vẫn giữ.)`)) return;
+    try { await api("/api/studio/videos/" + encodeURIComponent(name), { method: "DELETE", headers: HDR });
+          if (S.cur === name) closeVideo(); await loadVideos(); } catch (err) { toast(err.message, true); }
+    return;
+  }
+  openVideo(name);
+});
+function closeVideo() {
+  S.cur = null; S.scene = null; S.sel = null; S.draw = null; S.undo = [];
+  $("#empty").style.display = "flex"; $("#cur-name").textContent = ""; $("#run").disabled = true;
+  renderShapes(); renderRules([]); paintDirty(); draw(); setHint();
+}
+async function openVideo(name) {
+  if (S.cur === name) return;
+  if (S.dirty && !confirm("Hình vẽ của video hiện tại chưa lưu. Bỏ thay đổi và chuyển video?")) return;
+  try {
+    const d = await api("/api/studio/scene?video=" + encodeURIComponent(name));
+    S.cur = name; S.scene = d.scene; S.meta = d.video; S.dirty = false; S.sel = null; S.draw = null; S.undo = [];
+    $("#cam-name").value = d.scene.camera.name; $("#cam-loc").value = d.scene.camera.location;
+    $("#cam-limit").value = d.scene.speed.limit_kmh;
+    $("#cur-name").textContent = `${name} · ${d.video.width}×${d.video.height} · ${d.video.fps} khung/s` +
+      (d.video.duration_s ? ` · ${Math.round(d.video.duration_s)} giây` : "");
+    $("#empty").style.display = "none"; $("#pos").value = 0; $("#run").disabled = false;
+    renderVideos(); renderShapes(); renderRules(d.rules); paintDirty(); setHint();
+    loadFrame(0, true);
+  } catch (err) { toast(err.message, true); }
+}
+function loadFrame(pos, fitAfter) {
+  if (!S.cur) return;
+  img.onload = () => { if (fitAfter) fit(); draw(); };
+  img.onerror = () => toast("Không đọc được khung hình của video này", true);
+  img.src = `/api/studio/frame?video=${encodeURIComponent(S.cur)}&pos=${pos}&_=${Date.now()}`;
+}
+let posT = 0;
+$("#pos").addEventListener("input", (e) => { clearTimeout(posT); posT = setTimeout(() => loadFrame(e.target.value / 100, false), 180); });
+
+// ---------------------------------------------------------------------- tải lên
+const queue = [];
+let uploading = false;
+function addFiles(files) {
+  for (const f of files) {
+    if (!/\.(mp4|mkv|avi|mov|m4v|webm|ts|mpg|mpeg|wmv|flv)$/i.test(f.name)) { toast(`"${f.name}" không phải tệp video`, true); continue; }
+    queue.push(f);
+  }
+  pump();
+}
+function pump() {
+  if (uploading || !queue.length) return;
+  uploading = true;
+  const f = queue.shift();
+  const row = document.createElement("div");
+  row.className = "vid";
+  row.innerHTML = `<div class="n">${esc(f.name)}</div><div class="m">đang chép vào Studio... <span>0%</span></div><div class="bar"><i></i></div>`;
+  $("#vids").prepend(row);
+  const x = new XMLHttpRequest();
+  x.open("PUT", "/api/studio/upload?name=" + encodeURIComponent(f.name));
+  x.setRequestHeader("X-TSA", "1");
+  x.setRequestHeader("Content-Type", "application/octet-stream");
+  x.upload.onprogress = (e) => { if (e.lengthComputable) { const p = Math.round(100 * e.loaded / e.total);
+    row.querySelector("i").style.width = p + "%"; row.querySelector("span").textContent = p + "%"; } };
+  x.onloadend = async () => {
+    uploading = false;
+    let name = null;
+    if (x.status >= 200 && x.status < 300) { try { name = JSON.parse(x.responseText).name; } catch (e) { /* bỏ qua */ } toast(`Đã thêm "${f.name}"`); }
+    else { let m = "Lỗi " + x.status; try { m = JSON.parse(x.responseText).detail || m; } catch (e) { /* bỏ qua */ } toast(m, true); }
+    await loadVideos(queue.length ? null : name);
+    pump();
+  };
+  x.send(f);
+}
+$("#drop").addEventListener("click", () => $("#file").click());
+$("#file").addEventListener("change", (e) => { addFiles(e.target.files); e.target.value = ""; });
+let dragDepth = 0;
+window.addEventListener("dragenter", (e) => { e.preventDefault(); dragDepth++; $("#overlay").classList.add("on"); });
+window.addEventListener("dragleave", (e) => { e.preventDefault(); if (--dragDepth <= 0) { dragDepth = 0; $("#overlay").classList.remove("on"); } });
+window.addEventListener("dragover", (e) => e.preventDefault());
+window.addEventListener("drop", (e) => { e.preventDefault(); dragDepth = 0; $("#overlay").classList.remove("on");
+  if (e.dataTransfer && e.dataTransfer.files.length) addFiles(e.dataTransfer.files); });
+$("#link-btn").addEventListener("click", async () => {
+  try { const d = await api("/api/studio/link", { method: "POST", headers: HDR, body: JSON.stringify({ path: $("#link-path").value }) });
+        $("#link-path").value = ""; await loadVideos(d.name); } catch (err) { toast(err.message, true); }
+});
+
+// ====================================================================== khung nhìn
+function resize() {
+  const r = $("#view").getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  cv.width = Math.max(1, Math.round(r.width * dpr)); cv.height = Math.max(1, Math.round(r.height * dpr));
+  draw();
+}
+function fit() {
+  if (!S.meta) return;
+  const r = $("#view").getBoundingClientRect();
+  const s = Math.min(r.width / S.meta.width, r.height / S.meta.height) * 0.98;
+  S.view = { s, ox: (r.width - S.meta.width * s) / 2, oy: (r.height - S.meta.height * s) / 2 };
+  draw();
+}
+const toImg = (x, y) => [(x - S.view.ox) / S.view.s, (y - S.view.oy) / S.view.s];
+const clampPt = (p) => [Math.round(Math.min(Math.max(p[0], 0), S.meta.width) * 10) / 10, Math.round(Math.min(Math.max(p[1], 0), S.meta.height) * 10) / 10];
+function evPt(e) { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+
+function hexA(hex, a) { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; }
+function arrow(a, b, col, w) {
+  const ang = Math.atan2(b[1] - a[1], b[0] - a[0]), L = 13 / S.view.s;
+  ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = w;
+  ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(b[0], b[1]);
+  ctx.lineTo(b[0] - L * Math.cos(ang - 0.45), b[1] - L * Math.sin(ang - 0.45));
+  ctx.lineTo(b[0] - L * Math.cos(ang + 0.45), b[1] - L * Math.sin(ang + 0.45)); ctx.closePath(); ctx.fill();
+}
+function drawPart(p, col, sel, open) {
+  const px = 1 / S.view.s, pts = p.pts;
+  if (!pts.length) return;
+  ctx.lineJoin = "round"; ctx.setLineDash([]);
+  if (p.kind === "arrow") { if (pts.length === 2) arrow(pts[0], pts[1], "#ffffff", (sel ? 3.5 : 2.5) * px); }
+  else if (p.kind === "rect" && pts.length === 2) {
+    const x = Math.min(pts[0][0], pts[1][0]), y = Math.min(pts[0][1], pts[1][1]);
+    ctx.fillStyle = hexA(col, 0.18); ctx.strokeStyle = col; ctx.lineWidth = (sel ? 3 : 2) * px;
+    ctx.fillRect(x, y, Math.abs(pts[1][0] - pts[0][0]), Math.abs(pts[1][1] - pts[0][1]));
+    ctx.strokeRect(x, y, Math.abs(pts[1][0] - pts[0][0]), Math.abs(pts[1][1] - pts[0][1]));
+  } else {
+    const closed = (p.kind === "poly" || p.kind === "quad") && !open && pts.length >= 3;
+    ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]));
+    if (closed) { ctx.closePath(); ctx.fillStyle = hexA(col, sel ? 0.33 : 0.2); ctx.fill(); }
+    if (p.k === "confirm_points" || p.k === "line_b") ctx.setLineDash([8 * px, 5 * px]);
+    ctx.strokeStyle = col; ctx.lineWidth = (sel ? 3.5 : 2.2) * px; ctx.stroke(); ctx.setLineDash([]);
+  }
+  if (sel || open) {
+    pts.forEach((q, i) => { ctx.beginPath(); ctx.arc(q[0], q[1], 5 * px, 0, 6.3); ctx.fillStyle = "#fff"; ctx.fill();
+      ctx.strokeStyle = col; ctx.lineWidth = 2 * px; ctx.stroke();
+      if (p.kind === "quad") { ctx.fillStyle = "#fff"; ctx.font = `${13 * px}px sans-serif`; ctx.fillText(String(i + 1), q[0] + 8 * px, q[1] - 6 * px); } });
+  }
+}
+function tag(text, at, col) {
+  const px = 1 / S.view.s; ctx.font = `600 ${12.5 * px}px "Segoe UI", sans-serif`;
+  const w = ctx.measureText(text).width + 10 * px, h = 18 * px;
+  ctx.fillStyle = "rgba(17,21,31,.82)"; ctx.fillRect(at[0], at[1] - h, w, h);
+  ctx.fillStyle = col; ctx.fillRect(at[0], at[1] - h, 3 * px, h);
+  ctx.fillStyle = "#fff"; ctx.fillText(text, at[0] + 6 * px, at[1] - 5 * px);
+}
+function draw() {
+  const dpr = window.devicePixelRatio || 1;
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
+  if (!S.scene || !img.complete || !img.naturalWidth) return;
+  ctx.setTransform(dpr * S.view.s, 0, 0, dpr * S.view.s, dpr * S.view.ox, dpr * S.view.oy);
+  ctx.drawImage(img, 0, 0, S.meta.width, S.meta.height);
+  for (const { tool, it } of items()) {
+    const sel = S.sel && S.sel.it === it, col = TOOLS[tool].color, ps = parts(tool, it);
+    ps.forEach(p => drawPart(p, col, sel, false));
+    if (ps.length && ps[0].pts.length) {
+      const top = ps[0].pts.reduce((a, b) => (b[1] < a[1] ? b : a));
+      tag(label(tool, it), top, col);
+    }
+  }
+  if (S.draw) {
+    const D = S.draw, T = TOOLS[D.tool], st = T.steps[D.step];
+    for (const k in D.done) drawPart({ k, kind: T.steps.find(s => s.k === k).kind, pts: D.done[k] }, T.color, true, false);
+    const cur = D.cur.slice(); if (S.mouse) cur.push(S.mouse);
+    drawPart({ k: st.k, kind: st.kind === "arrow" && cur.length < 2 ? "path" : st.kind, pts: cur }, T.color, true, true);
+  }
+}
+
+// ====================================================================== vẽ
+function setHint() {
+  const h = $("#hint");
+  if (!S.scene) { h.className = ""; h.innerHTML = "<div>Chọn một video ở cột trái (hoặc kéo-thả tệp vào cửa sổ) để bắt đầu.</div>"; return; }
+  if (S.draw) {
+    const T = TOOLS[S.draw.tool], st = T.steps[S.draw.step];
+    const fin = (st.kind === "poly" || st.kind === "path") ? " — xong thì <b>bấm đúp</b> hoặc <b>Enter</b>" : "";
+    h.className = "draw";
+    h.innerHTML = `<div><b>${esc(T.label)}</b> · bước ${S.draw.step + 1}/${T.steps.length}: ${esc(st.t)}${fin}. ` +
+      `<span style="color:#667085">Backspace: bỏ điểm vừa bấm · Esc: huỷ</span></div>`;
+    return;
+  }
+  h.className = "";
+  h.innerHTML = "<div>Chọn một nút ở cột phải rồi bấm lên hình để vẽ. Bấm vào hình đã vẽ để chọn — <b>kéo chấm trắng</b> để chỉnh, " +
+    "<b>Delete</b> để xoá. Lăn chuột = phóng to, giữ chuột phải kéo = di chuyển.</div>";
+}
+function startTool(tool) {
+  if (!S.scene) { toast("Chọn video trước đã", true); return; }
+  if (S.showLive) toggleLive(false);
+  if (tool === "calibration" && listOf("calibration").length && !confirm("Đã có hiệu chuẩn mét. Vẽ lại 4 điểm mới?")) return;
+  S.draw = { tool, step: 0, done: {}, cur: [] }; S.sel = null;
+  renderTools(); renderShapes(); setHint(); draw();
+}
+function cancelDraw() { S.draw = null; renderTools(); setHint(); draw(); }
+function stepDone() {
+  const D = S.draw, T = TOOLS[D.tool], st = T.steps[D.step];
+  if (D.cur.length) D.done[st.k] = D.cur;
+  D.cur = []; D.step++;
+  if (D.step >= T.steps.length) finishShape(); else { setHint(); draw(); }
+}
+function tryFinishStep(skip) {
+  const D = S.draw; if (!D) return;
+  const st = TOOLS[D.tool].steps[D.step];
+  if (skip && st.opt && !D.cur.length) { stepDone(); return; }
+  const need = st.kind === "poly" ? 3 : st.kind === "path" ? 2 : st.kind === "quad" ? 4 : 2;
+  if (D.cur.length < need) { toast(`Cần ít nhất ${need} điểm cho bước này`, true); return; }
+  stepDone();
+}
+function finishShape() {
+  const D = S.draw, tool = D.tool, sc = S.scene, d = D.done;
+  pushUndo();
+  let it;
+  if (tool === "calibration") {
+    const [w, l] = calSize();
+    sc.calibration.image_points = d.image_points;
+    sc.calibration.world_points = [[0, 0], [w, 0], [w, l], [0, l]];
+    it = sc.calibration;
+  } else if (tool === "traffic_lights") {
+    const [a, b] = d.roi;
+    it = { id: newId(tool), name: "", roi: [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[0], b[0]), Math.max(a[1], b[1])], layout: "auto" };
+    if (it.roi[2] - it.roi[0] < 3 || it.roi[3] - it.roi[1] < 3) { toast("Ô đèn quá nhỏ — vẽ lại", true); S.undo.pop(); cancelDraw(); return; }
+    sc.traffic_lights.push(it);
+  } else {
+    it = Object.assign({ id: newId(tool), name: "" }, d);
+    if (tool === "speed_traps") { delete it.name; it.distance_m = 10; }
+    if (tool === "no_parking") it.kind = "no_stopping";
+    sc[TOOLS[tool].at][tool].push(it);
+  }
+  S.draw = null; S.sel = { tool, it };
+  renderTools(); setHint(); changed(); renderProps();
+  if (tool === "speed_traps") toast("Nhập KHOẢNG CÁCH THẬT giữa 2 vạch (mét) ở ô bên phải");
+  if (tool === "calibration") toast("Nhập bề RỘNG và DÀI thật của hình chữ nhật (mét) ở ô bên phải");
+}
+
+function hit(p) {
+  const tol = 9 / S.view.s; let best = null;
+  const all = items();
+  if (S.sel) for (const part of parts(S.sel.tool, S.sel.it))          // ưu tiên chấm của hình đang chọn
+    for (let i = 0; i < part.pts.length; i++)
+      if (Math.hypot(part.pts[i][0] - p[0], part.pts[i][1] - p[1]) <= tol) return { tool: S.sel.tool, it: S.sel.it, k: part.k, i };
+  for (const { tool, it } of all.reverse()) {
+    for (const part of parts(tool, it)) {
+      const pts = part.kind === "rect" ? [part.pts[0], [part.pts[1][0], part.pts[0][1]], part.pts[1], [part.pts[0][0], part.pts[1][1]]] : part.pts;
+      const closed = part.kind === "poly" || part.kind === "quad" || part.kind === "rect";
+      for (let i = 0; i < pts.length - (closed ? 0 : 1); i++) {
+        const a = pts[i], b = pts[(i + 1) % pts.length];
+        const dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy || 1;
+        const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L));
+        if (Math.hypot(a[0] + t * dx - p[0], a[1] + t * dy - p[1]) <= tol) return { tool, it };
+      }
+      if (closed && !best) {
+        let inside = false;
+        for (let i = 0, j = pts.length - 1; i < pts.length; j = i++)
+          if ((pts[i][1] > p[1]) !== (pts[j][1] > p[1]) && p[0] < (pts[j][0] - pts[i][0]) * (p[1] - pts[i][1]) / (pts[j][1] - pts[i][1]) + pts[i][0]) inside = !inside;
+        if (inside) best = { tool, it };
+      }
+    }
+  }
+  return best;
+}
+cv.addEventListener("contextmenu", (e) => e.preventDefault());
+cv.addEventListener("mousedown", (e) => {
+  if (!S.scene) return;
+  const m = evPt(e);
+  if (e.button === 2 || e.button === 1) { S.pan = { m, ox: S.view.ox, oy: S.view.oy }; return; }
+  const p = clampPt(toImg(m[0], m[1]));
+  if (S.draw) {
+    const D = S.draw, st = TOOLS[D.tool].steps[D.step];
+    if (st.kind === "poly" && D.cur.length >= 3 && Math.hypot(D.cur[0][0] - p[0], D.cur[0][1] - p[1]) <= 10 / S.view.s) { stepDone(); return; }
+    if (e.detail >= 2 && (st.kind === "poly" || st.kind === "path")) { tryFinishStep(false); return; }
+    D.cur.push(p);
+    const fixed = { line: 2, arrow: 2, rect: 2, quad: 4 }[st.kind];
+    if (fixed && D.cur.length === fixed) stepDone(); else draw();
+    return;
+  }
+  const h = hit(toImg(m[0], m[1]));
+  if (h && h.k !== undefined) { pushUndo(); S.drag = h; return; }
+  S.sel = h ? { tool: h.tool, it: h.it } : null;
+  renderShapes(); renderProps(); draw();
+});
+window.addEventListener("mousemove", (e) => {
+  if (!S.scene) return;
+  const m = evPt(e);
+  if (S.pan) { S.view.ox = S.pan.ox + m[0] - S.pan.m[0]; S.view.oy = S.pan.oy + m[1] - S.pan.m[1]; draw(); return; }
+  const p = clampPt(toImg(m[0], m[1]));
+  if (S.drag) { setPt(S.drag.tool, S.drag.it, S.drag.k, S.drag.i, p); S.drag.moved = true; draw(); return; }
+  if (S.draw) { S.mouse = p; draw(); }
+});
+window.addEventListener("mouseup", () => {
+  S.pan = null;
+  if (S.drag) {
+    const d = S.drag; S.drag = null;
+    if (!d.moved) { S.undo.pop(); return; }
+    if (d.tool === "traffic_lights") { const r = d.it.roi; d.it.roi = [Math.min(r[0], r[2]), Math.min(r[1], r[3]), Math.max(r[0], r[2]), Math.max(r[1], r[3])]; }
+    changed();
+  }
+});
+cv.addEventListener("wheel", (e) => {
+  if (!S.scene) return; e.preventDefault();
+  const m = evPt(e), k = e.deltaY < 0 ? 1.15 : 1 / 1.15, ns = Math.min(Math.max(S.view.s * k, 0.05), 20);
+  const p = toImg(m[0], m[1]);
+  S.view.s = ns; S.view.ox = m[0] - p[0] * ns; S.view.oy = m[1] - p[1] * ns; draw();
+}, { passive: false });
+
+function removeSel() {
+  if (!S.sel) return;
+  pushUndo();
+  const { tool, it } = S.sel;
+  if (tool === "calibration") { S.scene.calibration.image_points = []; S.scene.calibration.world_points = []; }
+  else { const arr = listOf(tool); arr.splice(arr.indexOf(it), 1); }
+  S.sel = null; renderProps(); changed();
+}
+function undo() {
+  if (S.draw) { if (S.draw.cur.length) { S.draw.cur.pop(); draw(); } else cancelDraw(); return; }
+  const s = S.undo.pop(); if (!s) return;
+  Object.assign(S.scene, JSON.parse(s)); S.sel = null; renderProps(); changed();
+}
+window.addEventListener("keydown", (e) => {
+  const typing = /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName);
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); save(); return; }
+  if (typing) return;
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") { e.preventDefault(); undo(); return; }
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key === "Escape") { if (S.draw) cancelDraw(); else { S.sel = null; renderShapes(); renderProps(); draw(); } return; }
+  if (e.key === "Enter" && S.draw) { tryFinishStep(true); return; }
+  if (e.key === "Backspace" && S.draw) { e.preventDefault(); undo(); return; }
+  if ((e.key === "Delete" || e.key === "Backspace") && S.sel) { e.preventDefault(); removeSel(); return; }
+  const t = Object.keys(TOOLS).find(k => TOOLS[k].key.toLowerCase() === e.key.toLowerCase());
+  if (t && !S.draw) startTool(t);
+});
+
+// ====================================================================== cột phải
+function renderTools() {
+  $("#tools").innerHTML = Object.entries(TOOLS).map(([k, T]) =>
+    `<button class="tool ${S.draw && S.draw.tool === k ? "on" : ""}" data-t="${k}" title="${esc(T.why)}"><i style="background:${T.color}"></i>${esc(T.label)}<kbd>${T.key}</kbd></button>`).join("");
+}
+$("#tools").addEventListener("click", (e) => { const b = e.target.closest(".tool"); if (!b) return;
+  if (S.draw && S.draw.tool === b.dataset.t) cancelDraw(); else startTool(b.dataset.t); });
+function renderShapes() {
+  const all = items();
+  $("#shapes").innerHTML = all.map((x, i) =>
+    `<div class="shape ${S.sel && S.sel.it === x.it ? "on" : ""}" data-i="${i}"><i style="background:${TOOLS[x.tool].color}"></i>` +
+    `<span title="${esc(TOOLS[x.tool].why)}">${esc(TOOLS[x.tool].label)} · ${esc(label(x.tool, x.it))}</span><button class="mini" data-del="1" title="Xoá">✕</button></div>`).join("")
+    || `<div class="none">Chưa có hình nào — chọn một nút phía trên rồi bấm lên hình.</div>`;
+  S._items = all;
+}
+$("#shapes").addEventListener("click", (e) => {
+  const row = e.target.closest(".shape"); if (!row) return;
+  const x = S._items[+row.dataset.i]; S.sel = { tool: x.tool, it: x.it };
+  if (e.target.dataset.del) { removeSel(); return; }
+  renderShapes(); renderProps(); draw();
+});
+function renderProps() {
+  const box = $("#props");
+  if (!S.sel) { box.style.display = "none"; return; }
+  const { tool, it } = S.sel, T = TOOLS[tool];
+  let h = `<b>${esc(T.label)}</b> <span class="none">— ${esc(T.why)}</span>`;
+  if (tool === "calibration") {
+    const [w, l] = calSize();
+    h += `<label class="f">Bề rộng thật của hình chữ nhật (m) — cạnh 1→2</label><input type="number" data-p="cal_w" min="0.2" step="0.1" value="${w}">` +
+         `<label class="f">Chiều dài thật (m) — cạnh 2→3, dọc theo đường</label><input type="number" data-p="cal_l" min="0.2" step="0.1" value="${l}">` +
+         `<div class="warn">Mẹo: một làn ô tô rộng khoảng 3–3,5 m; một vạch đứt + khoảng trống thường dài 9 m (3 m + 6 m).</div>`;
+  } else {
+    h += `<label class="f">Tên hiển thị</label><input type="text" data-p="name" value="${esc(it.name || "")}" placeholder="${esc(it.id)}">`;
+    if (tool === "speed_traps") h = `<b>${esc(T.label)}</b>` +
+      `<label class="f">Khoảng cách THẬT giữa vạch A và B (m)</label><input type="number" data-p="distance_m" min="1" step="0.5" value="${it.distance_m}">` +
+      `<div class="warn">Số này quyết định tốc độ đo được — hãy đo thật (thước dây / Google Maps), đừng ước lượng.</div>`;
+    if (tool === "no_parking") {
+      h += `<label class="f">Loại</label><select data-p="kind">${Object.entries(KIND_VI).map(([k, v]) => `<option value="${k}" ${it.kind === k ? "selected" : ""}>${v}</option>`).join("")}</select>` +
+           `<label class="f">Cho phép đứng yên tối đa (giây) — để trống = mặc định</label><input type="number" data-p="max_stationary_s" min="1" step="1" value="${it.max_stationary_s ?? ""}">`;
+    }
+    if (tool === "restricted" || tool === "lanes") {
+      const on = new Set(it.allowed_classes || []);
+      h += `<label class="f">${tool === "lanes" ? "Chỉ cho phép loại xe (bỏ trống = mọi loại)" : "Loại xe ĐƯỢC đi vào làn này"}</label><div class="chk">` +
+           CLASSES.map(([k, v]) => `<label><input type="checkbox" data-cls="${k}" ${on.has(k) ? "checked" : ""}> ${v}</label>`).join("") + `</div>`;
+    }
+    if (tool === "stop_lines") {
+      const ls = S.scene.traffic_lights;
+      h += `<label class="f">Đèn điều khiển vạch này</label><select data-p="light_id"><option value="">(tự chọn đèn đầu tiên)</option>` +
+           ls.map(l => `<option value="${esc(l.id)}" ${it.light_id === l.id ? "selected" : ""}>${esc(l.name || l.id)}</option>`).join("") + `</select>` +
+           (ls.length ? "" : `<div class="warn">Chưa có Ô đèn tín hiệu — vẽ thêm (phím L) thì mới bắt được vượt đèn đỏ.</div>`) +
+           (it.confirm_points ? "" : `<div class="warn">Không có vạch xác nhận: AI coi là vượt khi xe đi quá vạch dừng ${it.confirm_distance_m ?? 6} m.</div>`);
+    }
+  }
+  h += `<div style="margin-top:10px"><button data-del="1">Xoá hình này</button></div>`;
+  box.innerHTML = h; box.style.display = "block";
+}
+$("#props").addEventListener("change", (e) => {
+  if (!S.sel) return;
+  const { tool, it } = S.sel, p = e.target.dataset.p, v = e.target.value;
+  pushUndo();
+  if (e.target.dataset.cls) {
+    const on = [...$("#props").querySelectorAll("[data-cls]")].filter(c => c.checked).map(c => c.dataset.cls);
+    if (on.length) it.allowed_classes = on; else delete it.allowed_classes;
+  } else if (p === "cal_w" || p === "cal_l") {
+    const w = Math.max(0.2, +$("#props [data-p=cal_w]").value || 3.5), l = Math.max(0.2, +$("#props [data-p=cal_l]").value || 10);
+    S.scene.calibration.world_points = [[0, 0], [w, 0], [w, l], [0, l]];
+  } else if (p === "distance_m") it.distance_m = Math.max(0.5, +v || 10);
+  else if (p === "max_stationary_s") { if (v === "") delete it.max_stationary_s; else it.max_stationary_s = Math.max(1, +v); }
+  else if (p === "light_id") it.light_id = v || null;
+  else if (p) it[p] = v;
+  changed();
+});
+$("#props").addEventListener("click", (e) => { if (e.target.dataset.del) removeSel(); });
+for (const id of ["#cam-name", "#cam-loc", "#cam-limit"]) $(id).addEventListener("change", () => { if (S.scene) { S.dirty = true; paintDirty(); } });
+
+function renderRules(rules) {
+  $("#rules").innerHTML = (rules || []).map(r =>
+    `<div class="rule ${r.enabled ? "ok" : ""}"><span class="dot"></span><b>${esc(r.code)}</b><div>${esc(r.name)}` +
+    `<small>${r.enabled ? "sẽ kiểm tra" : "chưa chạy được: " + esc(r.reason)}</small></div></div>`).join("") || `<div class="none">Chọn video để xem.</div>`;
+}
+function payload() {
+  const sc = S.scene, ids = new Set(sc.traffic_lights.map(l => l.id));
+  for (const sl of sc.lines.stop_lines) if (sl.light_id && !ids.has(sl.light_id)) sl.light_id = null;
+  const lines = JSON.parse(JSON.stringify(sc.lines));
+  for (const sl of lines.stop_lines) if (!sl.light_id && sc.traffic_lights.length) sl.light_id = sc.traffic_lights[0].id;
+  return { scene: { zones: sc.zones, lines, traffic_lights: sc.traffic_lights, calibration: sc.calibration,
+                    camera: { name: $("#cam-name").value, location: $("#cam-loc").value },
+                    speed: { limit_kmh: +$("#cam-limit").value || sc.speed.limit_kmh } } };
+}
+let checkT = 0;
+function scheduleCheck() {
+  clearTimeout(checkT);
+  checkT = setTimeout(async () => {
+    if (!S.scene) return;
+    try { const d = await api("/api/studio/check?video=" + encodeURIComponent(S.cur), { method: "POST", headers: HDR, body: JSON.stringify(payload()) });
+          renderRules(d.rules); } catch (err) { /* đang vẽ dở — báo khi lưu */ }
+  }, 500);
+}
+async function save() {
+  if (!S.scene) return false;
+  if (S.draw) { toast("Đang vẽ dở — bấm đúp/Enter để xong hoặc Esc để huỷ", true); return false; }
+  try {
+    const d = await api("/api/studio/scene?video=" + encodeURIComponent(S.cur), { method: "PUT", headers: HDR, body: JSON.stringify(payload()) });
+    S.dirty = false; paintDirty(); renderRules(d.rules);
+    const v = S.videos.find(x => x.name === S.cur); if (v) { v.has_scene = true; renderVideos(); }
+    toast("Đã lưu hình vẽ"); return true;
+  } catch (err) { toast(err.message, true); return false; }
+}
+$("#save").addEventListener("click", save);
+$("#undo").addEventListener("click", undo);
+$("#fit").addEventListener("click", fit);
+
+// ====================================================================== chạy phân tích
+let liveT = 0;
+function toggleLive(on) {
+  S.showLive = on; $("#live").style.display = "none"; $("#wait").style.display = on ? "flex" : "none";
+  clearInterval(liveT);
+  if (on) liveT = setInterval(() => {                       // chỉ hỏi ảnh khi pipeline đã chạy (lúc nạp model chưa có ảnh)
+    if (S.job && S.job.state === "dang_chay") $("#live").src = "/api/live.jpg?_=" + Date.now(); }, 600);
+}
+$("#run").addEventListener("click", async () => {
+  if (!S.scene) return;
+  if (!items().length && !confirm("Chưa vẽ vùng/vạch nào — AI chỉ kiểm tra được các tình huống không cần hình vẽ (mũ bảo hiểm, điện thoại...). Vẫn chạy?")) return;
+  if (!(await save())) return;
+  try {
+    const d = await api("/api/studio/run", { method: "POST", headers: HDR, body: JSON.stringify({ video: S.cur,
+      options: { lpr: $("#o-lpr").checked, save_video: $("#o-vid").checked, full_labels: $("#o-full").checked, stride: +$("#o-stride").value } }) });
+    showJob(d); toggleLive(true); pollJob();
+  } catch (err) { toast(err.message, true); }
+});
+$("#stop").addEventListener("click", async () => { try { await api("/api/studio/stop", { method: "POST", headers: HDR }); } catch (err) { toast(err.message, true); } });
+function showJob(j) {
+  S.job = j;
+  const act = j && j.active;
+  $("#stop").style.display = act ? "" : "none";
+  $("#run").disabled = act || !S.scene;
+  if (!j) { $("#prog-t").textContent = "Chưa chạy."; $("#prog-b").style.width = "0"; $("#result").innerHTML = ""; return; }
+  const pct = j.percent ?? (j.state === "xong" ? 100 : 0);
+  $("#prog-b").style.width = (j.state === "xong" ? 100 : pct) + "%";
+  $("#prog-b").style.background = j.state === "loi" ? "#b3261e" : "";
+  let t = `${j.video}: ${j.message}`;
+  if (j.state === "dang_chay") t = `${j.video}: khung ${j.frame}${j.total ? "/" + j.total : ""} (${pct}%) · ${j.proc_fps} khung/s · ${j.events} sự kiện`;
+  $("#prog-t").textContent = t;
+  $("#result").innerHTML = act
+    ? `<button class="mini" id="tg-live">${S.showLive ? "Về màn hình vẽ" : "Xem trực tiếp"}</button>`
+    : (j.state === "loi" ? "" :
+       `<a href="/vi-pham${j.run_id ? "?run=" + encodeURIComponent(j.run_id) : ""}" target="_blank"><button class="mini">Xem vi phạm (${j.events})</button></a> ` +
+       (j.report_url ? `<a href="${esc(j.report_url)}" target="_blank"><button class="mini">Báo cáo</button></a> ` : "") +
+       (j.has_video ? `<a href="/api/studio/result.mp4"><button class="mini">Tải video chú thích</button></a>` : ""));
+}
+$("#result").addEventListener("click", (e) => { if (e.target.id === "tg-live") { toggleLive(!S.showLive); showJob(S.job); } });
+let pollT = 0;
+async function pollJob() {
+  clearTimeout(pollT);
+  try {
+    const d = await api("/api/studio/job");
+    const was = S.job && S.job.active;
+    showJob(d.job);
+    if (d.job && d.job.active) { pollT = setTimeout(pollJob, 1000); return; }
+    if (was) { toggleLive(false); showJob(d.job); toast(d.job.message, d.job.state === "loi"); if (d.job.rules && d.job.rules.length && d.job.video === S.cur) renderRules(d.job.rules); }
+  } catch (err) { pollT = setTimeout(pollJob, 2500); }
+}
+
+window.addEventListener("beforeunload", (e) => { if (S.dirty) { e.preventDefault(); e.returnValue = ""; } });
+window.addEventListener("resize", resize);
+$("#live").addEventListener("load", () => { if (S.showLive) $("#live").style.display = "block"; });
+if (window.ResizeObserver) new ResizeObserver(resize).observe($("#view"));
+renderTools(); setHint(); paintDirty(); resize();
+loadVideos().then(pollJob).then(() => { if (S.job && S.job.active) toggleLive(true); }).catch(err => toast(err.message, true));
+</script>
+</body>
+</html>

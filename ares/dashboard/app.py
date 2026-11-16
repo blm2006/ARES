@@ -303,4 +303,7 @@ def create_app(rt: "AresRuntime") -> FastAPI:
         out = rt.retrain_async(force=True)
         return JSONResponse(out, status_code=202 if out.get("started") else 409)
 
+    from ares.behavior.routes import register as register_behavior
+    register_behavior(app, rt)  # trang /behavior + /api/behavior/*
+
     return app

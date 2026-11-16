@@ -1,0 +1,24 @@
+# Cấu hình MẪU cho video thử C:\yolo-al\samples\vid xe chạy.mp4 (576×1024, quay dọc, cầu đi bộ, ùn tắc giờ cao điểm).
+# Video quay TAY → camera rung liên tục → hệ thống sẽ tạm ngưng phần lớn rule dựa trên hướng/tốc độ (đúng thiết kế).
+# Dùng để thử nhận diện, tracking, gán người–xe (RB-06 chở quá số người), đếm lưu lượng.
+#   python -m traffic_safety_ai run --source "samples\vid xe chạy.mp4" --scene traffic_safety_ai\configs\mau_video_un_tac_hn.yaml --show --save-video
+camera:
+  id: MAU-HN
+  name: "Video mẫu ùn tắc (quay tay, chỉ để thử)"
+  location: "Video mẫu — trục đường có đường sắt trên cao, Hà Nội"
+  channel: cctv
+  frame_size: [576, 1024]
+zones:
+  lanes:
+    - id: LAN
+      name: "Lòng đường (một chiều, đi xa camera)"
+      polygon: [[0, 560], [576, 470], [576, 1024], [0, 1024]]
+      direction: [[300, 950], [330, 560]]
+lines:
+  counting:
+    - id: MC
+      name: "Mặt cắt giữa khung"
+      points: [[0, 760], [576, 760]]
+      direction: [[288, 820], [288, 700]]
+      positive_label: "Đi xa camera"
+      negative_label: "Về phía camera"

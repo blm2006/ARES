@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Xử lý vi phạm — Giám sát ATGT trường học</title>
+<link rel="icon" href="data:,">
+<style>
+  :root { --bg:#0b1026; --panel:#111a3a; --card:#131e45; --card2:#1a2a5e; --line:#24336b; --ink:#e8edff; --mute:#8fa0d6;
+          --cyan:#4cc3ff; --red:#ff5a4f; --amber:#ffb020; --green:#3ddc97; --violet:#c77dff; }
+  * { box-sizing:border-box; }
+  html, body { height:100%; }
+  body { margin:0; font:14px/1.45 "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; color:var(--ink); background:var(--bg);
+         display:flex; flex-direction:column; overflow:hidden; }
+  a { color:var(--cyan); }
+  header { display:flex; align-items:center; gap:18px; padding:10px 20px; border-bottom:1px solid var(--line); flex:none; background:#0d1430; }
+  header h1 { font-size:17px; margin:0; font-weight:700; letter-spacing:.01em; }
+  header nav { display:flex; gap:4px; margin-left:auto; flex-wrap:wrap; }
+  header nav a { color:var(--mute); text-decoration:none; padding:7px 12px; border-radius:6px; font-weight:600; }
+  header nav a:hover { color:#fff; background:rgba(255,255,255,.07); }
+  header nav a.on { color:#fff; box-shadow:inset 0 -2px 0 var(--cyan); border-radius:6px 6px 0 0; }
+  .wrap { flex:1; display:grid; grid-template-columns:minmax(0,1fr) 0; min-height:0; transition:grid-template-columns .15s; }
+  .wrap.open { grid-template-columns:minmax(0,1fr) 430px; }
+  .left { padding:16px 20px 10px; display:flex; flex-direction:column; min-height:0; min-width:0; }
+  .title { display:flex; align-items:flex-end; gap:14px; flex-wrap:wrap; }
+  .title h2 { margin:0; font-size:22px; color:var(--cyan); font-weight:600; }
+  .title small { color:var(--mute); text-transform:uppercase; letter-spacing:.08em; font-size:11px; display:block; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:12px; }
+  .row .sp { flex:1; }
+  input, select, button, textarea { font:inherit; color:var(--ink); }
+  input, select, textarea { background:#0d1533; border:1px solid var(--line); border-radius:7px; padding:7px 10px; }
+  input:focus, select:focus, textarea:focus { outline:1px solid var(--cyan); }
+  input[type=date] { color-scheme:dark; }
+  select { min-width:170px; }
+  button { background:#17245a; border:1px solid var(--line); border-radius:7px; padding:7px 12px; cursor:pointer; }
+  button:hover { border-color:var(--cyan); }
+  .seg { display:flex; border:1px solid var(--line); border-radius:7px; overflow:hidden; }
+  .seg button { border:0; border-radius:0; background:#0d1533; color:var(--mute); }
+  .seg button.on { background:#22347a; color:#fff; }
+  .tabs { display:flex; gap:22px; margin-top:14px; border-bottom:1px solid var(--line); }
+  .tabs button { background:none; border:0; border-radius:0; padding:8px 2px; font-weight:700; border-left:3px solid; padding-left:9px; opacity:.6; }
+  .tabs button.on { opacity:1; box-shadow:inset 0 -2px 0 currentColor; }
+  .tabs .cho_xac_minh { color:var(--red); } .tabs .da_xac_minh { color:var(--violet); } .tabs .loai_bo { color:var(--cyan); } .tabs .all { color:var(--mute); }
+  #grid { flex:1; overflow:auto; display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr)); gap:12px; padding:14px 2px; align-content:start; grid-auto-rows:max-content; min-height:0; }
+  .card { background:var(--card); border:1px solid transparent; border-radius:10px; padding:11px 12px; cursor:pointer; display:flex; gap:10px; min-height:118px; }
+  .card:hover { border-color:var(--line); background:#16224f; }
+  .card.on { background:#1d4ed8; border-color:#60a5fa; }
+  .card .b { flex:1; min-width:0; }
+  .card .id { font-size:11px; color:var(--mute); font-family:ui-monospace, Consolas, monospace; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .card.on .id, .card.on .m { color:#dbe7ff; }
+  .card .r { font-size:16px; font-weight:700; margin:1px 0 7px; line-height:1.25; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .card .v { color:var(--cyan); font-weight:600; }
+  .card.on .v { color:#fff; }
+  .card .m { font-size:12.5px; color:var(--mute); }
+  .card img { width:74px; height:74px; object-fit:cover; border-radius:8px; background:#0a0f24; flex:none; align-self:center; }
+  .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px; }
+  .vi_pham { background:var(--red); } .nghi_van { background:var(--amber); } .nguy_co { background:var(--cyan); }
+  .empty { grid-column:1/-1; text-align:center; color:var(--mute); padding:60px 10px; font-size:15px; }
+  .pager { display:flex; gap:10px; justify-content:flex-end; align-items:center; color:var(--mute); padding:6px 0; flex:none; }
+
+  #detail { background:var(--panel); border-left:1px solid var(--line); overflow:auto; min-height:0; padding:16px 18px 24px; display:none; }
+  .wrap.open #detail { display:block; }
+  #detail h3 { margin:0; font-size:21px; border-left:4px solid var(--amber); padding-left:10px; line-height:1.25; }
+  #detail .hd { display:flex; gap:10px; align-items:flex-start; }
+  #detail .hd button { margin-left:auto; flex:none; }
+  .st { display:inline-block; font-weight:800; font-size:12px; letter-spacing:.04em; text-transform:uppercase; margin:10px 0 2px; }
+  .st.cho_xac_minh { color:var(--red); } .st.da_xac_minh { color:var(--green); } .st.loai_bo { color:var(--mute); }
+  .kv { display:grid; grid-template-columns:118px 1fr; gap:6px 10px; margin-top:12px; font-size:13.5px; }
+  .kv > div:nth-child(odd) { color:var(--cyan); }
+  .plate { font:700 20px ui-monospace, Consolas, monospace; letter-spacing:.04em; }
+  .platebox { display:flex; gap:12px; align-items:center; margin-top:12px; }
+  .platebox img { max-height:62px; max-width:150px; border-radius:6px; border:1px solid var(--line); background:#fff; }
+  h4 { color:var(--cyan); text-transform:uppercase; font-size:15px; letter-spacing:.04em; margin:20px 0 8px; font-weight:600; }
+  .ev img, .ev video { width:100%; border-radius:8px; display:block; background:#000; margin-bottom:8px; cursor:zoom-in; }
+  .ev video { cursor:default; }
+  .ev .cap { font-size:12px; color:var(--mute); margin:-4px 0 10px; }
+  .acts { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  .acts .ok { background:#14532d; border-color:#22c55e; } .acts .no { background:#5b1a1a; border-color:#ef4444; }
+  textarea { width:100%; margin-top:8px; }
+  .lbl { font-size:12px; color:var(--mute); margin-top:10px; display:block; }
+  .note { font-size:12px; color:var(--mute); margin-top:8px; }
+  #msg { font-size:13px; margin-top:8px; min-height:18px; }
+  #zoom { position:fixed; inset:0; background:rgba(4,7,20,.93); display:none; align-items:center; justify-content:center; z-index:20; cursor:zoom-out; }
+  #zoom img { max-width:96vw; max-height:94vh; border-radius:8px; }
+  @media (max-width:1000px) { .wrap.open { grid-template-columns:0 1fr; } .wrap.open .left { display:none; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Giám sát ATGT khu vực trường học</h1>
+  <nav>
+    <a href="/">Tổng quan</a>
+    <a href="/vi-pham" class="on">Vi phạm</a>
+    <a href="/#tra-cuu">Tìm xe</a>
+    <a href="/#luu-luong">Giao thông</a>
+    <a href="/#bao-cao">Báo cáo</a>
+    <a href="/studio">Studio</a>
+  </nav>
+</header>
+
+<div class="wrap" id="wrap">
+  <div class="left">
+    <div class="title">
+      <div><h2>Xử lý vi phạm</h2><small>Hồ sơ do AI ghi nhận — chờ người có thẩm quyền xác minh</small></div>
+    </div>
+    <div class="row">
+      <input type="date" id="f-from" title="Từ ngày"> <span style="color:var(--mute)">–</span> <input type="date" id="f-to" title="Đến ngày">
+      <div class="seg" id="quick">
+        <button data-d="0">Hôm nay</button><button data-d="7">Tuần</button><button data-d="30">Tháng</button><button data-d="all" class="on">Tất cả</button>
+      </div>
+      <span class="sp"></span>
+      <input id="f-q" placeholder="Tìm biển số hoặc mã hồ sơ" size="26">
+      <button id="reload" title="Tải lại">⟳</button>
+    </div>
+    <div class="row">
+      <select id="f-rule"><option value="">Mọi loại vi phạm</option></select>
+      <select id="f-veh"><option value="">Mọi loại phương tiện</option></select>
+      <select id="f-cam"><option value="">Mọi camera / khu vực</option></select>
+      <select id="f-sev"><option value="">Mọi mức độ</option><option value="vi_pham">Vi phạm</option><option value="nghi_van">Nghi vấn</option><option value="nguy_co">Nguy cơ</option></select>
+    </div>
+    <div class="tabs" id="tabs"></div>
+    <div id="grid"></div>
+    <div class="pager"><span id="pg-info"></span><button id="pg-prev">‹</button><button id="pg-next">›</button></div>
+  </div>
+  <aside id="detail"></aside>
+</div>
+<div id="zoom"><img alt="Ảnh phóng to"></div>
+
+<script>
+"use strict";
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const HDR = {"X-TSA": "1", "Content-Type": "application/json"};
+async function api(url, opt) {
+  const r = await fetch(url, opt); let d = null;
+  try { d = await r.json(); } catch (e) { /* không phải JSON */ }
+  if (!r.ok) throw new Error((d && typeof d.detail === "string") ? d.detail : "Lỗi " + r.status);
+  return d;
+}
+const fmt = (s) => { if (!s) return "—"; const [d, t] = String(s).split("T"); const [y, m, dd] = d.split("-"); return `${(t || "").slice(0, 8)} ${dd}/${m}/${y}`; };
+const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const TABS = [["cho_xac_minh", "Vi phạm chờ xử lý"], ["da_xac_minh", "Đã xác nhận"], ["loai_bo", "Đã loại bỏ"], ["", "Tất cả"]];
+const ST = { cho_xac_minh: "Vi phạm chờ xử lý", da_xac_minh: "Đã xác nhận vi phạm", loai_bo: "Đã loại bỏ (báo nhầm)" };
+const S = { status: "cho_xac_minh", page: 1, pages: 1, sel: null, items: [] };
+const LIMIT = 48;
+const who = { get: () => { try { return localStorage.getItem("tsa_reviewer") || ""; } catch (e) { return ""; } },
+              set: (v) => { try { localStorage.setItem("tsa_reviewer", v); } catch (e) { /* bỏ qua */ } } };
+
+function filters() {
+  const p = new URLSearchParams();
+  const put = (k, v) => { if (v) p.set(k, v); };
+  put("day_from", $("#f-from").value); put("day_to", $("#f-to").value); put("q", $("#f-q").value.trim());
+  put("rule", $("#f-rule").value); put("vehicle", $("#f-veh").value); put("camera", $("#f-cam").value); put("severity", $("#f-sev").value);
+  put("run", new URLSearchParams(location.search).get("run"));
+  return p;
+}
+let facetsOnce = false;
+async function load(keepSel) {
+  const p = filters();
+  const fc = await api("/api/violations-facets?" + p);
+  if (!facetsOnce) {
+    facetsOnce = true;
+    $("#f-rule").insertAdjacentHTML("beforeend", fc.rules.map(r => `<option value="${esc(r.code)}">${esc(r.name || r.code)}</option>`).join(""));
+    $("#f-veh").insertAdjacentHTML("beforeend", fc.vehicles.map(v => `<option value="${esc(v.id)}">${esc(v.name)}</option>`).join(""));
+    $("#f-cam").insertAdjacentHTML("beforeend", fc.cameras.map(c => `<option value="${esc(c.id)}">${esc(c.name || c.id)}</option>`).join(""));
+  }
+  const total = Object.values(fc.by_status).reduce((a, b) => a + b, 0);
+  $("#tabs").innerHTML = TABS.map(([k, t]) =>
+    `<button class="${k || "all"} ${S.status === k ? "on" : ""}" data-s="${k}">${t} (${k ? (fc.by_status[k] || 0) : total})</button>`).join("");
+  p.set("status", S.status); p.set("page", S.page); p.set("limit", LIMIT);
+  if (!S.status) p.delete("status");
+  const d = await api("/api/violations?" + p);
+  S.items = d.items; S.pages = Math.max(1, Math.ceil(d.total / LIMIT));
+  $("#pg-info").textContent = `${d.total} hồ sơ · trang ${S.page}/${S.pages}`;
+  $("#grid").innerHTML = d.items.map(card).join("") ||
+    `<div class="empty">Không có hồ sơ nào trong mục này.<br><small>Chạy phân tích một video ở <a href="/studio">Studio</a> để AI ghi nhận vi phạm.</small></div>`;
+  if (!keepSel) return;
+  if (S.sel && !d.items.some(v => v.id === S.sel)) closeDetail();
+}
+function card(v) {
+  const f = (n) => `/api/violations/${encodeURIComponent(v.id)}/file/${n}`;
+  const thumb = v.has["vehicle.jpg"] ? "vehicle.jpg" : (v.has["overview.jpg"] ? "overview.jpg" : null);
+  return `<div class="card ${S.sel === v.id ? "on" : ""}" data-id="${esc(v.id)}"><div class="b">
+    <div class="id">${esc(v.id)}</div>
+    <div class="r"><span class="dot ${esc(v.severity)}"></span>${esc(v.rule_name || v.rule_code)}</div>
+    <div class="v">${esc(v.vehicle_label)} · ${esc(v.plate_display || "chưa đọc được biển")}</div>
+    <div class="m">${esc(v.location || v.camera_name || v.camera_id || "")}</div>
+    <div class="m">${esc(fmt(v.occurred_at))}</div></div>
+    ${thumb ? `<img loading="lazy" src="${f(thumb)}" alt="">` : ""}</div>`;
+}
+$("#grid").addEventListener("click", (e) => { const c = e.target.closest(".card"); if (c) openDetail(c.dataset.id); });
+$("#tabs").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; S.status = b.dataset.s; S.page = 1; closeDetail(); load(); });
+for (const id of ["#f-from", "#f-to", "#f-rule", "#f-veh", "#f-cam", "#f-sev"]) $(id).addEventListener("change", () => {
+  if (id === "#f-from" || id === "#f-to") document.querySelectorAll("#quick button").forEach(b => b.classList.remove("on"));
+  S.page = 1; load(true); });
+let qT = 0;
+$("#f-q").addEventListener("input", () => { clearTimeout(qT); qT = setTimeout(() => { S.page = 1; load(true); }, 300); });
+$("#reload").addEventListener("click", () => load(true));
+$("#quick").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  document.querySelectorAll("#quick button").forEach(x => x.classList.toggle("on", x === b));
+  if (b.dataset.d === "all") { $("#f-from").value = ""; $("#f-to").value = ""; }
+  else { const t = new Date(), a = new Date(); a.setDate(t.getDate() - (+b.dataset.d ? +b.dataset.d - 1 : 0)); $("#f-from").value = iso(a); $("#f-to").value = iso(t); }
+  S.page = 1; load(true);
+});
+$("#pg-prev").addEventListener("click", () => { if (S.page > 1) { S.page--; load(true); } });
+$("#pg-next").addEventListener("click", () => { if (S.page < S.pages) { S.page++; load(true); } });
+
+function closeDetail() { S.sel = null; $("#wrap").classList.remove("open"); document.querySelectorAll(".card.on").forEach(c => c.classList.remove("on")); }
+async function openDetail(id) {
+  let v;
+  try { v = await api("/api/violations/" + encodeURIComponent(id)); } catch (err) { alert(err.message); return; }
+  S.sel = id;
+  document.querySelectorAll(".card").forEach(c => c.classList.toggle("on", c.dataset.id === id));
+  const f = (n) => `/api/violations/${encodeURIComponent(v.id)}/file/${n}`;
+  const clip = v.has["clip.mp4"] ? "clip.mp4" : (v.has["clip.webm"] ? "clip.webm" : null);
+  const shots = [["before.jpg", "Trước thời điểm vi phạm"], ["overview.jpg", "Thời điểm vi phạm (toàn cảnh)"], ["after.jpg", "Sau thời điểm vi phạm"]].filter(x => v.has[x[0]]);
+  const sheet = v.has["composite_public.jpg"] ? "composite_public.jpg" : (v.has["composite.jpg"] ? "composite.jpg" : null);
+  const meas = Object.entries(v.measurements || {}).map(([k, x]) => `${esc(k)}: ${esc(typeof x === "object" ? JSON.stringify(x) : x)}`).join(" · ");
+  $("#detail").innerHTML = `
+    <div class="hd"><h3>${esc(v.rule_name || v.rule_code)}</h3><button id="d-close" title="Đóng">✕</button></div>
+    <div class="st ${esc(v.status)}">${esc(ST[v.status] || v.status_label)}</div>
+    <div class="platebox">${v.has["plate.jpg"] ? `<img src="${f("plate.jpg")}" alt="Ảnh biển số">` : ""}
+      <div><div class="plate">${esc(v.plate_display || "Chưa đọc được biển")}</div>
+      <div class="note" style="margin:0">${v.plate_conf != null ? `độ tin cậy đọc biển ${Math.round(v.plate_conf * 100)}%` : "kiểm tra biển bằng mắt trên ảnh"}</div></div></div>
+    <div class="kv">
+      <div>Loại xe</div><div>${esc(v.vehicle_label)}${v.plate_color_label ? " · biển " + esc(v.plate_color_label) : ""}</div>
+      <div>Thời gian</div><div>${esc(fmt(v.occurred_at))}</div>
+      <div>Địa điểm</div><div>${esc(v.location || "—")} <span style="color:var(--mute)">(${esc(v.camera_name || v.camera_id || "")})</span></div>
+      <div>Hành vi</div><div>${esc(v.rule_code)} — ${esc(v.behavior || v.rule_name)}</div>
+      <div>Mức độ</div><div><span class="dot ${esc(v.severity)}"></span>${esc(v.severity_label)}${v.ai_confidence != null ? ` · AI tin cậy ${Math.round(v.ai_confidence * 100)}%` : ""}</div>
+      ${meas ? `<div>Số đo</div><div>${meas}</div>` : ""}
+      <div>Căn cứ tham khảo</div><div>${esc(v.legal_ref || "—")}${v.fine ? "<br>" + esc(v.fine) : ""}</div>
+      <div>Mã hồ sơ</div><div style="font-family:ui-monospace,Consolas,monospace;font-size:12px">${esc(v.id)}</div>
+    </div>
+
+    <h4>Minh chứng</h4>
+    <div class="ev">
+      ${clip ? `<video src="${f(clip)}" controls loop muted playsinline></video><div class="cap">Video vi phạm (vài giây trước và sau)</div>` : `<div class="cap" style="margin:0 0 10px">Không có clip phát được trên trình duyệt.</div>`}
+      ${shots.map(([n, c]) => `<img src="${f(n)}" alt="${esc(c)}" data-zoom="1"><div class="cap">${esc(c)}</div>`).join("")}
+      ${v.has["vehicle.jpg"] ? `<img src="${f("vehicle.jpg")}" alt="Ảnh phương tiện" data-zoom="1" style="max-width:60%"><div class="cap">Ảnh phương tiện</div>` : ""}
+    </div>
+    <div class="acts">
+      ${sheet ? `<a href="${f(sheet)}" download="${esc(v.id)}.jpg"><button>⬇ Tải phiếu ghi nhận</button></a>` : ""}
+      <a href="${f("record.html")}" target="_blank" rel="noopener"><button>🖨 Mở phiếu để in</button></a>
+    </div>
+
+    <h4>Xử lý</h4>
+    <label class="lbl">Người xác minh</label><input id="d-who" value="${esc(who.get())}" placeholder="Họ tên" style="width:100%">
+    <label class="lbl">Sửa biển số (nếu AI đọc sai)</label><input id="d-plate" placeholder="${esc(v.plate_display || "vd 59X1-234.56")}" style="width:100%">
+    <label class="lbl">Ghi chú</label><textarea id="d-note" rows="2">${esc("")}</textarea>
+    <div class="acts">
+      <button class="ok" data-act="approve">✔ Xác nhận vi phạm</button>
+      <button class="no" data-act="reject">✕ Loại bỏ (báo nhầm)</button>
+      <button data-act="edit_plate">Lưu biển số</button>
+      ${v.status !== "cho_xac_minh" ? `<button data-act="reset">Đưa về chờ xử lý</button>` : ""}
+    </div>
+    <div id="msg"></div>
+    ${v.reviewer ? `<div class="note">Lần xử lý gần nhất: ${esc(v.reviewer)} · ${esc(fmt(v.reviewed_at))}${v.review_note ? " · " + esc(v.review_note) : ""}</div>` : ""}
+    <div class="note">Hồ sơ chỉ là dữ liệu ghi nhận ban đầu; căn cứ và mức phạt mang tính tham khảo, cần người có thẩm quyền đối chiếu.</div>`;
+  $("#wrap").classList.add("open");
+  $("#detail").scrollTop = 0;
+}
+$("#detail").addEventListener("click", async (e) => {
+  if (e.target.id === "d-close") { closeDetail(); return; }
+  if (e.target.dataset.zoom) { $("#zoom img").src = e.target.src; $("#zoom").style.display = "flex"; return; }
+  const act = e.target.dataset.act; if (!act) return;
+  const reviewer = $("#d-who").value.trim(), msg = $("#msg");
+  if (!reviewer) { msg.style.color = "var(--red)"; msg.textContent = "Nhập tên người xác minh trước."; $("#d-who").focus(); return; }
+  who.set(reviewer);
+  try {
+    await api(`/api/violations/${encodeURIComponent(S.sel)}/review`, { method: "POST", headers: HDR,
+      body: JSON.stringify({ action: act, reviewer, note: $("#d-note").value, plate: $("#d-plate").value }) });
+    const id = S.sel; await load(false);
+    if (S.items.some(v => v.id === id)) await openDetail(id); else closeDetail();
+  } catch (err) { msg.style.color = "var(--red)"; msg.textContent = err.message; }
+});
+$("#zoom").addEventListener("click", () => $("#zoom").style.display = "none");
+window.addEventListener("keydown", (e) => { if (e.key === "Escape") { if ($("#zoom").style.display === "flex") $("#zoom").style.display = "none"; else closeDetail(); } });
+load().catch(err => { $("#grid").innerHTML = `<div class="empty">${esc(err.message)}</div>`; });
+</script>
+</body>
+</html>

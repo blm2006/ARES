@@ -1,0 +1,6 @@
+# Dataset MẪU hàng hoá cồng kềnh trên xe máy (RB-09). Hộp bao phần HÀNG (không gồm xe).
+path: C:/yolo-al/data_train/cargo     # ĐỔI thành đường dẫn TUYỆT ĐỐI tới dữ liệu của bạn
+train: images/train
+val: images/val
+names:
+  0: cargo

@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Giám sát ATGT khu vực trường học</title>
+<style>
+  :root { --navy:#1f2a44; --red:#e53935; --amber:#f59e0b; --blue:#1e88e5; --green:#2e7d32; --bg:#f4f6fa;
+          --line:#dfe3ea; --muted:#5b6475; }
+  * { box-sizing: border-box; }
+  body { margin:0; font: 14px/1.45 "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif; background:var(--bg); color:#1b1f29; }
+  header { background:var(--navy); color:#fff; padding:10px 18px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  header h1 { font-size:17px; margin:0; font-weight:600; letter-spacing:.2px; }
+  header .sub { font-size:12px; opacity:.75; }
+  nav { display:flex; gap:4px; flex-wrap:wrap; margin-left:auto; }
+  nav button { background:transparent; border:0; color:#cfd6e6; padding:7px 12px; border-radius:6px; cursor:pointer; font:inherit; }
+  nav button.on, nav button:hover { background:rgba(255,255,255,.14); color:#fff; }
+  main { padding:16px 18px 40px; max-width:1500px; margin:0 auto; }
+  section { display:none; } section.on { display:block; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:14px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:8px; padding:10px 14px; }
+  .card b { display:block; font-size:24px; margin-top:2px; }
+  .card.red b { color:var(--red); } .card.amber b { color:#b45309; } .card.blue b { color:var(--blue); }
+  .panel { background:#fff; border:1px solid var(--line); border-radius:8px; padding:12px 14px; margin-bottom:14px; }
+  .panel h2 { font-size:15px; margin:0 0 10px; color:var(--navy); }
+  .grid2 { display:grid; grid-template-columns: minmax(0,1.6fr) minmax(0,1fr); gap:14px; }
+  @media (max-width: 1000px) { .grid2 { grid-template-columns: 1fr; } }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { border-bottom:1px solid var(--line); padding:6px 7px; text-align:left; vertical-align:top; }
+  th { background:#f1f3f7; font-weight:600; color:#2c3446; position:sticky; top:0; }
+  tr.click { cursor:pointer; } tr.click:hover td { background:#f7f9fd; }
+  .tag { display:inline-block; padding:1px 7px; border-radius:10px; font-size:12px; white-space:nowrap; }
+  .vi_pham { background:#fdecea; color:#b71c1c; } .nghi_van { background:#fff4e0; color:#92400e; } .nguy_co { background:#e8f1fd; color:#0d47a1; }
+  .cho_xac_minh { background:#eef0f4; color:#374151; } .da_xac_minh { background:#e6f4ea; color:#1b5e20; } .loai_bo { background:#f3f4f6; color:#6b7280; text-decoration:line-through; }
+  .plate { font-family: "Consolas", "Roboto Mono", monospace; font-weight:700; letter-spacing:.5px; white-space:nowrap; }
+  td.code { white-space:nowrap; }
+  .live .ph { background:#111; color:#9aa3b2; border-radius:6px; padding:40px 16px; text-align:center; font-size:13px; }
+  .filters { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; align-items:end; }
+  .filters label { font-size:12px; color:var(--muted); display:flex; flex-direction:column; gap:2px; }
+  input, select, textarea { font:inherit; padding:6px 8px; border:1px solid #c9cfda; border-radius:6px; background:#fff; }
+  button.btn { font:inherit; padding:7px 12px; border-radius:6px; border:1px solid #c9cfda; background:#fff; cursor:pointer; }
+  button.primary { background:var(--navy); color:#fff; border-color:var(--navy); }
+  button.ok { background:var(--green); color:#fff; border-color:var(--green); }
+  button.no { background:#fff; color:var(--red); border-color:var(--red); }
+  button:disabled { opacity:.5; cursor:default; }
+  .muted { color:var(--muted); } .small { font-size:12px; }
+  .live img { width:100%; border-radius:6px; background:#111; min-height:120px; }
+  .pager { display:flex; gap:8px; align-items:center; margin-top:8px; }
+  #detail { position:fixed; inset:0; background:rgba(15,20,30,.55); display:none; z-index:10; overflow:auto; }
+  #detail .box { background:#fff; max-width:1250px; margin:24px auto; border-radius:10px; padding:14px 18px; }
+  #detail .head { display:flex; align-items:center; gap:10px; }
+  #detail .head h2 { margin:0; font-size:17px; color:var(--navy); }
+  #detail img.sheet { width:100%; border:1px solid var(--line); border-radius:6px; }
+  .kv { display:grid; grid-template-columns: 190px 1fr; gap:4px 10px; font-size:13.5px; }
+  .kv div:nth-child(odd) { color:var(--muted); font-weight:600; }
+  .note { background:#fff8e6; border:1px solid #f3d38b; color:#6b4e00; padding:8px 10px; border-radius:6px; font-size:12.5px; }
+  .result { border:1px solid var(--line); border-radius:8px; padding:10px 14px; margin-bottom:10px; background:#fff; }
+  .result h3 { margin:0 0 6px; font-size:15px; }
+  .bar { height:12px; background:var(--red); border-radius:3px; }
+  .empty { padding:18px; text-align:center; color:var(--muted); }
+  a { color:#1554c0; }
+</style>
+</head>
+<body>
+<header>
+  <div><h1>Giám sát an toàn giao thông khu vực trường học</h1><div class="sub" id="sub">Dữ liệu AI — chờ người có thẩm quyền xác minh</div></div>
+  <nav id="nav">
+    <button data-tab="tong-quan" class="on">Tổng quan</button>
+    <button data-tab="ho-so">Hồ sơ vi phạm</button>
+    <button data-tab="tra-cuu">Tra cứu biển số</button>
+    <button data-tab="luu-luong">Lưu lượng &amp; tốc độ</button>
+    <button data-tab="bao-cao">Báo cáo</button>
+    <button data-tab="nhat-ky">Nhật ký</button>
+    <button onclick="location.href='/vi-pham'" style="background:#1e88e5;color:#fff">Xử lý vi phạm (dạng thẻ)</button>
+    <button onclick="location.href='/studio'" style="background:#e53935;color:#fff">Studio: thả video &amp; vẽ</button>
+  </nav>
+</header>
+<main>
+  <section id="tong-quan" class="on">
+    <div class="cards" id="cards"></div>
+    <div class="grid2">
+      <div class="panel live"><h2>Khung hình trực tiếp</h2><img id="liveimg" alt="Khung hình trực tiếp" style="display:none"><div id="liveph" class="ph">Không có luồng trực tiếp</div><div id="livestat" class="small muted"></div></div>
+      <div class="panel"><h2>Hồ sơ mới nhất</h2><div id="recent"></div></div>
+    </div>
+    <div class="panel"><h2>Trạng thái các tình huống (lần chạy hiện tại)</h2><div id="rules" class="small"></div></div>
+  </section>
+
+  <section id="ho-so">
+    <div class="panel">
+      <div class="filters">
+        <label>Ngày<input type="date" id="f-day"></label>
+        <label>Tình huống<select id="f-rule"><option value="">Tất cả</option></select></label>
+        <label>Phân loại<select id="f-sev"><option value="">Tất cả</option><option value="vi_pham">Vi phạm</option><option value="nghi_van">Nghi vấn</option><option value="nguy_co">Nguy cơ</option></select></label>
+        <label>Trạng thái<select id="f-status"><option value="">Tất cả</option><option value="cho_xac_minh">Chờ xác minh</option><option value="da_xac_minh">Đã xác minh</option><option value="loai_bo">Loại bỏ</option></select></label>
+        <label>Biển số<input id="f-plate" placeholder="vd 51F67890" size="12"></label>
+        <button class="btn primary" id="f-go">Lọc</button>
+      </div>
+      <div style="max-height:68vh; overflow:auto"><table id="vtable"></table></div>
+      <div class="pager"><button class="btn" id="pg-prev">‹ Trước</button><span id="pg-info" class="small muted"></span><button class="btn" id="pg-next">Sau ›</button></div>
+    </div>
+  </section>
+
+  <section id="tra-cuu">
+    <div class="panel">
+      <h2>Tra cứu theo biển kiểm soát</h2>
+      <div class="filters"><label>Biển số<input id="q-plate" placeholder="vd 59X1-234.56" size="18"></label><button class="btn primary" id="q-go">Tra cứu</button></div>
+      <div class="note">Kết quả là dữ liệu AI ghi nhận nội bộ, KHÔNG phải tra cứu phạt nguội chính thức. Hồ sơ bị loại bỏ không hiển thị.</div>
+    </div>
+    <div id="q-out"></div>
+  </section>
+
+  <section id="luu-luong">
+    <div class="panel"><div class="filters"><label>Ngày<input type="date" id="t-day"></label><label>Giới hạn tốc độ (km/h)<input type="number" id="t-limit" value="40" style="width:90px"></label><button class="btn primary" id="t-go">Xem</button></div></div>
+    <div id="t-out"></div>
+  </section>
+
+  <section id="bao-cao">
+    <div class="panel">
+      <h2>Lập báo cáo tổng hợp (HTML + CSV)</h2>
+      <div class="filters"><label>Ngày (bỏ trống = tất cả)<input type="date" id="r-day"></label><button class="btn primary" id="r-go">Lập báo cáo</button></div>
+      <div id="r-out" class="small"></div>
+    </div>
+  </section>
+
+  <section id="nhat-ky"><div class="panel"><h2>Nhật ký thao tác</h2><div id="audit"></div></div></section>
+</main>
+
+<div id="detail"><div class="box" id="dbox"></div></div>
+
+<script>
+"use strict";
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const SEV = {vi_pham: "Vi phạm", nghi_van: "Nghi vấn", nguy_co: "Nguy cơ"};
+const ST = {cho_xac_minh: "Chờ xác minh", da_xac_minh: "Đã xác minh", loai_bo: "Loại bỏ"};
+const VEH = {car: "Ô tô", motorcycle: "Xe máy", bicycle: "Xe đạp", bus: "Xe buýt/khách", truck: "Xe tải", person: "Người"};
+let page = 1, pageTotal = 0;
+const store = { get(k) { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } },
+                set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
+
+async function api(path, opts = {}) {
+  const o = Object.assign({ headers: {} }, opts);
+  if (o.body && typeof o.body !== "string") { o.body = JSON.stringify(o.body); o.headers["Content-Type"] = "application/json"; }
+  if (o.method && o.method !== "GET") o.headers["X-TSA"] = "1";
+  const r = await fetch(path, o);
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.detail || ("Lỗi " + r.status));
+  return j;
+}
+const fmtTime = (s) => { if (!s) return "—"; const [d, t] = s.split("T"); const [y, m, dd] = d.split("-"); return `${(t||"").slice(0,8)} ${dd}/${m}/${y}`; };
+const tag = (cls, txt) => `<span class="tag ${esc(cls)}">${esc(txt)}</span>`;
+
+// ------------------------------------------------------------------ điều hướng
+$("#nav").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b || !b.dataset.tab) return;
+  document.querySelectorAll("nav button").forEach(x => x.classList.toggle("on", x === b));
+  document.querySelectorAll("main section").forEach(s => s.classList.toggle("on", s.id === b.dataset.tab));
+  if (b.dataset.tab === "ho-so") loadList();
+  if (b.dataset.tab === "nhat-ky") loadAudit();
+  if (b.dataset.tab === "luu-luong") loadTraffic();
+});
+
+// ------------------------------------------------------------------ tổng quan
+async function loadInfo() {
+  const info = await api("/api/info");
+  const sel = $("#f-rule");
+  info.rules.forEach(r => { const o = document.createElement("option"); o.value = r.code; o.textContent = `${r.code} — ${r.name}`; sel.appendChild(o); });
+  $("#sub").textContent = `Phiên bản ${info.version} · Dữ liệu AI — chờ người có thẩm quyền xác minh`;
+}
+async function loadOverview() {
+  const s = await api("/api/status");
+  const st = s.stats_today || {}; const by = {}; (st.by_rule || []).forEach(r => { by[r.severity] = (by[r.severity] || 0) + r.n; });
+  const pend = (st.by_status || []).find(x => x.status === "cho_xac_minh");
+  $("#cards").innerHTML = [
+    ["Hôm nay — tổng", st.total || 0, ""], ["Vi phạm", by.vi_pham || 0, "red"], ["Nghi vấn", by.nghi_van || 0, "amber"],
+    ["Nguy cơ an toàn", by.nguy_co || 0, "blue"], ["Chờ xác minh (tất cả)", pend ? pend.n : 0, ""]
+  ].map(([k, v, c]) => `<div class="card ${c}">${esc(k)}<b>${esc(v)}</b></div>`).join("");
+  const live = s.live;
+  if (live) {
+    $("#liveimg").src = "/api/live.jpg?t=" + Date.now();
+    $("#liveimg").style.display = ""; $("#liveph").style.display = "none";
+    $("#livestat").textContent = `${live.camera} · ${live.location} · khung ${live.frame} · ${live.fps} khung/s · ${live.tracks} đối tượng · đèn: ${JSON.stringify(live.lights || {})}`;
+    $("#rules").innerHTML = "<table><tr><th>Mã</th><th>Tên</th><th>Trạng thái</th><th>Lý do</th></tr>" + live.rules.map(r =>
+      `<tr><td>${esc(r.code)}</td><td>${esc(r.name)}</td><td>${r.enabled ? tag("da_xac_minh", "Bật") : tag("loai_bo", "Tắt")}</td><td>${esc(r.reason)}</td></tr>`).join("") + "</table>";
+  } else {
+    $("#liveimg").removeAttribute("src");
+    $("#liveimg").style.display = "none"; $("#liveph").style.display = "";
+    $("#livestat").textContent = "Không có lần chạy trực tiếp trong tiến trình này (chạy: python -m traffic_safety_ai run ... --dashboard).";
+    $("#rules").innerHTML = '<div class="muted">Xem trạng thái tình huống ở lệnh "check" hoặc khi chạy kèm --dashboard.</div>';
+  }
+  const rec = await api("/api/violations?limit=10");
+  $("#recent").innerHTML = rec.items.length ? "<table>" + rec.items.map(rowHtml).join("") + "</table>" : '<div class="empty">Chưa có hồ sơ.</div>';
+  bindRows($("#recent"));
+}
+function rowHtml(v) {
+  return `<tr class="click" data-id="${esc(v.id)}"><td class="small">${esc(fmtTime(v.occurred_at))}</td><td class="code">${esc(v.rule_code)}</td>`
+    + `<td>${esc(v.rule_name)}</td><td class="plate">${esc(v.plate_display || "—")}</td><td>${tag(v.severity, SEV[v.severity] || v.severity)}</td></tr>`;
+}
+function bindRows(el) { el.querySelectorAll("tr.click").forEach(tr => tr.addEventListener("click", () => openDetail(tr.dataset.id))); }
+
+// ------------------------------------------------------------------ danh sách
+async function loadList() {
+  const q = new URLSearchParams({ page, limit: 50, day: $("#f-day").value, rule: $("#f-rule").value, severity: $("#f-sev").value,
+                                  status: $("#f-status").value, plate: $("#f-plate").value.trim() });
+  const r = await api("/api/violations?" + q);
+  pageTotal = Math.max(1, Math.ceil(r.total / 50));
+  $("#pg-info").textContent = `Trang ${page}/${pageTotal} · ${r.total} hồ sơ`;
+  $("#vtable").innerHTML = "<tr><th>Mã hồ sơ</th><th>Thời gian</th><th>Mã</th><th>Hành vi</th><th>Phương tiện</th><th>Biển số</th><th>Phân loại</th><th>Trạng thái</th><th>AI tin cậy</th></tr>"
+    + (r.items.map(v => `<tr class="click" data-id="${esc(v.id)}"><td class="small">${esc(v.id)}</td><td class="small">${esc(fmtTime(v.occurred_at))}</td>`
+      + `<td class="code">${esc(v.rule_code)}</td><td>${esc(v.rule_name)}</td><td>${esc(v.vehicle_label)}</td><td class="plate">${esc(v.plate_display || "—")}</td>`
+      + `<td>${tag(v.severity, SEV[v.severity] || "")}</td><td>${tag(v.status, ST[v.status] || "")}</td><td>${v.ai_confidence != null ? Math.round(v.ai_confidence * 100) + "%" : "—"}</td></tr>`).join("")
+      || '<tr><td colspan="9" class="empty">Không có hồ sơ phù hợp.</td></tr>');
+  bindRows($("#vtable"));
+}
+$("#f-go").onclick = () => { page = 1; loadList(); };
+$("#pg-prev").onclick = () => { if (page > 1) { page--; loadList(); } };
+$("#pg-next").onclick = () => { if (page < pageTotal) { page++; loadList(); } };
+
+// ------------------------------------------------------------------ chi tiết + duyệt
+async function openDetail(id) {
+  const v = await api("/api/violations/" + encodeURIComponent(id));
+  const f = (n) => `/api/violations/${encodeURIComponent(v.id)}/file/${n}`;
+  const img = v.has["composite_public.jpg"] ? "composite_public.jpg" : "composite.jpg";
+  const clip = v.has["clip.mp4"] ? "clip.mp4" : (v.has["clip.webm"] ? "clip.webm" : null);
+  const meas = Object.entries(v.measurements || {}).map(([k, x]) => `${esc(k)}: ${esc(typeof x === "object" ? JSON.stringify(x) : x)}`).join(" · ");
+  const cands = (v.plate_candidates || []).map(c => `${esc(c[0])} (${Math.round((c[1] || 0) * 100)}%)`).join(", ");
+  $("#dbox").innerHTML = `
+    <div class="head"><h2>${esc(v.id)}</h2>${tag(v.severity, SEV[v.severity] || "")} ${tag(v.status, ST[v.status] || "")}
+      <span style="margin-left:auto"></span><a href="${f("record.html")}" target="_blank" rel="noopener">Phiếu in (HTML)</a>
+      <button class="btn" id="d-close">Đóng ✕</button></div>
+    <p class="small muted">Ảnh mặc định đã làm mờ người không liên quan. <a href="#" id="d-full">Xem ảnh gốc</a></p>
+    <img class="sheet" id="d-img" src="${f(img)}" alt="Ảnh ghép bằng chứng">
+    <div class="grid2" style="margin-top:12px">
+      <div class="kv">
+        <div>Biển kiểm soát</div><div class="plate">${esc(v.plate_display || "—")} ${v.plate_conf != null ? `<span class="muted small">(${Math.round(v.plate_conf * 100)}%)</span>` : ""}</div>
+        <div>Ứng viên khác</div><div class="small">${cands || "—"}</div>
+        <div>Màu biển</div><div>${esc(v.plate_color_label || "—")}</div>
+        <div>Loại phương tiện</div><div>${esc(v.vehicle_label)}</div>
+        <div>Thời gian</div><div>${esc(fmtTime(v.occurred_at))}</div>
+        <div>Địa điểm</div><div>${esc(v.location || "—")}</div>
+        <div>Hành vi</div><div>${esc(v.rule_code)} — ${esc(v.behavior || v.rule_name)}</div>
+        <div>Căn cứ tham khảo</div><div>${esc(v.legal_ref || "—")}${v.legal_ref && !v.legal_verified ? ' <span class="tag nghi_van">chưa đối chiếu</span>' : ""}</div>
+        <div>Mức phạt tham khảo</div><div>${esc(v.fine || "—")}${v.points ? "; " + esc(v.points) : ""}</div>
+        <div>Số đo</div><div class="small">${meas || "—"}</div>
+        <div>Ghi chú</div><div class="small">${esc((v.notes || []).join(" "))}</div>
+        <div>Người duyệt</div><div>${esc(v.reviewer || "—")} ${v.reviewed_at ? "· " + esc(fmtTime(v.reviewed_at)) : ""} ${v.review_note ? "· " + esc(v.review_note) : ""}</div>
+      </div>
+      <div>
+        ${clip ? `<video src="${f(clip)}" controls style="width:100%;border-radius:6px;background:#000"></video>` : '<div class="muted small">Không có clip phát được trên trình duyệt.</div>'}
+        <div class="panel" style="margin-top:10px">
+          <h2>Xác minh</h2>
+          <div class="filters">
+            <label>Người duyệt<input id="d-who" value="${esc(store.get("tsa_reviewer"))}" size="16"></label>
+            <label>Sửa biển số<input id="d-plate" placeholder="${esc(v.plate_display || "")}" size="14"></label>
+          </div>
+          <label class="small muted">Ghi chú<textarea id="d-note" rows="2" style="width:100%"></textarea></label>
+          <div class="filters" style="margin-top:6px">
+            <button class="btn ok" data-act="approve">Xác nhận vi phạm</button>
+            <button class="btn no" data-act="reject">Loại bỏ (báo nhầm)</button>
+            <button class="btn" data-act="edit_plate">Lưu biển số</button>
+            <button class="btn" data-act="reset">Về "chờ xác minh"</button>
+          </div>
+          <div id="d-msg" class="small"></div>
+        </div>
+      </div>
+    </div>`;
+  $("#detail").style.display = "block";
+  $("#d-close").onclick = closeDetail;
+  $("#d-full").onclick = (e) => { e.preventDefault(); $("#d-img").src = f("composite.jpg"); };
+  $("#dbox").querySelectorAll("button[data-act]").forEach(b => b.onclick = async () => {
+    const who = $("#d-who").value.trim(); if (!who) { $("#d-msg").textContent = "Cần nhập tên người duyệt."; return; }
+    store.set("tsa_reviewer", who);
+    try {
+      await api(`/api/violations/${encodeURIComponent(v.id)}/review`, { method: "POST", body: { action: b.dataset.act, reviewer: who, note: $("#d-note").value, plate: $("#d-plate").value } });
+      $("#d-msg").textContent = "Đã lưu."; openDetail(v.id); loadOverview(); if ($("#ho-so").classList.contains("on")) loadList();
+    } catch (e) { $("#d-msg").textContent = e.message; }
+  });
+}
+function closeDetail() { $("#detail").style.display = "none"; $("#dbox").innerHTML = ""; }
+$("#detail").addEventListener("click", (e) => { if (e.target.id === "detail") closeDetail(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDetail(); });
+
+// ------------------------------------------------------------------ tra cứu
+$("#q-go").onclick = async () => {
+  const out = $("#q-out");
+  try {
+    const r = await api("/api/lookup?plate=" + encodeURIComponent($("#q-plate").value));
+    out.innerHTML = `<div class="panel"><b>Biển số: <span class="plate">${esc(r.display)}</span></b> ${r.valid ? "" : '<span class="tag nghi_van">không đúng mẫu biển VN</span>'}<br>`
+      + `<span class="muted">Tìm thấy ${r.total} hồ sơ</span></div>`
+      + r.items.map(v => `<div class="result"><h3>${esc(v.rule_code)} — ${esc(v.rule_name)} ${tag(v.status, ST[v.status] || "")}</h3><div class="kv">
+          <div>Biển kiểm soát</div><div class="plate">${esc(v.plate_display)}</div><div>Màu biển</div><div>${esc(v.plate_color_label || "—")}</div>
+          <div>Loại phương tiện</div><div>${esc(v.vehicle_label)}</div><div>Thời gian vi phạm</div><div>${esc(fmtTime(v.occurred_at))}</div>
+          <div>Địa điểm vi phạm</div><div>${esc(v.location || "—")}</div><div>Hành vi vi phạm</div><div>${esc(v.behavior || v.rule_name)}</div>
+          <div>Trạng thái</div><div>${esc(ST[v.status] || v.status)}</div><div>Đơn vị phát hiện</div><div>Hệ thống AI — camera ${esc(v.camera_id)}</div>
+          </div><p><a href="#" data-id="${esc(v.id)}" class="open">Xem hồ sơ ${esc(v.id)}</a></p></div>`).join("");
+    out.querySelectorAll("a.open").forEach(a => a.onclick = (e) => { e.preventDefault(); openDetail(a.dataset.id); });
+  } catch (e) { out.innerHTML = `<div class="panel">${esc(e.message)}</div>`; }
+};
+$("#q-plate").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#q-go").click(); });
+
+// ------------------------------------------------------------------ lưu lượng & tốc độ
+async function loadTraffic() {
+  const q = new URLSearchParams({ day: $("#t-day").value, limit_kmh: $("#t-limit").value || "" });
+  const r = await api("/api/traffic?" + q);
+  let h = "";
+  for (const [lid, s] of Object.entries(r.counts || {})) {
+    h += `<div class="panel"><h2>${esc(s.name)} — tổng ${esc(s.total)} xe, ${esc(s.pcu)} xcqđ</h2>`
+      + `<p class="small muted">${s.peak ? `Giờ cao điểm từ ${esc(s.peak.start.slice(11, 16))}: ${esc(s.peak.pcu_h)} xcqđ/giờ, PHF = ${esc(s.peak.phf)}` : "Chưa đủ 1 giờ số liệu để xác định giờ cao điểm"}</p>`
+      + "<table><tr><th>Khung 15'</th><th>Xe máy</th><th>Xe đạp</th><th>Ô tô</th><th>Buýt</th><th>Tải</th><th>Tổng</th><th>Xcqđ</th><th>Người đi bộ</th></tr>"
+      + s.rows.map(x => `<tr><td>${esc(x.bucket.slice(0, 16).replace("T", " "))}</td><td>${x.motorcycle}</td><td>${x.bicycle}</td><td>${x.car}</td><td>${x.bus}</td><td>${x.truck}</td><td><b>${x.total}</b></td><td>${x.pcu}</td><td>${x.person}</td></tr>`).join("")
+      + "</table></div>";
+  }
+  const sp = Object.entries(r.speeds || {});
+  h += '<div class="panel"><h2>Tốc độ (ước lượng bằng camera)</h2>' + (sp.length ? "<table><tr><th>Loại xe</th><th>Số mẫu</th><th>TB</th><th>V15</th><th>V50</th><th>V85</th><th>Max</th><th>% vượt giới hạn</th></tr>"
+    + sp.map(([k, s]) => `<tr><td>${esc(VEH[k] || k)}</td><td>${s.n}</td><td>${s.mean}</td><td>${s.v15}</td><td>${s.v50}</td><td><b>${s.v85}</b></td><td>${s.max}</td><td>${s.pct_over ?? "—"}</td></tr>`).join("") + "</table>"
+    : '<div class="empty">Chưa có số liệu tốc độ (cần hiệu chuẩn hoặc cặp vạch đo).</div>') + "</div>";
+  $("#t-out").innerHTML = h || '<div class="panel empty">Chưa có số liệu đếm (cần khai báo lines.counting).</div>';
+}
+$("#t-go").onclick = loadTraffic;
+
+// ------------------------------------------------------------------ báo cáo + nhật ký
+$("#r-go").onclick = async () => {
+  $("#r-out").textContent = "Đang lập...";
+  try { const r = await api("/api/report", { method: "POST", body: { day: $("#r-day").value } });
+        $("#r-out").innerHTML = `Đã lập: <a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.url)}</a><br><span class="muted">${esc(r.path)}</span>`; }
+  catch (e) { $("#r-out").textContent = e.message; }
+};
+async function loadAudit() {
+  const r = await api("/api/audit");
+  $("#audit").innerHTML = r.items.length ? "<table><tr><th>Thời gian</th><th>Người</th><th>Thao tác</th><th>Đối tượng</th><th>Chi tiết</th><th>IP</th></tr>"
+    + r.items.map(a => `<tr><td class="small">${esc(fmtTime(a.at))}</td><td>${esc(a.actor)}</td><td>${esc(a.action)}</td><td>${esc(a.target)}</td><td class="small">${esc(a.detail)}</td><td class="small">${esc(a.ip)}</td></tr>`).join("") + "</table>"
+    : '<div class="empty">Chưa có thao tác nào.</div>';
+}
+
+loadInfo().then(loadOverview).catch(e => { $("#cards").innerHTML = `<div class="panel">${esc(e.message)}</div>`; });
+setInterval(() => { if ($("#tong-quan").classList.contains("on")) loadOverview().catch(() => {}); }, 2000);
+// mở thẳng một thẻ theo #hash (vd /#ho-so từ Studio)
+{ const hb = document.querySelector(`#nav button[data-tab="${CSS.escape(location.hash.slice(1))}"]`); if (hb) hb.click(); }
+</script>
+</body>
+</html>

@@ -1,0 +1,84 @@
+# Model dùng cho hệ thống. Đường dẫn tương đối tính theo thư mục traffic_safety_ai/.
+# Tên trơn (vd yolo11s.pt) → ultralytics tự tải lần đầu (cần Internet). Không tải được thì dùng `fallback`.
+# Model nào thiếu → rule cần nó tự tắt, xem: python -m traffic_safety_ai check
+
+device: auto          # auto | cpu | cuda:0
+half: true            # FP16 trên GPU (ultralytics ≥ 8.4 tự dùng quantize=16)
+
+# Ngưỡng tracker (ByteTrack) — để trống dùng mặc định (high 0,5; tạo track mới 0,55).
+# Model nhỏ (yolov8n) hoặc cảnh tối/xa thì hạ xuống, vd:
+# tracker: {high_thresh: 0.35, new_track_thresh: 0.4}
+tracker: {}
+
+base:                 # COCO: người, xe đạp, ô tô, xe máy, buýt, tải, đèn tín hiệu, điện thoại
+  weights: yolo11s.pt
+  fallback: [yolov8n.pt, ../yolov8n.pt]
+  imgsz: 1280         # góc cao, vật nhỏ → ảnh lớn; máy yếu thì 960
+  conf: 0.2
+  iou: 0.5
+  roi: auto           # chỉ chạy trong vùng bao các vùng/vạch đã khai báo (+ lề 15%) → nhanh hơn, vật to hơn. full = cả khung
+  # tiles: [2, 1]     # chia ô kiểu SAHI để bắt xe máy nhỏ ở xa — chậm ≈ (số ô + 1) lần, nên bật khi có GPU
+  classes:
+    person: person
+    bicycle: bicycle
+    car: car
+    motorcycle: motorcycle
+    bus: bus
+    truck: truck
+    traffic light: traffic_light
+    cell phone: phone
+
+pose:                 # RB-02: cổ tay sát tai/mắt (chạy trên ảnh cắt người lái)
+  weights: yolo11n-pose.pt
+  max_hz: 6           # tối đa 6 lần/giây cho mỗi người lái (luật chỉ cần ≥ 3 lần nhìn trong 1,5 s)
+  fallback: [yolov8n-pose.pt]
+  imgsz: 320
+  every_n: 2
+
+phone:                # tuỳ chọn: model điện thoại riêng; bỏ trống = dùng lớp cell phone của model nền
+  weights: null
+  imgsz: 320
+  every_n: 2
+
+helmet:               # RB-01: cần tự huấn luyện (xem training/README.md). Lớp: helmet, no_helmet (hoặc head)
+  weights: models/helmet.pt
+  imgsz: 224
+  conf: 0.3
+  every_n: 2
+  classes:
+    helmet: helmet
+    with_helmet: helmet
+    no_helmet: no_helmet
+    without_helmet: no_helmet
+    head: no_helmet
+
+plate:                # dò biển số trên ảnh cắt của xe; thiếu → bộ dò cổ điển (độ chính xác thấp)
+  weights: models/plate.pt
+  imgsz: 416
+  conf: 0.3
+  every_n: 2
+  max_crops: 8
+
+plate_ocr:            # yolo_chars | fast_plate_ocr | easyocr | none
+  backend: yolo_chars
+  weights: models/plate_chars.pt
+  imgsz: 256
+  conf: 0.3
+  model_name: null    # dùng cho fast_plate_ocr (vd cct-s-v2-global-model)
+
+cargo:                # RB-09 tuỳ chọn; thiếu → tách nền (chỉ CCTV)
+  weights: models/cargo.pt
+  imgsz: 640
+
+lane_seg:             # POV RB-04: phân vùng sidewalk / solid_line / crosswalk / road
+  weights: models/lane_seg.pt
+  imgsz: 640
+  every_n: 2
+
+orientation:          # POV RB-03: phân loại đầu xe (front) / đuôi xe (rear)
+  weights: models/vehicle_orientation.pt
+  imgsz: 224
+
+turn_signal:
+  enabled: false
+  weights: models/turn_signal.pt

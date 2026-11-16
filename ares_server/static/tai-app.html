@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tải ARES Viewer</title>
+<style>
+:root{--bg:#f6f6f7;--surface:#fff;--text:#111214;--muted:#5d6068;--border:#e2e3e6;--red:#d71920;--ink:#111214}
+@media (prefers-color-scheme: dark){:root{--bg:#0d0e10;--surface:#16171a;--text:#ececee;--muted:#9a9ca3;--border:#2a2c31;--red:#ff4b52;--ink:#ececee}}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+.wrap{max-width:820px;margin:0 auto;padding:40px 20px}
+.logo{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.06em} .logo i{width:14px;height:14px;background:var(--red);display:inline-block;border-radius:2px}
+h1{font-size:32px;line-height:1.2;margin:18px 0 8px} .muted{color:var(--muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px 22px;margin-top:20px}
+.dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:14px}
+.dl a{display:block;text-decoration:none;color:var(--text);border:2px solid var(--ink);border-radius:12px;padding:16px;font-weight:700}
+.dl a.main{background:var(--ink);color:var(--surface)} .dl a small{display:block;font-weight:500;opacity:.75;margin-top:4px}
+.dl a[aria-disabled="true"]{opacity:.35;pointer-events:none}
+ol{padding-left:22px} li{margin:6px 0} code{background:rgba(127,127,127,.15);padding:1px 6px;border-radius:5px}
+.srv{font-family:ui-monospace,Consolas,monospace;font-size:15px;border:1px dashed var(--ink);padding:10px 12px;border-radius:10px;word-break:break-all}
+</style>
+</head>
+<body><div class="wrap">
+<div class="logo"><i></i>ARES</div>
+<h1>Tải app ARES Viewer</h1>
+<p class="muted">App xem dashboard giám sát AI. Camera và AI chạy trên máy chủ; máy của bạn chỉ để xem cảnh báo, clip và camera trực tiếp.</p>
+<div class="card">
+  <b>Máy chủ</b>
+  <div class="srv" id="srv">—</div>
+  <div class="dl">
+    <a class="main" id="d-win" href="/tai-app/ARES-Viewer-Windows.zip">Windows<small>Windows 10/11 · ~6 MB</small></a>
+    <a id="d-mac" href="/tai-app/ARES-Viewer-macOS.zip">macOS<small>Apple Silicon và Intel</small></a>
+    <a id="d-lin" href="/tai-app/ARES-Viewer-Linux.zip">Linux<small>x86-64</small></a>
+  </div>
+</div>
+<div class="card">
+  <b>Cài đặt (Windows)</b>
+  <ol>
+    <li>Bấm <b>Windows</b> ở trên để tải file zip.</li>
+    <li>Chuột phải file zip → <b>Extract All…</b> (Giải nén tất cả).</li>
+    <li>Mở thư mục <b>ARES Viewer</b>, bấm đúp <b>ARES Viewer.exe</b>. Nếu Windows hiện "Windows protected your PC": bấm <b>More info → Run anyway</b> (app chưa ký số).</li>
+    <li>Đăng nhập bằng tài khoản quản trị viên đưa cho bạn.</li>
+  </ol>
+  <p class="muted">Máy chủ đổi địa chỉ IP? App tự dò lại trong mạng nội bộ. Không dò được thì app hỏi địa chỉ mới.</p>
+</div>
+<div class="card">
+  <b>Không muốn cài?</b>
+  <p>Mở thẳng <a id="open" href="/">dashboard trên trình duyệt</a> — dùng được cả trên điện thoại.</p>
+</div>
+</div>
+<script>
+fetch("/api/app-info").then(r=>r.json()).then(i=>{
+  document.getElementById("srv").textContent=i.server;
+  const map={windows:"d-win",macos:"d-mac",linux:"d-lin"};
+  for(const [k,id] of Object.entries(map)) if(!i.available[k]) document.getElementById(id).setAttribute("aria-disabled","true");
+}).catch(()=>{ document.getElementById("srv").textContent=location.origin; });
+</script>
+</body></html>

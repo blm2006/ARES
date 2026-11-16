@@ -1,0 +1,38 @@
+# Cấu hình model cho máy KHÔNG cài PyTorch (máy ảo, mini PC ở cổng trường, máy yếu):
+# chạy model nền dạng ONNX bằng OpenCV DNN — chỉ cần opencv-python + numpy.
+#   python -m traffic_safety_ai run --source video.mp4 --scene ... --models traffic_safety_ai/configs/models_cpu_onnx.yaml
+# Tạo ONNX từ model .pt (trên máy có PyTorch):
+#   python -m traffic_safety_ai export-models --which base --format onnx --imgsz 960
+# Chậm hơn GPU nhiều (≈ 0,3–0,8 giây/khung ở 960 trên CPU 2 nhân) → nên dùng --stride 2 hoặc 3.
+device: cpu
+half: false
+
+# yolov8n cho điểm tin cậy thấp hơn model lớn → hạ ngưỡng khởi tạo track (mặc định 0,5 / 0,55)
+tracker:
+  high_thresh: 0.35
+  new_track_thresh: 0.4
+
+base:
+  weights: models/yolov8n_960.onnx      # COCO 80 lớp, kích thước vào cố định 960×960
+  backend: opencv
+  imgsz: 960
+  conf: 0.25
+  iou: 0.5
+  classes:
+    person: person
+    bicycle: bicycle
+    car: car
+    motorcycle: motorcycle
+    bus: bus
+    truck: truck
+    traffic light: traffic_light
+    cell phone: phone
+
+pose: {enabled: false}
+phone: {enabled: false}
+helmet: {enabled: false}
+plate: {enabled: false}                 # vẫn dùng bộ dò biển số cổ điển
+plate_ocr: {backend: none}              # chưa có model đọc ký tự → lưu ảnh biển để người duyệt đọc
+cargo: {enabled: false}
+lane_seg: {enabled: false}
+orientation: {enabled: false}

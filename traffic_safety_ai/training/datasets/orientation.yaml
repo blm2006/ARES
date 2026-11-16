@@ -1,0 +1,4 @@
+# Model phân loại đầu/đuôi xe (RB-03 kênh POV) — Ultralytics classify dùng THƯ MỤC, không dùng file yaml này.
+# Cấu trúc:  data_train/orientation/train/front/*.jpg  train/rear/*.jpg  val/front/  val/rear/
+# Lệnh:      python -m traffic_safety_ai train --task orientation --data data_train/orientation
+path: C:/yolo-al/data_train/orientation     # ĐỔI thành đường dẫn TUYỆT ĐỐI tới dữ liệu của bạn
