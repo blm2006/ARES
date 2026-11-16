@@ -314,14 +314,10 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}
       <div class="warnbox" id="cam-insecure" hidden><b>Trình duyệt đang chặn camera.</b> Trên địa chỉ http, Chrome/Edge chỉ cho dùng camera khi mở bằng
         app <b>ARES Viewer</b>. Tải app ở <a href="/tai-app">trang tải app</a>, mở app rồi vào lại mục này.</div>
       <div id="cam-ctl">
-        <div class="row">
-          <select id="cam-dev"><option value="">Camera mặc định của máy</option></select>
-          <input id="cam-name" placeholder="Tên camera (vd: Phòng khách)" value="Webcam" maxlength="40">
-          <select id="cam-place" title="Địa điểm"></select>
-          <button class="btn dark" id="cam-start">Bật camera và gửi cho AI</button>
-          <button class="btn" id="cam-stop" hidden>Dừng gửi</button>
-          <label class="small"><input type="checkbox" id="cam-auto"> Tự bật lại khi mở app</label>
-        </div>
+        <div class="row"><span class="small muted">Mỗi camera cắm vào máy này (webcam laptop, camera USB...) bật riêng — bật được nhiều camera cùng lúc.</span>
+          <span class="spacer"></span><button class="btn" id="cam-scan">Quét lại camera</button>
+          <label class="small"><input type="checkbox" id="cam-auto"> Tự bật lại khi mở app</label></div>
+        <div id="localcams" style="display:grid;gap:8px;margin-top:10px"></div>
         <p class="hint" id="cam-status">Camera của máy này chỉ gửi hình về máy chủ; YOLO người và YOLO hành vi chạy trên máy chủ rồi trả kết quả về đây.</p>
       </div>
     </div></div>
@@ -479,7 +475,7 @@ $("#acct-btn").onclick = e=>{ e.stopPropagation(); menu.hidden=!menu.hidden; $("
 document.addEventListener("click", e=>{ if(!menu.hidden && !e.target.closest(".acct")) menu.hidden=true; });
 document.addEventListener("keydown", e=>{ if(e.key==="Escape") menu.hidden=true; });
 document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>$("#"+b.dataset.close).close());
-$("#logout").onclick = async()=>{ stopCam(true); await api("/api/logout",{method:"POST"}).catch(()=>{}); setToken(""); location.reload(); };
+$("#logout").onclick = async()=>{ stopAllCams(true); await api("/api/logout",{method:"POST"}).catch(()=>{}); setToken(""); location.reload(); };
 $("#m-pw").onclick = ()=>{ menu.hidden=true; ["#pw-old","#pw-new","#pw-new2"].forEach(s=>$(s).value=""); $("#pwdlg").showModal(); };
 $("#m-places").onclick = ()=>{ menu.hidden=true; go("places"); };
 $("#m-profile").onclick = async()=>{ menu.hidden=true;
@@ -725,7 +721,8 @@ document.addEventListener("click", async ev=>{
     else if(t.dataset.delplace){ if(!confirm(`Xoá địa điểm "${t.dataset.name}"? Camera trong đó sẽ chuyển sang địa điểm khác của cùng người dùng.`)) return;
       await api(`/api/places/${t.dataset.delplace}/delete`,{method:"POST"}); PLACES=[]; toast("Đã xoá địa điểm"); refresh(); }
     else if(t.dataset.delcam){ if(!confirm("Gỡ camera này? Máy chủ sẽ ngừng chạy AI trên camera này.")) return;
-      if(CAM.id===+t.dataset.delcam) stopCam(true); await api(`/api/my/cameras/${t.dataset.delcam}/delete`,{method:"POST"}); LS.set("ares_cam_id",""); toast("Đã gỡ camera"); refresh(); }
+      { const cfg=camCfg(); for(const [d,c] of Object.entries(cfg)) if(c.id===+t.dataset.delcam){ stopCam(d,true); delete cfg[d]; } saveCamCfg(cfg); }
+      await api(`/api/my/cameras/${t.dataset.delcam}/delete`,{method:"POST"}); toast("Đã gỡ camera"); refresh(); }
     else if(t.dataset.ustatus){ await api(`/api/users/${t.dataset.ustatus}`,{method:"POST",body:{status:t.dataset.to}}); toast(t.dataset.to==="active"?"Đã kích hoạt tài khoản":"Đã khoá tài khoản"); refresh(); }
     else if(t.dataset.upw){ const pw=prompt(`Mật khẩu mới cho "${t.dataset.name}" (≥ 8 ký tự):`); if(!pw) return;
       await api(`/api/users/${t.dataset.upw}/password`,{method:"POST",body:{password:pw}}); toast("Đã đặt lại mật khẩu"); }
@@ -758,24 +755,61 @@ fetch(API+"/api/app-info").then(r=>r.json()).then(i=>{
 $("#app-copy").onclick=()=>{ navigator.clipboard.writeText(appBase+"/tai-app").then(()=>toast("Đã sao chép"),()=>toast("Bôi đen để sao chép")); };
 $("#ns-copy").onclick=()=>{ navigator.clipboard.writeText($("#ns-key").textContent).then(()=>toast("Đã sao chép khoá"),()=>toast("Bôi đen để chép")); };
 
-// ------------------------------------------------ camera của máy này -> máy chủ AI (người dùng)
-let CAM={stream:null,id:null,timer:null,busy:false,sent:0,t0:0,err:""}, MYCAMS=[];
+// ------------------------------------------------ camera của máy này -> máy chủ AI (người dùng) — nhiều camera cùng lúc
+// CAMS[deviceId] = luồng đang gửi; LS "ares_cams" nhớ {deviceId: {id, name, place, on}} để mở lại app tự bật đúng camera.
+const CAMS={}; let MYCAMS=[], VIDEVS=[], CAMPLACES=[];
+const camCfg=()=>{ try{ return JSON.parse(LS.get("ares_cams")||"{}"); }catch(_){ return {}; } };
+const saveCamCfg=c=>LS.set("ares_cams", JSON.stringify(c));
+const camRunning=id=>Object.values(CAMS).find(c=>c.id===id);
+// mã camera (deviceId) có thể đổi sau khi cắm lại / mở lại trình duyệt -> tìm theo mã, không thấy thì theo tên thiết bị
+function cfgFor(cfg, devId){ if(cfg[devId]) return cfg[devId]; const d=VIDEVS.find(x=>x.deviceId===devId);
+  const hit=d&&Object.values(cfg).find(c=>c.label&&c.label===d.label&&!VIDEVS.some(x=>cfg[x.deviceId]===c)); return hit||{}; }
 function camSecure(){ return !!(window.isSecureContext && navigator.mediaDevices && navigator.mediaDevices.getUserMedia); }
+function niceLabel(d,i){ let l=(d.label||"").replace(/\s*\([0-9a-f]{4}:[0-9a-f]{4}\)\s*$/i,"").trim();
+  if(!l) return `Camera ${i+1}`; if(/integrated|built-?in|facetime|hd webcam/i.test(l)) return "Webcam laptop"; return l.slice(0,40); }
+async function listDevices(askPerm){
+  if(!camSecure()) return;
+  try{
+    let ds=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==="videoinput");
+    if(askPerm && ds.some(d=>!d.label)){  // chưa cho phép -> chưa thấy tên camera: xin quyền 1 lần
+      try{ const st=await navigator.mediaDevices.getUserMedia({video:true}); st.getTracks().forEach(t=>t.stop()); }catch(_){}
+      ds=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==="videoinput"); }
+    const old=new Set(VIDEVS.map(d=>d.deviceId)), cfg=camCfg(), used=new Set();
+    VIDEVS=ds.map((d,i)=>({deviceId:d.deviceId,label:d.label||`Camera ${i+1}`}));
+    VIDEVS=ds.map((d,i)=>{ let n=cfgFor(cfg,d.deviceId).name||niceLabel(d,i); while(used.has(n)) n+=" 2"; used.add(n); return {deviceId:d.deviceId,label:d.label||`Camera ${i+1}`,name:n}; });
+    if(old.size) for(const d of VIDEVS) if(!old.has(d.deviceId) && d.deviceId) toast(`Phát hiện camera mới: ${d.label} — bấm "Bật" để gửi cho AI`);
+    for(const id of Object.keys(CAMS)) if(!VIDEVS.some(d=>d.deviceId===id)){ stopCam(id,true); toast("Một camera vừa bị rút ra"); }
+    renderLocalCams();
+  }catch(_){}
+}
+function renderLocalCams(){
+  const box=$("#localcams"); if(!box) return;
+  const cfg=camCfg(), opts=sel=>CAMPLACES.map(p=>`<option value="${p.id}" ${String(p.id)===String(sel)?"selected":""}>${esc(p.name)}</option>`).join("");
+  const html=VIDEVS.length?VIDEVS.map(d=>{ const on=!!CAMS[d.deviceId], c=cfgFor(cfg,d.deviceId);
+    return `<div class="row" data-dev="${esc(d.deviceId)}" style="border:1px solid var(--border);border-radius:10px;padding:8px 10px">
+      <span class="pill ${on?"ok":""}"><i class="dot"></i>${on?"Đang gửi":"Tắt"}</span>
+      <span class="small muted" style="min-width:150px">${esc(d.label)}</span>
+      <input data-cname value="${esc(c.name||d.name)}" maxlength="40" placeholder="Tên camera" ${on?"disabled":""} style="width:180px">
+      <select data-cplace ${on?"disabled":""}>${opts(c.place||(CAMPLACES[0]||{}).id)}</select>
+      <span class="small muted" data-cfps></span><span class="spacer"></span>
+      ${on?`<button class="btn" data-cstop="${esc(d.deviceId)}">Dừng</button>`:`<button class="btn dark" data-cstart="${esc(d.deviceId)}">Bật và gửi cho AI</button>`}</div>`; }).join("")
+    :'<div class="empty">Chưa thấy camera nào. Cắm camera vào rồi bấm <b>Quét lại camera</b> (trình duyệt sẽ hỏi quyền dùng camera).</div>';
+  if(box.dataset.h!==html){ box.dataset.h=html; box.innerHTML=html; }
+}
 async function renderMyCams(){
-  const r=await api("/api/my/cameras"); MYCAMS=r.items;
-  fillSel($("#cam-place"), r.places.map(p=>[String(p.id), "Địa điểm: "+p.name]), "—");
-  if(!$("#cam-place").dataset.init && LS.get("ares_cam_place")){ $("#cam-place").value=LS.get("ares_cam_place"); $("#cam-place").dataset.init="1"; }
+  const r=await api("/api/my/cameras"); MYCAMS=r.items; CAMPLACES=r.places;
   $("#cam-insecure").hidden=camSecure(); $("#cam-ctl").hidden=!camSecure();
+  if(camSecure() && !VIDEVS.length) await listDevices(false); else renderLocalCams();
   $("#mycams-empty").hidden=MYCAMS.length>0;
   const pname=id=>(r.places.find(p=>p.id===id)||{}).name||"";
-  const box=$("#mycams"), key=MYCAMS.map(c=>c.id).join(",")+"|"+(CAM.id||"");
+  const box=$("#mycams"), key=MYCAMS.map(c=>c.id).join(",")+"|"+Object.values(CAMS).map(c=>c.id).sort().join(",");
   if(box.dataset.key!==key){ box.dataset.key=key;
-    box.innerHTML=MYCAMS.map(c=>`<div class="camcard" data-cam="${c.id}"><div class="pair ${CAM.id===c.id?"":"one"}">
-      ${CAM.id===c.id?`<div class="lbl"><video data-preview autoplay muted playsinline></video><span>Máy này</span></div>`:""}
+    box.innerHTML=MYCAMS.map(c=>{ const run=camRunning(c.id); return `<div class="camcard" data-cam="${c.id}"><div class="pair ${run?"":"one"}">
+      ${run?`<div class="lbl"><video data-preview="${c.id}" autoplay muted playsinline></video><span>Máy này</span></div>`:""}
       <div class="lbl"><img data-live="${liveKey(c)}" alt="Kết quả AI"><span>Kết quả AI từ máy chủ</span></div></div>
       <div class="in"><div class="row"><b>${esc(c.name)}</b><span class="muted small" data-pl></span><span class="spacer"></span><span data-st></span></div>
-      <div class="row small"><span data-np></span><span class="spacer"></span><button class="btn warn" data-delcam="${c.id}">Gỡ camera</button></div></div></div>`).join("");
-    const v=box.querySelector("[data-preview]"); if(v && CAM.stream){ v.srcObject=CAM.stream; v.play().catch(()=>{}); } }
+      <div class="row small"><span data-np></span><span class="spacer"></span><button class="btn warn" data-delcam="${c.id}">Gỡ camera</button></div></div></div>`; }).join("");
+    box.querySelectorAll("[data-preview]").forEach(v=>{ const run=camRunning(+v.dataset.preview); if(run){ v.srcObject=run.stream; v.play().catch(()=>{}); } }); }
   for(const c of MYCAMS){ const el=box.querySelector(`[data-cam="${c.id}"]`); if(!el) continue;
     const st = !r.server_ai ? '<span class="pill red">Máy chủ AI mất kết nối</span>'
       : c.sending ? (c.ai_online ? '<span class="pill ok">AI đang xử lý</span>' : '<span class="pill warn">Máy chủ đang mở camera…</span>')
@@ -783,50 +817,59 @@ async function renderMyCams(){
     el.querySelector("[data-st]").innerHTML=st; el.querySelector("[data-pl]").textContent="· "+pname(c.place_id);
     el.querySelector("[data-np]").textContent=c.ai_online?`${c.n_people} người trong khung hình`:""; }
 }
-async function listDevices(){
-  try{ const ds=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==="videoinput"); const sel=$("#cam-dev"), cur=sel.value||LS.get("ares_cam_dev")||"";
-    sel.innerHTML='<option value="">Camera mặc định của máy</option>'+ds.map((d,i)=>`<option value="${esc(d.deviceId)}">${esc(d.label||("Camera "+(i+1)))}</option>`).join(""); sel.value=cur; }catch(_){}
-}
 const SEND_W=640, SEND_Q=0.7, SEND_MS=80;  // khung gửi lên máy chủ: đủ cho YOLO (imgsz 640), nhẹ mạng -> ít trễ
-async function startCam(){
+async function startCam(devId, silent){
   if(!camSecure()){ $("#cam-insecure").hidden=false; return; }
-  stopCam(true);
-  const dev=$("#cam-dev").value, name=($("#cam-name").value||"Webcam").trim(), place=+$("#cam-place").value||null;
-  try{ CAM.stream=await navigator.mediaDevices.getUserMedia({audio:false,video:dev?{deviceId:{exact:dev},width:{ideal:960},height:{ideal:540},frameRate:{ideal:20}}:{width:{ideal:960},height:{ideal:540},frameRate:{ideal:20}}}); }
-  catch(e){ toast("Không mở được camera: "+(e.name==="NotAllowedError"?"bạn chưa cho phép dùng camera":e.message)); return; }
-  await listDevices(); LS.set("ares_cam_dev",dev); LS.set("ares_cam_name",name); if(place) LS.set("ares_cam_place",String(place));
-  const mine=(await api("/api/my/cameras")).items; let id=+LS.get("ares_cam_id")||0;
-  if(!mine.some(c=>c.id===id)){ try{ id=(await api("/api/my/cameras",{method:"POST",body:{name,place_id:place}})).id; }catch(e){ toast(e.message); stopCam(); return; } }
-  CAM.id=id; LS.set("ares_cam_id",String(id)); CAM.sent=0; CAM.t0=Date.now();
-  const video=document.createElement("video"); video.muted=true; video.playsInline=true; video.srcObject=CAM.stream; await video.play().catch(()=>{});
+  if(CAMS[devId]) return;
+  const row=document.querySelector(`[data-dev="${CSS.escape(devId)}"]`), cfg=camCfg(), c0=cfgFor(cfg,devId);
+  const name=((row&&row.querySelector("[data-cname]").value)||c0.name||(VIDEVS.find(d=>d.deviceId===devId)||{}).name||"Webcam").trim().slice(0,40);
+  const place=+((row&&row.querySelector("[data-cplace]").value)||c0.place||0)||null;
+  let stream;
+  try{ stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{deviceId:devId?{exact:devId}:undefined,width:{ideal:960},height:{ideal:540},frameRate:{ideal:20}}}); }
+  catch(e){ if(!silent) toast(`Không mở được camera "${name}": `+(e.name==="NotAllowedError"?"bạn chưa cho phép dùng camera":e.name==="NotReadableError"?"camera đang được chương trình khác dùng":e.message)); return; }
+  const mine=(await api("/api/my/cameras")).items; let id=c0.id||0;
+  if(!mine.some(c=>c.id===id)){ try{ id=(await api("/api/my/cameras",{method:"POST",body:{name,place_id:place}})).id; }catch(e){ stream.getTracks().forEach(t=>t.stop()); toast(e.message); return; } }
+  const label=(VIDEVS.find(d=>d.deviceId===devId)||{}).label||"";
+  for(const [k,v] of Object.entries(cfg)) if(k!==devId && (v.id===id || (label && v.label===label))) delete cfg[k];  // bỏ bản ghi cũ của cùng camera
+  cfg[devId]={id,name,place,on:true,label}; saveCamCfg(cfg);
+  const S={stream,id,timer:null,busy:false,sent:0,t0:Date.now(),err:""}; CAMS[devId]=S;
+  const video=document.createElement("video"); video.muted=true; video.playsInline=true; video.srcObject=stream; await video.play().catch(()=>{});
   const canvas=document.createElement("canvas"), ctx=canvas.getContext("2d");
   const tick=()=>{
-    if(!CAM.timer) return;
-    if(CAM.busy||!video.videoWidth){ CAM.timer=setTimeout(tick,20); return; }
-    CAM.busy=true; const t0=performance.now();
+    if(CAMS[devId]!==S) return;
+    if(S.busy||!video.videoWidth){ S.timer=setTimeout(tick,20); return; }
+    S.busy=true; const t0=performance.now();
     const W=Math.min(SEND_W,video.videoWidth); canvas.width=W; canvas.height=Math.round(video.videoHeight*W/video.videoWidth);
     ctx.drawImage(video,0,0,canvas.width,canvas.height);
-    canvas.toBlob(b=>{ if(!b){CAM.busy=false;return;}
-      fetch(`${API}/api/my/cameras/${CAM.id}/frame`,{method:"POST",headers:{...AH(),"X-ARES":"1","Content-Type":"image/jpeg"},body:b})
-        .then(r=>{ if(r.status===401){ stopCam(); start(); } else if(r.status===404){ stopCam(); LS.set("ares_cam_id",""); toast("Camera đã bị gỡ"); } else { CAM.sent++; CAM.err=""; } })
-        .catch(e=>{ CAM.err=e.message; }).finally(()=>{ CAM.busy=false; });
+    canvas.toBlob(b=>{ if(!b){S.busy=false;return;}
+      fetch(`${API}/api/my/cameras/${S.id}/frame`,{method:"POST",headers:{...AH(),"X-ARES":"1","Content-Type":"image/jpeg"},body:b})
+        .then(r=>{ if(r.status===401){ stopAllCams(true); start(); } else if(r.status===404){ stopCam(devId,true); const c=camCfg(); delete c[devId]; saveCamCfg(c); toast("Camera đã bị gỡ"); } else { S.sent++; S.err=""; } })
+        .catch(e=>{ S.err=e.message; }).finally(()=>{ S.busy=false; });
     },"image/jpeg",SEND_Q);
-    // gửi tiếp ngay khi khung trước đã đi (không dồn hàng đợi) — tối đa ~12 khung/giây
-    CAM.timer=setTimeout(tick, Math.max(10, SEND_MS-(performance.now()-t0)));
+    S.timer=setTimeout(tick, Math.max(10, SEND_MS-(performance.now()-t0)));  // gửi tiếp khi khung trước đã đi — không dồn hàng đợi
   };
-  CAM.timer=setTimeout(tick,0);
-  $("#cam-start").hidden=true; $("#cam-stop").hidden=false; toast("Đang gửi hình camera cho AI trên máy chủ");
-  $("#mycams").dataset.key=""; if(view==="mycams") renderMyCams();
+  S.timer=setTimeout(tick,0);
+  stream.getVideoTracks()[0].addEventListener("ended",()=>{ if(CAMS[devId]===S){ stopCam(devId,true); toast(`Camera "${name}" đã ngắt`); } });
+  if(!silent) toast(`Đang gửi camera "${name}" cho AI trên máy chủ`);
+  $("#mycams").dataset.key=""; renderLocalCams(); if(view==="mycams") renderMyCams();
 }
-function stopCam(silent){
-  if(CAM.timer) clearTimeout(CAM.timer); CAM.timer=null;
-  if(CAM.stream) CAM.stream.getTracks().forEach(t=>t.stop()); CAM.stream=null; const had=CAM.id; CAM.id=null;
-  $("#cam-start").hidden=false; $("#cam-stop").hidden=true; $("#mycams").dataset.key="";
-  if(had && !silent) toast("Đã dừng gửi hình");
+function stopCam(devId, keepOn){
+  const S=CAMS[devId]; if(!S) return; delete CAMS[devId];
+  if(S.timer) clearTimeout(S.timer); S.stream.getTracks().forEach(t=>t.stop());
+  if(!keepOn){ const c=camCfg(), e=cfgFor(c,devId); if(e.id){ e.on=false; saveCamCfg(c); } }
+  $("#mycams").dataset.key=""; renderLocalCams();
 }
-setInterval(()=>{ if(CAM.timer){ const s=(Date.now()-CAM.t0)/1000; $("#cam-status").textContent=`Đang gửi ~${(CAM.sent/Math.max(1,s)).toFixed(1)} khung/giây cho máy chủ AI${CAM.err?" · lỗi mạng: "+CAM.err:""}. Giữ app mở để AI tiếp tục theo dõi.`; } },1000);
-$("#cam-start").onclick=startCam; $("#cam-stop").onclick=()=>{ LS.set("ares_cam_auto", $("#cam-auto").checked?"1":"0"); stopCam(); };
+function stopAllCams(keepOn){ for(const d of Object.keys(CAMS)) stopCam(d, keepOn); }
+async function autoStartCams(){ if(!camSecure()) return; await listDevices(false); const cfg=camCfg();
+  for(const d of VIDEVS) if(cfgFor(cfg,d.deviceId).on) await startCam(d.deviceId, true); }
+setInterval(()=>{ const runs=Object.entries(CAMS); for(const [d,S] of runs){ const el=document.querySelector(`[data-dev="${CSS.escape(d)}"] [data-cfps]`);
+    if(el) el.textContent=`~${(S.sent/Math.max(1,(Date.now()-S.t0)/1000)).toFixed(1)} khung/giây${S.err?" · lỗi mạng":""}`; }
+  if(runs.length) $("#cam-status").textContent=`Đang gửi ${runs.length} camera cho máy chủ AI. Giữ trang/app mở để AI tiếp tục theo dõi.`; },1000);
+document.addEventListener("click", ev=>{ const t=ev.target.closest("[data-cstart],[data-cstop]"); if(!t) return;
+  if(t.dataset.cstart!=null) startCam(t.dataset.cstart); else { stopCam(t.dataset.cstop); toast("Đã dừng gửi camera"); } });
+$("#cam-scan").onclick=()=>listDevices(true);
 $("#cam-auto").onchange=e=>LS.set("ares_cam_auto", e.target.checked?"1":"0");
+if(navigator.mediaDevices && navigator.mediaDevices.addEventListener) navigator.mediaDevices.addEventListener("devicechange", ()=>listDevices(false));
 
 // ------------------------------------------------ hình trực tiếp: tải nối tiếp từng ảnh (xong ảnh này mới tải ảnh sau)
 // -> không dồn request, ảnh luôn là khung mới nhất; chỉ tải ảnh đang hiện trên màn hình.
@@ -1090,8 +1133,8 @@ async function start(){
     return; }
   ME=m.user; document.body.classList.toggle("role-viewer", ME.role!=="admin"); document.body.classList.toggle("role-admin", ME.role==="admin");
   paintMe();
-  if(ME.role!=="admin"){ $("#cam-auto").checked=LS.get("ares_cam_auto")==="1"; $("#cam-name").value=LS.get("ares_cam_name")||"Webcam";
-    if(LS.get("ares_cam_auto")==="1" && camSecure() && !CAM.timer) startCam(); }
+  if(ME.role!=="admin"){ $("#cam-auto").checked=LS.get("ares_cam_auto")==="1";
+    if(LS.get("ares_cam_auto")==="1" && camSecure() && !Object.keys(CAMS).length) autoStartCams(); }
   $("#b-pend").hidden=!m.pending; $("#b-pend").textContent=m.pending;
   $("#login").hidden=true; $("#app").hidden=false;
   if(+LS.get("ares_usb_dev") && "serial" in navigator) serConnect(+LS.get("ares_usb_dev"), false);  // cổng đã cho phép trước đó: tự nối lại
