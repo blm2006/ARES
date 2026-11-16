@@ -145,6 +145,12 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}
 .vgrid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:0}
 @media (max-width:860px){ .vgrid{grid-template-columns:1fr} }
 .vside{border-left:1px solid var(--border);padding:12px 14px;max-height:74vh;overflow:auto;display:grid;gap:8px;align-content:start}
+.vtl{position:relative;height:12px;margin:8px 12px 0;border-radius:6px;cursor:pointer;background:var(--surface2);overflow:hidden}
+.vtl i{position:absolute;top:0;bottom:0;width:3px;background:var(--ink);border-radius:2px;pointer-events:none}
+.vstat{border:2px solid var(--ok);background:var(--ok-bg);border-radius:12px;padding:10px 12px;display:grid;gap:4px}
+.vstat b{color:var(--ok);font-size:15px} .vstat span{font-size:13px}
+.vstat.l1{border-color:var(--warn);background:var(--warn-bg)} .vstat.l1 b{color:var(--warn)}
+.vstat.l2{border-color:var(--red);background:var(--red-bg)} .vstat.l2 b{color:var(--red)}
 .vev{border:1px solid var(--border);border-radius:10px;padding:8px 10px;cursor:pointer;display:grid;gap:2px}
 .vev:hover{border-color:var(--ink)} .vev.on{border-color:var(--red);background:var(--red-bg)}
 </style>
@@ -382,10 +388,14 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}
   <h2><span id="vd-title">—</span><span class="spacer"></span><a class="btn" id="vd-mp4" href="#" download hidden>Tải video kết quả</a><button class="btn" id="vd-close">Đóng</button></h2>
   <div class="vgrid">
     <div class="player"><img id="vd-img" alt="Kết quả AI">
+      <div class="vtl" id="vd-tl" title="Dải thời gian: xanh = an toàn · cam = chú ý · đỏ = báo động (bấm để tua)"><i id="vd-tlpos"></i></div>
       <div class="ctl"><button class="btn dark" id="vd-play">Phát</button><input type="range" id="vd-seek" min="1" max="1" value="1"><span class="muted small" id="vd-pos"></span>
         <select id="vd-speed" title="Tốc độ phát"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select></div>
       <div class="ctl small muted" id="vd-sum"></div></div>
-    <div class="vside"><b>Sự kiện AI phát hiện</b><div id="vd-events"></div></div>
+    <div class="vside">
+      <div class="vstat l0" id="vd-status"><b id="vd-st-h">—</b><span id="vd-st-t"></span></div>
+      <b>Tư thế trong video</b><div class="schips" id="vd-poses"></div>
+      <b>Sự kiện AI phát hiện</b><div id="vd-events" style="display:grid;gap:8px"></div></div>
   </div></div></dialog>
 <dialog id="sdlg" style="width:min(760px,97vw)"><div class="card" style="border:0">
   <h2><span id="sd-title">Nạp code cho mạch</span><span class="spacer"></span><button class="btn" data-close="sdlg">Đóng</button></h2>
@@ -1070,7 +1080,14 @@ $("#vf-up").onclick=()=>{
 let V={id:null,n:0,i:1,timer:null,fps:10,ev:[]};
 async function openVideo(id){
   let j; try{ j=await api(`/api/videos/${id}`); }catch(e){ toast(e.message); return; }
-  vstop(); const R=j.result||{}; V={id,n:j.n_frames||0,i:1,timer:null,fps:R.fps||10,ev:R.events||[]};
+  vstop(); const R=j.result||{}; V={id,n:j.n_frames||0,i:1,timer:null,fps:R.fps||10,ev:R.events||[],runs:R.status_runs||[]};
+  // dải thời gian tô màu theo mức an toàn của từng đoạn
+  const LC=["var(--ok)","var(--warn)","var(--red)"], N=Math.max(1,V.n);
+  $("#vd-tl").style.background=V.runs.length?`linear-gradient(to right,${V.runs.map((r,k)=>{ const a=((r[0]-1)/N*100).toFixed(2), b=(((V.runs[k+1]?V.runs[k+1][0]:N+1)-1)/N*100).toFixed(2); return `${LC[r[1]]} ${a}%,${LC[r[1]]} ${b}%`; }).join(",")})`:"";
+  const PV={standing:"Đứng",walking:"Đang đi",sitting:"Ngồi",lying:"Nằm",slumped:"Ngồi gục",upper:"Thấy nửa người"}, ps=R.posture_s||{};
+  const tot=Object.values(ps).reduce((a,b)=>a+b,0);
+  $("#vd-poses").innerHTML=tot?Object.entries(PV).filter(([k])=>ps[k]>=0.5).map(([k,v])=>`<span class="pill ${k==="lying"||k==="slumped"?"warn":""}">${v} ${ps[k]>=60?mmss(ps[k]):Math.round(ps[k])+" giây"} · ${Math.round(ps[k]/tot*100)}%</span>`).join("")
+    :'<span class="muted small">Không thấy người trong video.</span>';
   $("#vd-title").textContent=`Kết quả AI — ${j.name}`;
   $("#vd-mp4").hidden=!j.has_mp4; $("#vd-mp4").href=U(`/api/videos/${id}/result.mp4`);
   $("#vd-seek").max=Math.max(1,V.n);
@@ -1082,6 +1099,13 @@ async function openVideo(id){
 }
 function vshow(i){ V.i=i; $("#vd-seek").value=i; $("#vd-img").src=U(`/api/videos/${V.id}/frames/${i}.jpg`);
   const t=(i-1)/V.fps; $("#vd-pos").textContent=`${mmss(t)} / ${mmss((V.n-1)/V.fps)}`;
+  $("#vd-tlpos").style.left=`calc(${((i-1)/Math.max(1,V.n-1)*100).toFixed(2)}% - 1px)`;
+  let run=null; for(const r of V.runs){ if(r[0]<=i) run=r; else break; }
+  if(run){ const lv=run[1], m=run[2].match(/^(BÁO ĐỘNG|CHÚ Ý|AN TOÀN)\s*[:·]\s*(.*)$/);
+    $("#vd-status").className="vstat l"+lv;
+    $("#vd-st-h").textContent=lv===2?"BÁO ĐỘNG":lv===1?"CHÚ Ý — AI đang theo dõi":(m?"TRẠNG THÁI AN TOÀN":"KHÔNG CÓ NGƯỜI");
+    $("#vd-st-t").textContent=m?m[2]:run[2]; }
+  else { $("#vd-status").className="vstat l0"; $("#vd-st-h").textContent="—"; $("#vd-st-t").textContent="Video này phân tích bằng bản cũ — tải lại video để có trạng thái từng khung."; }
   let cur=-1; V.ev.forEach((e,k)=>{ if(e.t<=t+0.05 && t-e.t<4) cur=k; });
   document.querySelectorAll(".vev").forEach(el=>el.classList.toggle("on", +el.dataset.vk===cur)); }
 function vplay(){ vstop(); $("#vd-play").textContent="Dừng"; const sp=+$("#vd-speed").value||1;
@@ -1090,6 +1114,7 @@ function vstop(){ if(V.timer){ clearInterval(V.timer); V.timer=null; } $("#vd-pl
 $("#vd-play").onclick=()=>{ if(V.timer) vstop(); else { if(V.i>=V.n) vshow(1); vplay(); } };
 $("#vd-seek").oninput=e=>{ vstop(); vshow(+e.target.value); };
 $("#vd-speed").onchange=()=>{ if(V.timer) vplay(); };
+$("#vd-tl").onclick=e=>{ const r=e.currentTarget.getBoundingClientRect(); vstop(); vshow(Math.max(1,Math.min(V.n,Math.round((e.clientX-r.left)/r.width*(V.n-1))+1))); };
 $("#vd-close").onclick=()=>{ vstop(); $("#vdlg").close(); }; $("#vdlg").addEventListener("close",vstop);
 $("#vd-events").addEventListener("click",e=>{ const el=e.target.closest("[data-vk]"); if(!el) return; const ev=V.ev[+el.dataset.vk];
   vstop(); vshow(Math.max(1,Math.min(V.n, ev.frame||Math.round(ev.t*V.fps)+1))); });
