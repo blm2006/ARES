@@ -204,6 +204,7 @@ def create_app(cfg: ServerSettings | None = None, db: ServerDB | None = None) ->
     cfg = cfg or ServerSettings()
     cfg.ensure_dirs()
     db = db or ServerDB(cfg.data_dir / "server.db")
+    db.fail_stale_uploads()  # video đang tải lên dở lúc server tắt: báo lỗi rõ thay vì treo
     media = cfg.data_dir / "media"
     secret = cfg.session_secret()
     stop = threading.Event()
@@ -319,7 +320,7 @@ def create_app(cfg: ServerSettings | None = None, db: ServerDB | None = None) ->
         return ip
 
     def admin_only(path: str, method: str) -> bool:
-        if path.startswith("/api/users") or path == "/api/sites" or path.startswith("/api/sites/"):
+        if path.startswith(("/api/users", "/api/admin/")) or path == "/api/sites" or path.startswith("/api/sites/"):
             return True  # người dùng app chỉ thấy camera của mình, không thấy danh sách địa điểm/người dùng
         return False
 
@@ -393,6 +394,13 @@ def create_app(cfg: ServerSettings | None = None, db: ServerDB | None = None) ->
         d.mkdir(parents=True, exist_ok=True)
         return d
 
+    # Video "Xong" mà 0 khung (lỗi cũ: máy AI nhận file khi chưa tải lên xong): file gốc giờ đã đủ -> tự đưa vào hàng chờ lại.
+    for _j in db.video_jobs(None, 500):
+        _src = vdir / str(_j["id"]) / f"source{_j['ext']}"
+        if _j["status"] == "done" and not _j["n_frames"] and _src.exists() and _src.stat().st_size >= 1024:
+            db.update_video_job(_j["id"], status="queued", progress=0.0, result="", has_mp4=0, size=_src.stat().st_size,
+                                started=None, finished=None, message="Đang chờ máy AI (tự phân tích lại sau khi sửa lỗi)")
+
     def _edge_job(request: Request, jid: int):
         a = edge_auth(request)
         if isinstance(a, JSONResponse):
@@ -436,6 +444,9 @@ def create_app(cfg: ServerSettings | None = None, db: ServerDB | None = None) ->
         if d.get("error"):
             db.update_video_job(jid, status="error", message=str(d["error"])[:300], finished=time.time())
             return {"ok": True}
+        if d.get("release"):  # máy AI đang tắt / khởi động lại giữa chừng: trả job về hàng chờ để chạy lại ngay sau đó
+            db.update_video_job(jid, status="queued", progress=0.0, message="Máy AI khởi động lại — đang chờ phân tích lại")
+            return {"ok": True}
         db.update_video_job(jid, progress=max(0.0, min(1.0, float(d.get("progress") or 0))),
                             message=str(d.get("message") or "Đang xử lý")[:200])
         return {"ok": True, "cancel": False}
@@ -471,6 +482,11 @@ def create_app(cfg: ServerSettings | None = None, db: ServerDB | None = None) ->
                                if isinstance(r, list) and len(r) == 3]
         keep["events"] = (keep.get("events") or [])[:500]
         keep["people_series"] = (keep.get("people_series") or [])[:7200]
+        if not n_frames:  # máy AI (kể cả bản cũ) không đọc được khung nào: đây là LỖI, không phải "Xong, không có sự kiện"
+            db.update_video_job(jid, status="error", finished=time.time(), n_frames=0, has_mp4=0,
+                                message="Máy AI không đọc được khung hình nào từ video (file hỏng hoặc định dạng lạ). "
+                                        "Bấm Phân tích lại; vẫn lỗi thì đổi video sang MP4 (H.264) rồi tải lại.")
+            return {"ok": True}
         db.update_video_job(jid, status="done", progress=1.0, finished=time.time(), result=keep, n_frames=n_frames,
                             has_mp4=has_mp4, message=f"Xong — {len(keep['events'])} sự kiện")
         return {"ok": True}
@@ -1128,7 +1144,8 @@ def create_app(cfg: ServerSettings | None = None, db: ServerDB | None = None) ->
         ext = Path(name).suffix.lower()
         if ext not in VIDEO_EXT:
             return _err(415, "Chỉ nhận video: " + ", ".join(sorted(VIDEO_EXT)))
-        waiting = [j for j in db.video_jobs(u["id"]) if j["status"] in ("queued", "running")]
+        db.fail_stale_uploads(3600)  # tải lên quá 1 giờ chưa xong = đã đứt
+        waiting = [j for j in db.video_jobs(u["id"]) if j["status"] in ("uploading", "queued", "running")]
         if len(waiting) >= 3:
             return _err(409, "Đang có 3 video chờ xử lý — đợi xong rồi tải tiếp")
         size = int(request.headers.get("content-length") or 0)
@@ -1136,7 +1153,9 @@ def create_app(cfg: ServerSettings | None = None, db: ServerDB | None = None) ->
             return _err(413, "Video tối đa 500 MB — cắt ngắn bớt rồi tải lại")
         if ppe and ppe not in PPE_PRESETS:
             return _err(400, "Mẫu đồ bảo hộ không hợp lệ")
-        jid = db.add_video_job(u["id"], name, ext, size, clean_ppe(ppe) if ppe else None)
+        # 'uploading': máy AI chỉ được nhận job khi file đã về ĐỦ. (Trước đây job vào hàng chờ ngay lúc bắt đầu tải, tải qua
+        # Internet mất cả phút nên máy AI nhận file dở -> đọc được 0 khung mà vẫn báo "Xong".)
+        jid = db.add_video_job(u["id"], name, ext, size, clean_ppe(ppe) if ppe else None, status="uploading")
         p = _job_dir(jid) / f"source{ext}"
         n = 0
         try:
@@ -1148,13 +1167,34 @@ def create_app(cfg: ServerSettings | None = None, db: ServerDB | None = None) ->
                     f.write(chunk)
             if n < 1024:
                 raise ValueError("File rỗng hoặc quá nhỏ")
-        except Exception as e:  # noqa: BLE001 — tải dở/quá lớn: xoá luôn job
+            if size and n != size:
+                raise ValueError(f"mới nhận {n}/{size} byte — mạng đứt giữa chừng, tải lại")
+        except Exception as e:  # noqa: BLE001 — tải dở/quá lớn/đứt mạng: xoá luôn job
             import shutil
             db.delete_video_job(jid)
             shutil.rmtree(_job_dir(jid), ignore_errors=True)
             return _err(400, f"Tải video lỗi: {e}")
-        db.update_video_job(jid, size=n, message="Đang chờ máy AI" if ai_edge() else "Đang chờ — máy chủ AI chưa chạy")
+        db.update_video_job(jid, status="queued", size=n,
+                            message="Đang chờ máy AI" if ai_edge() else "Đang chờ — máy chủ AI chưa chạy")
         return {"ok": True, "id": jid}
+
+    @app.post("/api/videos/{jid}/retry")
+    def video_retry(jid: int, request: Request):
+        """Phân tích lại video đã tải lên (không phải tải lại): dùng khi lần trước lỗi / ra 0 khung / vừa cập nhật AI."""
+        j = _own_job(request, jid)
+        if j is None:
+            return _err(404, "Không có video này")
+        if j["status"] not in ("done", "error"):
+            return _err(409, "Video này đang chờ hoặc đang phân tích")
+        src = _job_dir(jid) / f"source{j['ext']}"
+        if not src.exists() or src.stat().st_size < 1024:
+            return _err(410, "Máy chủ không còn file gốc — tải lại video")
+        for fn in ("frames.zip", "result.mp4"):
+            (_job_dir(jid) / fn).unlink(missing_ok=True)
+        db.update_video_job(jid, status="queued", progress=0.0, result="", n_frames=0, has_mp4=0, size=src.stat().st_size,
+                            started=None, finished=None,
+                            message="Đang chờ máy AI (phân tích lại)" if ai_edge() else "Đang chờ — máy chủ AI chưa chạy")
+        return {"ok": True}
 
     @app.get("/api/videos")
     def video_list(request: Request):
@@ -1485,6 +1525,16 @@ def create_app(cfg: ServerSettings | None = None, db: ServerDB | None = None) ->
     @app.get("/tai-app")
     def download_page():
         return FileResponse(STATIC / "tai-app.html", media_type="text/html; charset=utf-8", headers=NO_STORE)
+
+    @app.post("/api/admin/restart")
+    def admin_restart():
+        """Mở lại server + máy AI bằng mã mới (admin). Chỉ chạy được khi máy chủ mở bằng ARES_MAY_CHU.bat bản có tự mở lại."""
+        from ares_server import restart
+
+        if not restart.supervised():
+            return _err(409, "Máy chủ đang chạy bản cũ chưa tự mở lại được — cần mở lại ARES_MAY_CHU.bat trên máy chủ một lần")
+        restart.request()
+        return {"ok": True}
 
     @app.get("/api/app-info")
     def app_info(request: Request):

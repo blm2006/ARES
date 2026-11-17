@@ -8,6 +8,7 @@ import socket
 import threading
 import time
 import zipfile
+from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
@@ -777,3 +778,191 @@ def test_sensor_devices_wifi_usb_and_scope(tmp_path):
     # xoá mạch -> khoá cũ hết hiệu lực
     assert an.post(f"/api/devices/{wid}/delete", headers=X).json()["ok"]
     assert dev.post("/api/v1/sensor", json={"temp": 1}, headers={"X-Device-Token": tok}).status_code == 401
+
+
+# ------------------------------------------------------------------ thử video: tải lên chậm (qua Internet) + phân tích lại
+def test_video_not_claimed_while_uploading_and_retry(tmp_path, live_server):
+    """Lỗi thật 17/11: video tải qua Internet mất ~1 phút, job vào hàng chờ ngay nên máy AI nhận file dở -> 0 khung mà 'Xong'."""
+    import http.client
+    import zipfile as zf_
+
+    from fastapi.testclient import TestClient
+
+    from ares.config import AresSettings
+    from ares.uplink import Uplink
+    from ares.video_jobs import VideoJobWorker
+
+    scfg, app = live_server
+    db = app.state.db
+    X = {"X-ARES": "1"}
+    sid, key = db.create_site("Máy chủ")
+    db.create_user("an.nv", "mat-khau-cua-an", "An", "viewer")
+    an = TestClient(app, client=("192.168.1.20", 5000))
+    tok = an.post("/api/login", json={"user": "an.nv", "password": "mat-khau-cua-an"}, headers=X).json()["token"]
+    video = b"\x00\x00\x00\x18ftypmp42" + b"y" * 9000
+
+    # 1) đang tải dở: máy AI KHÔNG được nhận
+    c = http.client.HTTPConnection("127.0.0.1", scfg.port, timeout=10)
+    c.putrequest("POST", "/api/videos?name=cham.mp4")
+    for k, v in (("X-ARES", "1"), ("Authorization", "Bearer " + tok), ("Content-Length", str(len(video))),
+                 ("Content-Type", "video/mp4")):
+        c.putheader(k, v)
+    c.endheaders()
+    c.send(video[:4000])
+    for _ in range(50):
+        if an.get("/api/videos").json()["items"]:
+            break
+        time.sleep(0.1)
+    j0 = an.get("/api/videos").json()["items"][0]
+    assert j0["status"] == "uploading" and db.claim_video_job(sid, "may-chu") is None
+    assert an.post(f"/api/videos/{j0['id']}/retry", headers=X).status_code == 409
+    c.send(video[4000:])
+    r = c.getresponse()
+    jid = json.loads(r.read())["id"]
+    c.close()
+    assert r.status == 200 and an.get(f"/api/videos/{jid}").json()["status"] == "queued"
+
+    cfg = AresSettings(storage_root=tmp_path / "e", uplink_url=f"http://127.0.0.1:{scfg.port}", uplink_key=key,
+                       uplink_edge_id="may-chu")
+    w = VideoJobWorker(cfg, Uplink(cfg, SimpleNamespace()), models_factory=lambda: (SimpleNamespace(device="cpu"), None, None))
+
+    # 2) video không giải mã được khung nào -> LỖI có lời giải thích (không phải "Xong, không có sự kiện")
+    def empty(cfg, pose, clf, src, out_mp4, fps, frames_zip=None, max_w=0, progress=None, should_stop=None):
+        zf_.ZipFile(frames_zip, "w").close()
+        return {"events": [], "frames": 0, "fps": fps, "duration": 0, "people_max": 0, "people_series": [], "processing_s": 0.2}
+    w._analyze = empty
+    assert w.run_once() is True
+    j = an.get(f"/api/videos/{jid}").json()
+    assert j["status"] == "error" and "không đọc được khung" in j["message"]
+
+    # 2b) máy AI bản cũ vẫn gửi kết quả 0 khung -> server tự coi là lỗi
+    assert an.post(f"/api/videos/{jid}/retry", headers=X).json()["ok"]
+    assert db.claim_video_job(sid, "may-chu")["id"] == jid
+    H = {"Authorization": f"Bearer {key}", "X-Edge-Id": "may-chu"}
+    buf = io.BytesIO()
+    zf_.ZipFile(buf, "w").close()
+    assert an.post(f"/api/v1/jobs/{jid}/result", data={"meta": json.dumps({"events": [], "frames": 0})},
+                   files={"frames": ("frames.zip", buf.getvalue(), "application/zip")}, headers=H).status_code == 200
+    assert an.get(f"/api/videos/{jid}").json()["status"] == "error"
+
+    # 3) máy AI tải về thiếu byte -> lỗi, không phân tích file cụt
+    assert an.post(f"/api/videos/{jid}/retry", headers=X).json()["ok"]
+    real = w._download
+
+    def cut(j_, dest):
+        real(j_, dest)
+        dest.write_bytes(dest.read_bytes()[:100])
+    w._download = cut
+    w._analyze = lambda *a, **k: (_ for _ in ()).throw(AssertionError("không được phân tích file cụt"))
+    assert w.run_once() is True
+    j = an.get(f"/api/videos/{jid}").json()
+    assert j["status"] == "error" and "chưa đủ" in j["message"]
+
+    # 4) Phân tích lại (không tải lại) -> chạy bình thường
+    assert an.post(f"/api/videos/{jid}/retry", headers=X).json()["ok"]
+    assert an.get(f"/api/videos/{jid}").json()["status"] == "queued"
+    seen = {}
+
+    def ok(cfg, pose, clf, src, out_mp4, fps, frames_zip=None, max_w=0, progress=None, should_stop=None):
+        seen["bytes"] = src.read_bytes()
+        with zf_.ZipFile(frames_zip, "w") as z:
+            z.writestr("0001.jpg", JPG)
+        return {"events": [], "frames": 1, "fps": fps, "duration": 0.1, "people_max": 1, "people_series": [[0, 1]],
+                "processing_s": 0.1, "status_runs": [[1, 0, "AN TOÀN · 1 người: 1 đứng"]]}
+    w._download, w._analyze = real, ok
+    assert w.run_once() is True and seen["bytes"] == video
+    j = an.get(f"/api/videos/{jid}").json()
+    assert j["status"] == "done" and j["n_frames"] == 1 and an.get(f"/api/videos/{jid}/frames/1.jpg").content == JPG
+
+    # 4b) máy AI khởi động lại giữa lúc phân tích -> trả job về hàng chờ ngay (không đợi 10 phút)
+    assert an.post(f"/api/videos/{jid}/retry", headers=X).json()["ok"]
+
+    def stopping(cfg, pose, clf, src, out_mp4, fps, frames_zip=None, max_w=0, progress=None, should_stop=None):
+        w._stop.set()
+        raise InterruptedError("đã huỷ")
+    w._analyze = stopping
+    assert w.run_once() is True and an.get(f"/api/videos/{jid}").json()["status"] == "queued"
+    assert w.run_once() is False and db.claim_video_job(sid, "may-chu")["id"] == jid  # đang tắt thì không nhận việc mới
+    w._stop.clear()
+
+    # 5) server tắt giữa lúc tải lên -> lần mở sau báo lỗi rõ, không treo "đang tải lên"
+    j5 = db.add_video_job(1, "dang-do.mp4", ".mp4", 123, status="uploading")
+    assert db.fail_stale_uploads() == 1 and db.video_job(j5)["status"] == "error"
+
+
+def test_restart_supervisor_and_flag(tmp_path, monkeypatch):
+    """Khởi động lại từ xa: cờ đổi -> tiến trình con thoát mã 75 -> người giám sát mở lại; thoát mã khác thì dừng hẳn."""
+    import subprocess
+    import sys
+    import textwrap
+
+    from ares import restart as r_edge
+    from ares_server import restart as r_srv
+
+    assert Path(r_edge.__file__).read_text(encoding="utf-8") == Path(r_srv.__file__).read_text(encoding="utf-8")
+    pkg = tmp_path / "con"
+    pkg.mkdir()
+    (pkg / "__init__.py").write_text("")
+    (pkg / "__main__.py").write_text(textwrap.dedent(f"""
+        import sys, time
+        from pathlib import Path
+        sys.path.insert(0, {str(Path.cwd())!r})
+        from ares_server import restart
+        log = Path({str(tmp_path / 'runs.txt')!r})
+        n = len(log.read_text().split()) if log.exists() else 0
+        log.write_text((log.read_text() if log.exists() else "") + "x\\n")
+        if n >= 1:
+            sys.exit(3)                       # lần 2: thoát mã khác -> người giám sát dừng
+        restart.watch(Path({str(tmp_path / 'restart.flag')!r}), poll_s=0.1, grace_s=5)
+        try:
+            for _ in range(200):
+                time.sleep(0.05)
+                if _ == 5:
+                    restart.request(Path({str(tmp_path / 'restart.flag')!r}))
+        except KeyboardInterrupt:
+            pass
+        sys.exit(restart.CODE if restart.requested else 9)
+    """))
+    monkeypatch.setenv("PYTHONPATH", str(tmp_path))
+    monkeypatch.delenv(r_srv.ENV, raising=False)
+    assert r_srv.supervised() is False
+    r_srv.watch(tmp_path / "khong-bat.flag")  # không có người giám sát -> không làm gì
+    rc = r_srv.supervise("con", [])
+    assert rc == 3 and (tmp_path / "runs.txt").read_text().split() == ["x", "x"]
+
+    # admin bấm "Khởi động lại" trên dashboard
+    from fastapi.testclient import TestClient
+
+    from ares_server.app import create_app
+    from ares_server.config import ServerSettings
+
+    app = create_app(ServerSettings(data_dir=tmp_path / "srv", host="0.0.0.0", admin_user="admin", admin_password="mat-khau-quan-tri"))
+    c = TestClient(app, client=("192.168.1.9", 5000))
+    X = {"X-ARES": "1"}
+    assert c.post("/api/login", json={"user": "admin", "password": "mat-khau-quan-tri"}, headers=X).status_code == 200
+    assert c.post("/api/admin/restart", headers=X).status_code == 409  # chưa chạy dưới người giám sát
+    monkeypatch.setenv(r_srv.ENV, "1")
+    monkeypatch.chdir(tmp_path)
+    assert c.post("/api/admin/restart", headers=X).json()["ok"] and (tmp_path / "var" / "restart.flag").exists()
+    app.state.db.create_user("an.nv", "mat-khau-cua-an", "An", "viewer")
+    v = TestClient(app, client=("192.168.1.20", 5000))
+    assert v.post("/api/login", json={"user": "an.nv", "password": "mat-khau-cua-an"}, headers=X).status_code == 200
+    assert v.post("/api/admin/restart", headers=X).status_code == 403
+
+
+def test_empty_done_video_jobs_requeued_on_start(tmp_path):
+    """Job 'Xong' 0 khung do lỗi tải dở: lần mở server sau tự vào hàng chờ lại (nếu còn file gốc)."""
+    cfg = ServerSettings(data_dir=tmp_path / "srv")
+    app = create_app(cfg)
+    db = app.state.db
+    a, b, c = (db.add_video_job(1, f"{n}.mp4", ".mp4", 5000) for n in "abc")
+    for j in (a, b):
+        d = cfg.data_dir / "media" / "videos" / str(j)
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "source.mp4").write_bytes(b"x" * 5000)
+    db.update_video_job(a, status="done", n_frames=0, result={"events": [], "frames": 0})
+    db.update_video_job(b, status="done", n_frames=7, result={"events": [], "frames": 7})
+    db.update_video_job(c, status="done", n_frames=0)  # không còn file gốc -> để yên
+    app2 = create_app(cfg, db)
+    assert [db.video_job(j)["status"] for j in (a, b, c)] == ["queued", "done", "done"]
+    assert db.video_job(a)["result"] is None and app2 is not None

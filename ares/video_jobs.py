@@ -82,6 +82,8 @@ class VideoJobWorker:
 
     def run_once(self) -> bool:
         """Nhận + xử lý 1 job. True nếu có job."""
+        if self._stop.is_set():  # đang tắt: không nhận việc mới
+            return False
         try:
             r = self.up._req("/api/v1/jobs/next", b"{}")
         except HttpError as e:
@@ -98,6 +100,9 @@ class VideoJobWorker:
             src = d / f"source{r.get('ext') or '.mp4'}"
             self._progress(jid, 0.0, "Máy AI đang tải video về")
             self._download(jid, src)
+            got, want = src.stat().st_size, int(r.get("size") or 0)
+            if want and got != want:  # server đang ghi dở / mạng đứt: không phân tích file cụt
+                raise RuntimeError(f"tải video chưa đủ ({got}/{want} byte) — bấm Phân tích lại")
             self._progress(jid, 0.0, "Đang nạp AI")
             pose, clf, _ = self.models()
             analyze = self._analyze
@@ -119,6 +124,9 @@ class VideoJobWorker:
                 kw = {"ppe": det, "ppe_rules": rules}
             res = analyze(self.cfg, pose, clf, src, d / "result.mp4", fps, frames_zip=d / "frames.zip",
                           max_w=int(self.cfg.uplink_video_width), progress=prog, should_stop=self._stop.is_set, **kw)
+            if not res.get("frames"):  # không giải mã được khung nào: báo LỖI rõ ràng, không trả "Xong" rỗng
+                raise RuntimeError("không đọc được khung hình nào từ video (file hỏng, tải dở hoặc định dạng lạ) — "
+                                   "thử đổi sang MP4 (H.264) rồi tải lại")
             if kw and kw["ppe"] is None:
                 res["ppe_note"] = info.get("error") or info.get("hint") or "Chưa cài model đồ bảo hộ."
             res["device"] = str(getattr(pose, "device", ""))
@@ -139,6 +147,11 @@ class VideoJobWorker:
                             f"{res['frames']} khung trong {res['processing_s']:g}s."))
         except InterruptedError as e:
             log.info("Job video %s dừng: %s", jid, e)
+            if self._stop.is_set():  # dừng vì máy AI tắt/khởi động lại (không phải người dùng xoá): trả job về hàng chờ
+                try:
+                    self.up._req(f"/api/v1/jobs/{jid}/progress", json.dumps({"release": True}).encode())
+                except Exception:  # noqa: BLE001 — không trả được thì server tự cho nhận lại sau 10 phút
+                    pass
         except Exception as e:  # noqa: BLE001
             log.exception("Job video %s lỗi", jid)
             self.last_error = str(e)[:200]

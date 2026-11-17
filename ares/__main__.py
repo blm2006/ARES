@@ -54,12 +54,14 @@ def _settings(**over):
 
 
 def cmd_run(a) -> int:
+    from ares import restart
     from ares.runtime import AresRuntime
 
     cfg = _settings(simulation_mode=True if a.sim else None, dashboard_host=a.host, dashboard_port=a.port)
     _logging(cfg)
+    restart.watch()
     AresRuntime(cfg, with_dashboard=not a.no_dashboard).run_forever()
-    return 0
+    return restart.CODE if restart.requested else 0
 
 
 def cmd_demo(a) -> int:
@@ -238,10 +240,14 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("retrain", help="retrain ngay").set_defaults(fn=cmd_retrain)
 
     a = ap.parse_args(argv)
+    from ares import restart
+
+    if a.cmd == "run" and argv is None and not restart.supervised():
+        return restart.supervise("ares", sys.argv[1:])  # tự mở lại khi được yêu cầu khởi động lại từ xa
     try:
         return int(a.fn(a))
     except KeyboardInterrupt:
-        return 130
+        return restart.CODE if restart.requested else 130
 
 
 if __name__ == "__main__":

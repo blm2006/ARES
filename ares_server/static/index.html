@@ -706,7 +706,11 @@ async function renderSetup(){
           :`<span class="pill warn">chưa cài</span> <span class="muted">${esc((ai.ppe&&(ai.ppe.error||ai.ppe.hint))||"")} Chạy <code>CAI_AI_BAO_HO.bat</code> trên máy chủ để kiểm kính, chụp tai, khẩu trang, nón...</span>`}</div>`
       + (ai.fallback?`<div class="warnbox" style="margin-top:12px"><b>GPU không chạy được, AI đang chạy bằng CPU nên bị chậm/trễ.</b><br><span class="small">${esc(ai.fallback)}</span><br>
          Cách sửa: tắt ARES, chạy <code>NANG_CAP_GPU.bat</code> trong thư mục C:\\yolo-al (cài PyTorch hợp với card), rồi mở lại <code>ARES_MAY_CHU.bat</code>.</div>`:""); }
+  h+=`<div class="row small" style="margin-top:12px"><button class="btn" id="srv-restart">Khởi động lại máy chủ</button>
+      <span class="muted">Mở lại server + AI bằng mã mới nhất, mất khoảng 1 phút. Camera và dashboard tự nối lại.</span></div>`;
   setHTML($("#ai-box"), h);
+  $("#srv-restart").onclick=async()=>{ if(!confirm("Khởi động lại máy chủ ARES? Camera và AI ngừng khoảng 1 phút rồi tự chạy lại.")) return;
+    try{ await api("/api/admin/restart",{method:"POST"}); toast("Máy chủ đang khởi động lại — chờ khoảng 1 phút rồi tải lại trang"); }catch(e){ toast(e.message); } };
   const s=(await api("/api/sites")).items;
   setHTML($("#setup-sites"), s.map(x=>`<tr><td>${x.id}</td><td>${esc(x.name)}</td><td><code>${esc(x.key_hint)}</code></td>
     <td>${x.active?'<span class="pill ok">Đang bật</span>':'<span class="pill">Đã tắt</span>'}</td>
@@ -1093,7 +1097,7 @@ $("#pp-save").onclick=()=>{ const pick=c=>[...document.querySelectorAll(`#pp-row
 $("#pp-off").onclick=()=>savePpe({required:[],forbidden:[]});
 
 // ------------------------------------------------ thử video: tải lên -> AI máy chủ phân tích -> xem kết quả
-const VST={queued:["warn","Đang chờ"],running:["warn","Đang phân tích"],done:["ok","Xong"],error:["red","Lỗi"]};
+const VST={uploading:["warn","Đang tải lên"],queued:["warn","Đang chờ"],running:["warn","Đang phân tích"],done:["ok","Xong"],error:["red","Lỗi"]};
 const mmss=t=>`${String(Math.floor(t/60)).padStart(2,"0")}:${String(Math.floor(t%60)).padStart(2,"0")}`;
 const mb=b=>b>=1048576?`${(b/1048576).toFixed(1)} MB`:`${Math.max(1,Math.round(b/1024))} KB`;
 async function renderVideos(){
@@ -1102,13 +1106,15 @@ async function renderVideos(){
   setHTML($("#vf-ai"), ai.online?(ai.fallback?'<span class="pill warn">Máy chủ AI đang chạy bằng CPU — video sẽ phân tích chậm</span>':`<span class="pill ok">Máy chủ AI sẵn sàng (${ai.device&&ai.device!=="cpu"?"GPU":"CPU"})</span>`)
     :'<span class="pill red">Máy chủ AI chưa chạy — video sẽ chờ tới khi máy chủ mở ARES_MAY_CHU.bat</span>');
   $("#vjobs-empty").hidden=r.items.length>0;
-  setHTML($("#vjobs"), r.items.map(j=>{ const [c,t]=VST[j.status]||["",j.status];
+  setHTML($("#vjobs"), r.items.map(j=>{ const empty=j.status==="done"&&!j.n_frames;  // bản cũ: "Xong" nhưng không đọc được khung nào
+    const [c,t]=empty?["red","Lỗi"]:(VST[j.status]||["",j.status]);
     const st=`<span class="pill ${c}">${t}</span>`+(j.status==="running"?`<span class="prog"><i style="width:${Math.round(j.progress*100)}%"></i></span> ${Math.round(j.progress*100)}%`:"")
       +(j.status==="queued"&&j.queue_pos>1?` <span class="muted small">thứ ${j.queue_pos} trong hàng</span>`:"")
-      +(j.message&&j.status!=="done"?`<div class="muted small">${esc(j.message)}</div>`:"");
+      +(empty?`<div class="muted small">Máy AI nhận video khi chưa tải lên xong nên không đọc được khung nào — bấm <b>Phân tích lại</b>.</div>`
+        :j.message&&j.status!=="done"?`<div class="muted small">${esc(j.message)}</div>`:"");
     return `<tr><td><b>${esc(j.name)}</b><div class="muted small">${mb(j.size)}</div></td><td class="admin-only">${esc(j.owner)}</td><td>${st}</td>
-      <td>${j.duration!=null?mmss(j.duration):"—"}</td><td>${j.status==="done"?(j.n_events?`<b style="color:var(--red)">${j.n_events} sự kiện</b>`:"Không có sự kiện")+`<div class="muted small">tối đa ${j.people_max??0} người</div>`:"—"}</td><td class="small">${tfmt(j.created)}</td>
-      <td><div class="row">${j.status==="done"?`<button class="btn dark" data-vopen="${j.id}">Xem kết quả</button>`:""}<button class="btn warn" data-vdel="${j.id}" data-name="${esc(j.name)}">Xoá</button></div></td></tr>`; }).join(""));
+      <td>${j.duration!=null?mmss(j.duration):"—"}</td><td>${j.status==="done"&&!empty?(j.n_events?`<b style="color:var(--red)">${j.n_events} sự kiện</b>`:"Không có sự kiện")+`<div class="muted small">tối đa ${j.people_max??0} người</div>`:"—"}</td><td class="small">${tfmt(j.created)}</td>
+      <td><div class="row">${j.status==="done"&&!empty?`<button class="btn dark" data-vopen="${j.id}">Xem kết quả</button>`:""}${j.status==="done"||j.status==="error"?`<button class="btn${empty||j.status==="error"?" dark":""}" data-vretry="${j.id}" title="Cho AI chạy lại trên video đã tải lên, không cần tải lại">Phân tích lại</button>`:""}<button class="btn warn" data-vdel="${j.id}" data-name="${esc(j.name)}">Xoá</button></div></td></tr>`; }).join(""));
 }
 $("#vf").onchange=()=>{ const f=$("#vf").files[0]; $("#vf-name").textContent=f?`${f.name} (${mb(f.size)})`:"Chưa chọn file"; $("#vf-msg").textContent=""; };
 $("#vf-up").onclick=()=>{
@@ -1144,7 +1150,8 @@ async function openVideo(id){
   const pNote=R.ppe_note?`<div class="warnbox small"><b>Chưa kiểm được đồ bảo hộ:</b> ${esc(R.ppe_note)}</div>`:pOn?`<div class="small muted">Kiểm đồ bảo hộ: ${ppeChips(pr)}</div>`:"";
   $("#vd-events").innerHTML=pNote+(V.ev.length?V.ev.map((e,k)=>`<div class="vev" data-vk="${k}"><b>${esc(KIND[e.kind]||e.label)}</b><span class="small muted">${esc(e.time)} · người ${esc((e.tracks||[]).join(", "))}${e.kind==="PPE"&&e.detail&&e.detail.text?" · "+esc(e.detail.text):e.source?" · "+esc(e.source):""}</span></div>`).join("")
     :'<div class="muted small">Không phát hiện sự kiện nguy hiểm nào trong video.</div>');
-  if(V.n){ vshow(1); } else { $("#vd-img").removeAttribute("src"); $("#vd-pos").textContent="không có khung kết quả"; }
+  if(V.n){ vshow(1); } else { $("#vd-img").removeAttribute("src"); $("#vd-pos").textContent="không có khung kết quả";
+    $("#vd-status").className="vstat l1"; $("#vd-st-h").textContent="KHÔNG CÓ KHUNG NÀO"; $("#vd-st-t").textContent="Máy AI không đọc được video ở lần này. Đóng lại rồi bấm “Phân tích lại” ở bảng video."; }
   $("#vdlg").showModal(); if(V.n) vplay();
 }
 function vshow(i){ V.i=i; $("#vd-seek").value=i; $("#vd-img").src=U(`/api/videos/${V.id}/frames/${i}.jpg`);
@@ -1155,7 +1162,7 @@ function vshow(i){ V.i=i; $("#vd-seek").value=i; $("#vd-img").src=U(`/api/videos
     $("#vd-status").className="vstat l"+lv;
     $("#vd-st-h").textContent=lv===2?"BÁO ĐỘNG":lv===1?"CHÚ Ý — AI đang theo dõi":(m?"TRẠNG THÁI AN TOÀN":"KHÔNG CÓ NGƯỜI");
     $("#vd-st-t").textContent=m?m[2]:run[2]; }
-  else { $("#vd-status").className="vstat l0"; $("#vd-st-h").textContent="—"; $("#vd-st-t").textContent="Video này phân tích bằng bản cũ — tải lại video để có trạng thái từng khung."; }
+  else { $("#vd-status").className="vstat l0"; $("#vd-st-h").textContent="—"; $("#vd-st-t").textContent="Kết quả này chưa có trạng thái từng khung — bấm “Phân tích lại” ở bảng video để có."; }
   let cur=-1; V.ev.forEach((e,k)=>{ if(e.t<=t+0.05 && t-e.t<4) cur=k; });
   document.querySelectorAll(".vev").forEach(el=>el.classList.toggle("on", +el.dataset.vk===cur)); }
 function vplay(){ vstop(); $("#vd-play").textContent="Dừng"; const sp=+$("#vd-speed").value||1;
@@ -1168,8 +1175,9 @@ $("#vd-tl").onclick=e=>{ const r=e.currentTarget.getBoundingClientRect(); vstop(
 $("#vd-close").onclick=()=>{ vstop(); $("#vdlg").close(); }; $("#vdlg").addEventListener("close",vstop);
 $("#vd-events").addEventListener("click",e=>{ const el=e.target.closest("[data-vk]"); if(!el) return; const ev=V.ev[+el.dataset.vk];
   vstop(); vshow(Math.max(1,Math.min(V.n, ev.frame||Math.round(ev.t*V.fps)+1))); });
-document.addEventListener("click", async ev=>{ const t=ev.target.closest("[data-vopen],[data-vdel]"); if(!t) return;
+document.addEventListener("click", async ev=>{ const t=ev.target.closest("[data-vopen],[data-vdel],[data-vretry]"); if(!t) return;
   if(t.dataset.vopen) openVideo(+t.dataset.vopen);
+  else if(t.dataset.vretry){ t.disabled=true; try{ await api(`/api/videos/${t.dataset.vretry}/retry`,{method:"POST"}); toast("Đã đưa vào hàng chờ — AI trên máy chủ sẽ phân tích lại"); refresh(); }catch(e){ toast(e.message); t.disabled=false; } }
   else { if(!confirm(`Xoá video "${t.dataset.name}" và kết quả? Nếu đang phân tích, máy chủ sẽ dừng.`)) return;
     try{ await api(`/api/videos/${t.dataset.vdel}/delete`,{method:"POST"}); toast("Đã xoá video"); refresh(); }catch(e){ toast(e.message); } } });
 

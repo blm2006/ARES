@@ -118,7 +118,10 @@ Công trường, Phòng thí nghiệm). Mẫu Xưởng gỗ: bắt buộc kính 
 Video lên máy chủ, máy AI nhận việc (luồng riêng, không làm chậm camera trực tiếp), chạy YOLO người + YOLO hành vi 10 khung/giây, trả về:
 video đã vẽ khung xương (phát ngay trong dashboard, có tua/tốc độ, bấm sự kiện để nhảy tới đúng lúc), danh sách sự kiện kèm mốc thời gian,
 số người tối đa, thời gian xử lý, nút tải video kết quả; thêm thẻ trạng thái đổi theo từng khung (An toàn / Chú ý / Báo động), dải thời gian tô màu theo mức (bấm để tua) và tổng thời gian từng tư thế. Tối đa 500 MB/video, mỗi người 3 video chờ; xoá video là máy AI dừng ngay.
-Máy AI không giữ lại video sau khi xử lý. Tắt tính năng: `ARES_UPLINK_VIDEO_JOBS=false`. Thử bằng lệnh trên chính máy chủ vẫn được: `python -m ares.behavior video x.mp4`.
+Máy AI chỉ nhận video khi đã tải lên **đủ** (trạng thái *Đang tải lên* → *Đang chờ*); video không đọc được khung nào thì báo **Lỗi** kèm lý do, không báo "Xong" rỗng. Nút **Phân tích lại** cho AI chạy lại trên video đã tải lên (không phải tải lại).
+Máy AI khởi động lại giữa chừng thì video tự quay về hàng chờ. Máy AI không giữ lại video sau khi xử lý. Tắt tính năng: `ARES_UPLINK_VIDEO_JOBS=false`. Thử bằng lệnh trên chính máy chủ vẫn được: `python -m ares.behavior video x.mp4`.
+
+**Khởi động lại từ xa.** `ARES_MAY_CHU.bat` chạy server và máy AI dưới một "người giám sát": quản trị viên bấm **Thiết lập → Khởi động lại máy chủ** (hoặc file `var/restart.flag` đổi) thì cả hai tự dừng gọn rồi mở lại bằng mã mới nhất, khoảng 1 phút, không cần ngồi ở máy chủ. Tắt hẳn vẫn là Ctrl+C / đóng cửa sổ.
 
 **Cảm biến (mục Cảm biến trong dashboard).** Mỗi mạch thuộc 1 địa điểm, giống camera; số đo hiện trên thẻ địa điểm ở Tổng quan.
 
@@ -166,7 +169,7 @@ python -m ares.behavior video samples\x.mp4   :: thử AI hành vi trên video
 
 ## 7. Kiểm thử đã chạy
 
-- **280 test tự động pass.** Gồm luật hành vi trên khung xương tổng hợp, server (khoá thiết bị, chống trùng, chống CSRF, đăng nhập, địa điểm theo người dùng: chỉ thấy của mình, gán camera, đổi tên/xoá), AI tự chuyển CPU khi GPU lỗi, thử video tải lên (nhận job, huỷ, nhận lại khi máy AI tắt), dashboard từ xa (CORS, token, an toàn sau đường hầm), đồ bảo hộ (ánh xạ lớp model, ghép đồ với người, thiếu/cấm, luật theo địa điểm tới máy AI), mạch cảm biến (Wi-Fi bằng khoá, USB bằng phiên đăng nhập, lệnh relay/LED, chặn người khác), uplink qua HTTP thật (mất mạng, gửi bù, khoá sai, chế độ không gửi ảnh, đồng bộ đánh giá ngược).
+- **284 test tự động pass.** Gồm luật hành vi trên khung xương tổng hợp, server (khoá thiết bị, chống trùng, chống CSRF, đăng nhập, địa điểm theo người dùng: chỉ thấy của mình, gán camera, đổi tên/xoá), AI tự chuyển CPU khi GPU lỗi, thử video tải lên (nhận job, huỷ, nhận lại khi máy AI tắt, không nhận khi đang tải dở, 0 khung = lỗi, phân tích lại), khởi động lại từ xa, dashboard từ xa (CORS, token, an toàn sau đường hầm), đồ bảo hộ (ánh xạ lớp model, ghép đồ với người, thiếu/cấm, luật theo địa điểm tới máy AI), mạch cảm biến (Wi-Fi bằng khoá, USB bằng phiên đăng nhập, lệnh relay/LED, chặn người khác), uplink qua HTTP thật (mất mạng, gửi bù, khoá sai, chế độ không gửi ảnh, đồng bộ đánh giá ngược).
 - **Chạy thật trên máy dev** với 2 Edge cùng lúc:
   - 1 Edge nhận video giám sát thật, chạy YOLO-pose + model đánh nhau.
   - 1 Edge mô phỏng đèn/điều hòa.

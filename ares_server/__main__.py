@@ -52,6 +52,10 @@ def main(argv=None) -> int:
     bw.add_argument("--server", default="", help="địa chỉ https mặc định của máy chủ (vd https://may-chu.ten.ts.net)")
     bw.add_argument("--out", default="web")
     args = ap.parse_args(argv)
+    from ares_server import restart
+
+    if args.cmd == "run" and argv is None and not restart.supervised():
+        return restart.supervise("ares_server", sys.argv[1:])  # tự mở lại khi được yêu cầu khởi động lại từ xa
     if args.cmd == "build-web":
         print(build_web(args.out, args.server))
         return 0
@@ -91,8 +95,12 @@ def main(argv=None) -> int:
             _d.close()
         except Exception:  # noqa: BLE001
             pass
-        uvicorn.run(create_app(cfg), host=cfg.host, port=cfg.port, log_level="warning", access_log=False)
-        return 0
+        restart.watch()
+        try:
+            uvicorn.run(create_app(cfg), host=cfg.host, port=cfg.port, log_level="warning", access_log=False)
+        except KeyboardInterrupt:
+            pass
+        return restart.CODE if restart.requested else 0
 
     db = ServerDB(cfg.data_dir / "server.db")
     try:

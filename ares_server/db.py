@@ -396,9 +396,20 @@ class ServerDB:
             self._db.commit()
 
     # ------------------------------------------------------------------ thử video (người dùng tải lên, máy AI xử lý)
-    def add_video_job(self, user_id: int, name: str, ext: str, size: int, ppe: dict | None = None) -> int:
-        return self._x("INSERT INTO video_jobs(user_id,name,ext,size,created,updated,ppe) VALUES(?,?,?,?,?,?,?)",
-                       (user_id, name[:120], ext, size, time.time(), time.time(), json.dumps(ppe) if ppe else ""))
+    def add_video_job(self, user_id: int, name: str, ext: str, size: int, ppe: dict | None = None,
+                      status: str = "queued") -> int:
+        """status='uploading': file đang tải lên dở — máy AI CHƯA được nhận (chỉ nhận job 'queued')."""
+        return self._x("INSERT INTO video_jobs(user_id,name,ext,size,created,updated,ppe,status,message) VALUES(?,?,?,?,?,?,?,?,?)",
+                       (user_id, name[:120], ext, size, time.time(), time.time(), json.dumps(ppe) if ppe else "", status,
+                        "Đang tải lên" if status == "uploading" else ""))
+
+    def fail_stale_uploads(self, older_s: float = 0.0) -> int:
+        """Video tải lên dở mà server tắt / mất mạng giữa chừng: báo lỗi rõ ràng thay vì treo mãi ở 'đang tải lên'."""
+        with self._lock:
+            n = self._db.execute("UPDATE video_jobs SET status='error', message='Tải lên bị ngắt giữa chừng — tải lại video', "
+                                 "finished=? WHERE status='uploading' AND updated <= ?", (time.time(), time.time() - older_s)).rowcount
+            self._db.commit()
+        return n
 
     def video_job(self, jid: int) -> dict | None:
         rows = self._q("SELECT * FROM video_jobs WHERE id=?", (jid,))
