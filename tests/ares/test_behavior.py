@@ -333,3 +333,73 @@ def test_pose_falls_back_to_cpu_on_cuda_error():
     assert pe.device == "cpu" and not pe.half and pe.fallback_reason.startswith("CUDA error: no kernel image")
     pe.infer([np.zeros((32, 32, 3), np.uint8)])
     assert calls == ["cuda:0", "cpu", "cpu"]
+
+
+# ------------------------------------------------------------------ nhãn tư thế trên hình: đứng / đi / ngồi / nằm + thanh trạng thái
+def _views_at(an, frames, at):
+    """Chạy khung xương tổng hợp, trả {t: (views, ảnh đã vẽ)} tại các mốc thời gian `at`."""
+    out, want = {}, sorted(at)
+    for t, people in frames:
+        kps = np.stack([p[0] for p in people])
+        boxes = np.stack([p[1] for p in people])
+        img = np.full((720, 1280, 3), 60, np.uint8)
+        r = an.process_poses([("cam", img, t, kps, boxes, np.full(len(people), 0.9, np.float32))], draw=True)[0]
+        while want and t >= want[0]:
+            out[want.pop(0)] = (r.tracks, r.image)
+    return out
+
+
+def test_posture_labels_standing_walking_sitting_lying(tmp_path):
+    from ares.behavior.analyzer import summarize
+
+    rng = np.random.default_rng(11)
+
+    def scene(t):
+        if t < 3:
+            a = person(300, 430, 0, jitter=0.004, rng=rng)  # đứng yên
+        elif t < 6:
+            a = person(300 + 150 * (t - 3), 430, 0, jitter=0.004, rng=rng)  # đi ngang
+        elif t < 9:
+            a = person(750, 470, 0, rel=sitting_rel(), jitter=0.004, rng=rng)  # ngồi xuống
+        elif t < 10:
+            a = person(750, 430, 0, jitter=0.004, rng=rng)  # đứng dậy
+        elif t < 10.6:
+            a = person(750, 430 + 170 * (t - 10) / 0.6, 90 * (t - 10) / 0.6)  # ngã
+        else:
+            a = person(750, 600, 90, jitter=0.004, rng=rng)  # nằm
+        b = person(1050, 440, 0, rel=sitting_rel(), jitter=0.004, rng=rng)  # ngồi sẵn từ đầu (trước đây bị tính là đứng)
+        kp, box = person(120, 300, 0, jitter=0.004, rng=rng)  # webcam gần: chỉ thấy nửa người trên
+        kp, box = kp.copy(), box.copy()
+        kp[11:, 2] = 0.0
+        box[3] = box[1] + (box[3] - box[1]) * 0.45
+        return [a, b, (kp, box)]
+
+    an = Analyzer(cfg_for(tmp_path, behavior_clip_width=960))
+    got = _views_at(an, timeline(13, scene), [2.0, 5.0, 8.0, 12.5])
+    pose = lambda t: {v.id: v.pose for v in got[t][0]}  # noqa: E731
+    assert pose(2.0) == {1: "standing", 2: "sitting", 3: "upper"}
+    assert pose(5.0)[1] == "walking" and pose(8.0)[1] == "sitting" and pose(12.5)[1] == "lying"
+    v = {x.id: x for x in got[2.0][0]}
+    assert v[1].text == "Đứng" and v[1].level == 0 and v[1].conf > 0.8 and v[1].label == ""
+    assert summarize(got[2.0][0]) == (0, "AN TOÀN · 3 người: 1 đứng, 1 ngồi, 1 thấy nửa người")
+    lv, txt = summarize(got[12.5][0])
+    assert lv == 2 and txt == "BÁO ĐỘNG: TÉ NGÃ! (người #1)"
+    assert summarize([]) == (0, "Không có người trong khung hình")
+    # ảnh vẽ: giữ đúng kích thước; khi chú ý/báo động thanh trạng thái đổi màu (không còn xanh)
+    safe, alert = got[2.0][1], got[12.5][1]
+    assert safe.shape == alert.shape == (540, 960, 3)
+    band_s, band_a = safe[4:22, 4:400].reshape(-1, 3).astype(int), alert[4:22, 4:400].reshape(-1, 3).astype(int)
+    assert ((band_s[:, 1] > 180) & (band_s[:, 2] < 170)).sum() > 30  # chữ xanh lá
+    assert ((band_a[:, 2] > 200) & (band_a[:, 0] < 120)).sum() > 30  # chữ cam/đỏ
+
+
+def test_render_without_status_bar_and_ascii_fallback(tmp_path, monkeypatch):
+    import ares.behavior.analyzer as A
+
+    an = Analyzer(cfg_for(tmp_path, behavior_overlay_status=False))
+    img = _views_at(an, timeline(1.5, lambda t: [person(400, 430, 0)]), [1.0])[1.0][1]
+    assert (img[:10, 300:] == 60).all()  # tắt thanh trạng thái: phía trên hình không bị vẽ
+    monkeypatch.setattr(A, "_fonts", {14: None})  # máy không có font có dấu -> chữ không dấu bằng OpenCV, không lỗi
+    monkeypatch.setattr(A, "_patches", {})
+    p = A.text_patch("ID 1 · ĐỨNG 90%", 14, (255, 255, 255), (80, 200, 80))
+    assert p.ndim == 3 and p.shape[1] > 60 and A.no_accent("Ngồi gục bất động · Đứng") == "Ngoi guc bat dong · Dung"

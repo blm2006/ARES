@@ -37,6 +37,32 @@ EVAL_EVERY_S = 0.5  # model phân loại chạy lại mỗi chừng này giây c
 PROB_FRESH_S = 1.2
 
 
+POSE_VI = {"standing": "Đứng", "walking": "Đang đi", "sitting": "Ngồi", "lying": "Nằm", "slumped": "Ngồi gục",
+           "upper": "Thấy nửa người", "unknown": "Chưa rõ tư thế"}
+POSE_KEYS = ("standing", "walking", "sitting", "lying", "slumped", "upper")
+
+
+def no_accent(s: str) -> str:
+    """Bỏ dấu tiếng Việt (cho nơi chỉ hiện được ASCII, vd chữ vẽ bằng OpenCV khi máy không có font)."""
+    import unicodedata
+
+    s = s.replace("đ", "d").replace("Đ", "D")
+    return "".join(c for c in unicodedata.normalize("NFD", s) if unicodedata.category(c) != "Mn")
+
+
+def summarize(views: list) -> tuple[int, str]:
+    """Trạng thái chung của 1 khung hình -> (mức 0 an toàn | 1 chú ý | 2 báo động, câu tiếng Việt)."""
+    if not views:
+        return 0, "Không có người trong khung hình"
+    level = max(v.level for v in views)
+    if level == 0:
+        cnt = {k: sum(1 for v in views if v.pose == k) for k in POSE_KEYS}
+        parts = [f"{n} {POSE_VI[k].lower()}" for k, n in cnt.items() if n]
+        return 0, f"AN TOÀN · {len(views)} người" + (": " + ", ".join(parts) if parts else "")
+    who = [f"{v.note or v.text} (người #{v.id})" for v in sorted(views, key=lambda v: -v.level) if v.level == level]
+    return level, ("BÁO ĐỘNG: " if level == 2 else "CHÚ Ý: ") + " · ".join(who[:3])
+
+
 @dataclass
 class BehaviorEvent:
     kind: str
@@ -63,6 +89,12 @@ class TrackView:
     still_s: float
     motion: float | None
     probs: dict | None
+    ppe: dict | None = None  # đồ bảo hộ: {"missing": [...], "forbidden": [...], "ok": [...], "pending": [...], "all_ok": bool}
+    ppe_text: str = ""  # "Thiếu kính, chụp tai" / "Đeo găng tay (cấm)"
+    pose: str = "unknown"  # tư thế ổn định để hiển thị: standing | walking | sitting | lying | slumped | unknown
+    note: str = ""  # câu cho thanh trạng thái khi cần chú ý (hành vi và/hoặc đồ bảo hộ)
+    text: str = ""  # nhãn tiếng Việt vẽ lên hình: "Đứng", "Ngồi", "Nằm 3 giây (cử động)", "TÉ NGÃ!"...
+    conf: float = 0.0  # độ chắc của tư thế 0..1 (độ đồng thuận 1 giây gần nhất × độ tin cậy các khớp)
 
 
 @dataclass
@@ -83,6 +115,27 @@ class CameraAnalyzer:
         self.pairs: dict[tuple[int, int], dict] = {}
         self.fired: deque = deque(maxlen=200)  # (kind, t, center, ref_h, track_id)
         self.last_t = 0.0
+        self.ppe_t = -1e18  # lần gần nhất chạy AI bảo hộ cho camera này
+        self.ppe_dets: list = []  # các món đồ bảo hộ thấy ở lần đó (để vẽ)
+        self.ppe_on = False
+
+    # -------------------------------------------------------------- đồ bảo hộ
+    def ppe_step(self, t: float, live: list[Track], dets: list, rules: dict, scale: float, out: list) -> None:
+        """Ghép kết quả YOLO đồ bảo hộ với từng người đang thấy, cập nhật bộ đếm, sinh sự kiện "PPE"."""
+        from ares.ppe import describe
+        from ares.ppe.rules import assess, update_track
+
+        self.ppe_t, self.ppe_dets, self.ppe_on = t, dets, True
+        items = rules["required"] + rules["forbidden"]
+        trs = [tr for tr in live if tr.hits >= 3]
+        sts = assess([(tr.last.kp, tr.last.box) for tr in trs], dets, items, scale)
+        for tr, st in zip(trs, sts):
+            v = update_track(tr.state, t, st, rules, self.cfg)
+            if v:
+                # lần đầu của 1 người: qua bộ lọc chung (chống báo trùng khi bám vết đổi mã người tại cùng chỗ);
+                # các lần sau do bộ đếm đồ bảo hộ tự quyết (đeo lại rồi tháo, hoặc nhắc lại sau ppe_remind_s)
+                self._fire(out, "PPE", t, [tr], 0.8, "ppe", force=v["again"], missing=v["missing"], forbidden=v["forbidden"],
+                           text=describe(v["missing"], v["forbidden"]))
 
     # -------------------------------------------------------------- tiện ích
     def _cooldown_ok(self, kind: str, t: float, tr_ids: list[int], center, ref_h: float) -> bool:
@@ -98,12 +151,13 @@ class CameraAnalyzer:
                 return False
         return True
 
-    def _fire(self, out: list, kind: str, t: float, trs: list[Track], score: float, source: str, **detail) -> None:
+    def _fire(self, out: list, kind: str, t: float, trs: list[Track], score: float, source: str, force: bool = False,
+              **detail) -> None:
         cs = [((tr.last.box[0] + tr.last.box[2]) / 2, (tr.last.box[1] + tr.last.box[3]) / 2) for tr in trs]
         center = (float(np.mean([c[0] for c in cs])), float(np.mean([c[1] for c in cs])))
         rh = float(np.mean([tr.ref_h for tr in trs]))
         ids = [tr.id for tr in trs]
-        if not self._cooldown_ok(kind, t, ids, center, rh):
+        if not force and not self._cooldown_ok(kind, t, ids, center, rh):
             return
         for tr in trs:
             self.fired.append((kind, t, center, rh, tr.id))
@@ -133,6 +187,11 @@ class CameraAnalyzer:
         recent = [p for tt, p, _ in feats if t - tt <= 1.0]
         hold = max(set(recent), key=recent.count) if recent else posture
         st["posture"], st["posture_hold"] = posture, hold
+        legs: deque = st.setdefault("legs", deque(maxlen=10))  # có thấy hông + gối không (để phân biệt đứng / ngồi)
+        legs.append(ff.sitting is not None)
+        vis = s.kp[:, 2][s.kp[:, 2] >= KP_CONF]
+        agree = recent.count(hold) / len(recent) if recent else 0.0
+        st["posture_conf"] = float(agree * (vis.mean() if len(vis) else float(s.conf)))
 
         # ---- chuyển động: so tư thế trung bình 0,3 s gần nhất với 0,3 s cách đây ~0,85 s (khử rung của model)
         a = tr.window(t - 1.0, t - 0.7)
@@ -149,6 +208,14 @@ class CameraAnalyzer:
             st["motion_t"] = t
         elif t - st.get("motion_t", -1e9) > 1.5:
             st["motion"] = None  # không đo được (khuất khớp) -> không đoán là bất động
+        # ---- đang đi hay đứng yên: tốc độ tâm khung người (theo chiều cao người / giây), có trễ để nhãn không nhấp nháy
+        if a and b:
+            ca_ = np.mean([[(x.box[0] + x.box[2]) / 2, (x.box[1] + x.box[3]) / 2] for x in a], axis=0)
+            cb_ = np.mean([[(x.box[0] + x.box[2]) / 2, (x.box[1] + x.box[3]) / 2] for x in b], axis=0)
+            dtc = max(0.3, np.mean([x.t for x in b]) - np.mean([x.t for x in a]))
+            v = float(np.hypot(*(cb_ - ca_))) / max(ref_h, 1.0) / dtc
+            st["speed"] = v if st.get("speed") is None else 0.5 * st["speed"] + 0.5 * v
+            st["walking"] = st["speed"] > (0.18 if st.get("walking") else 0.3)
         # ---- tốc độ tay/chân (cho đánh nhau)
         if len(tr.hist) >= 2:
             p = tr.hist[-2]
@@ -300,42 +367,75 @@ class CameraAnalyzer:
                 continue
             st = tr.state
             still = st.get("still_s", 0.0)
-            label, level = "", 0
             hold = st.get("posture_hold", "unknown")
+            legs = st.get("legs") or ()
+            if hold in ("upright", "unknown") and legs and sum(legs) * 2 < len(legs):
+                pose = "upper"  # chỉ thấy nửa người trên (vd webcam để gần): không đoán đứng hay ngồi
+            else:
+                pose = {"upright": "walking" if st.get("walking") else "standing"}.get(hold, hold)
+            text, level = POSE_VI[pose], 0
             if st.get("fall_pending") is not None:
-                label, level = "NGA?", 1
+                text, level = "Mất thăng bằng?", 1
             if hold in DOWN:
                 if hold == "lying":
                     lying = st.get("lying_s", 0.0)
-                    label, level = ("NAM DUOI SAN", 2) if st.get("lie_fired") else (f"Nam {lying:.0f}s", 1)
+                    text, level = ("NẰM DƯỚI SÀN", 2) if st.get("lie_fired") else (f"Nằm {lying:.0f} giây" if lying >= 1 else "Vừa nằm xuống", 1)
                 else:
-                    label, level = "Guc", 1
+                    text, level = "Ngồi gục", 1
                 if still:
-                    label += f" bat dong {still:.0f}/{cfg.behavior_still_s:.0f}s"
+                    text += f", bất động {still:.0f}/{cfg.behavior_still_s:.0f} giây"
                 elif hold == "lying" and st.get("motion") is not None:
-                    label += " (cu dong)"
+                    text += " (còn cử động)"
                 if st.get("still_fired"):
-                    label, level = ("NAM BAT DONG" if hold == "lying" else "NGOI GUC"), 2
+                    text, level = ("NẰM BẤT ĐỘNG" if hold == "lying" else "NGỒI GỤC BẤT ĐỘNG"), 2
             if t - st.get("fell_at", -1e9) <= 10:
-                label, level = "TE NGA!", 2
+                text, level = "TÉ NGÃ!", 2
             if st.get("fight_now", 0.0) > 0.2:
-                label, level = ("DANH NHAU?", 1) if level < 2 else (label, level)
+                text, level = ("Xô đẩy?", 1) if level < 2 else (text, level)
             if any(f[0] == "FIGHT" and t - f[1] <= 10 and f[4] == tr.id for f in self.fired):
-                label, level = "DANH NHAU!", 2
+                text, level = "ĐÁNH NHAU!", 2
             pr = st.get("probs") if t - st.get("probs_t", -1e9) <= PROB_FRESH_S else None
-            res.append(TrackView(tr.id, [float(v) for v in tr.last.box], st.get("posture", "unknown"), label, level,
+            ppe, ppe_text, note = None, "", (text if level else "")
+            if self.ppe_on and t - st.get("ppe_t", -1e9) <= 5.0:
+                from ares.ppe.rules import short_text
+
+                ppe = st.get("ppe")
+                ppe_text = short_text(ppe)
+                if ppe_text:
+                    note = f"{note} · {ppe_text}" if note else ppe_text
+                    level = max(level, 1)
+            res.append(TrackView(tr.id, [float(v) for v in tr.last.box], st.get("posture", "unknown"),
+                                 no_accent(text) if level else "", level,
                                  round(still, 1), None if st.get("motion") is None else round(st["motion"], 3),
-                                 None if pr is None else {k: round(v, 2) for k, v in pr.items()}))
+                                 None if pr is None else {k: round(v, 2) for k, v in pr.items()},
+                                 pose=pose, text=text, conf=round(st.get("posture_conf", 0.0), 2),
+                                 ppe=ppe, ppe_text=ppe_text, note=note))
         return res
 
 
 # ============================================================================ nhiều camera + model
 class Analyzer:
-    def __init__(self, cfg, pose=None, classifier=None):
+    def __init__(self, cfg, pose=None, classifier=None, ppe=None):
+        from ares.ppe import clean_rules
+
         self.cfg = cfg
         self.pose = pose  # PoseEstimator (pose.py) hoặc None khi test luật bằng keypoint có sẵn
         self.classifier = classifier  # (net, meta, device) hoặc None
+        self.ppe = ppe  # PPEDetector (ares/ppe/detector.py) hoặc None = chưa cài model đồ bảo hộ
         self.cams: dict[str, CameraAnalyzer] = {}
+        # luật đồ bảo hộ: mặc định của máy (ARES_PPE_REQUIRED / _FORBIDDEN) + riêng từng camera (server gửi về theo địa điểm)
+        req = clean_rules(cfg.ppe_required)
+        self.ppe_default = clean_rules({"required": req["required"],
+                                        "forbidden": req["forbidden"] + clean_rules({"forbidden": [
+                                            x.strip() for x in cfg.ppe_forbidden.split(",")]})["forbidden"]})
+        self.ppe_rules: dict[str, dict] = {}
+
+    def rules_for(self, cam_id: str) -> dict:
+        r = self.ppe_rules.get(cam_id)  # luật riêng của camera (theo địa điểm trên server); trống thì dùng mặc định của máy
+        return r if r and any(r.values()) else self.ppe_default
+
+    def _ppe_scale(self, img) -> float:
+        return min(1.0, float(self.cfg.ppe_imgsz) / max(img.shape[:2]))
 
     @property
     def mode(self) -> str:
@@ -355,15 +455,27 @@ class Analyzer:
         if not batch:
             return []
         poses = self.pose.infer([b[1] for b in batch])
-        return self.process_poses([(c, img, t, *p) for (c, img, t), p in zip(batch, poses)], draw=draw)
+        ppe = None
+        if self.ppe is not None:  # chỉ camera có luật đồ bảo hộ, có người, và đã tới lượt (ppe_fps) mới chạy YOLO đồ bảo hộ
+            due = [(c, img) for (c, img, t), p in zip(batch, poses)
+                   if len(p[1]) and any(self.rules_for(c).values()) and t - self.cam(c).ppe_t >= 1.0 / self.cfg.ppe_fps - 1e-3]
+            if due:
+                ppe = dict(zip([c for c, _ in due], self.ppe.infer([img for _, img in due])))
+        return self.process_poses([(c, img, t, *p) for (c, img, t), p in zip(batch, poses)], draw=draw, ppe=ppe)
 
-    def process_poses(self, items, draw: bool = True) -> list[CamResult]:
-        """items: [(cam_id, ảnh|None, t, kps(n,17,3), boxes(n,4), confs(n,))]."""
+    def process_poses(self, items, draw: bool = True, ppe: dict | None = None) -> list[CamResult]:
+        """items: [(cam_id, ảnh|None, t, kps(n,17,3), boxes(n,4), confs(n,))]. ppe: {cam_id: [PPEDet]} nếu khung này có
+        chạy AI bảo hộ (test có thể bơm thẳng)."""
         mode = self.mode
         results = []
         for cam_id, img, t, kps, boxes, confs in items:
             ca = self.cam(cam_id)
             live, events = ca.step(t, kps, boxes, confs, mode)
+            rules = self.rules_for(cam_id)
+            if ppe is not None and cam_id in ppe and any(rules.values()):
+                ca.ppe_step(t, live, ppe[cam_id], rules, 1.0 if img is None else self._ppe_scale(img), events)
+            elif not any(rules.values()):
+                ca.ppe_on = False
             results.append([ca, img, t, live, events])
         if self.classifier is not None and mode in ("hybrid", "model"):
             self._classify([(r[0], r[2], r[3]) for r in results])
@@ -411,16 +523,96 @@ class Analyzer:
 
 
 # ============================================================================ vẽ
-_COL = {0: (80, 200, 80), 1: (0, 170, 255), 2: (40, 40, 230)}
+_COL = {0: (80, 200, 80), 1: (0, 170, 255), 2: (40, 40, 230)}  # BGR: xanh an toàn · cam chú ý · đỏ báo động
+# màu khung xương theo bộ phận (BGR): đầu xanh lá · tay xanh dương · thân tím hồng · chân cam
+_PART_COL = {"head": (90, 220, 90), "arm": (255, 170, 60), "torso": (220, 110, 230), "leg": (40, 160, 255)}
+
+
+def _edge_part(i: int, j: int) -> str:
+    if i <= 4 and j <= 4:
+        return "head"
+    if {i, j} <= {5, 6, 11, 12} or (i == 0 and j in (5, 6)):
+        return "torso"
+    return "arm" if max(i, j) <= 10 else "leg"
+
+
+_FONT_FILES = ("segoeuib.ttf", "arialbd.ttf", "tahomabd.ttf", "DejaVuSans-Bold.ttf", "LiberationSans-Bold.ttf",
+               "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+               "/Library/Fonts/Arial Bold.ttf", "arial.ttf")
+_fonts: dict = {}
+_patches: dict = {}
+
+
+def _font(size: int):
+    """Font có dấu tiếng Việt (PIL). Không có font/PIL -> None, khi đó vẽ chữ không dấu bằng OpenCV."""
+    if size not in _fonts:
+        f = None
+        try:
+            from PIL import ImageFont
+
+            for name in _FONT_FILES:
+                try:
+                    f = ImageFont.truetype(name, size)
+                    break
+                except OSError:
+                    continue
+        except ImportError:
+            pass
+        _fonts[size] = f
+    return _fonts[size]
+
+
+def text_patch(text: str, size: int, fg: tuple, bg: tuple, pad: int = 4) -> np.ndarray:
+    """Ảnh BGR nhỏ chứa chữ (có dấu) trên nền màu — có bộ nhớ đệm, vẽ 1 lần dùng nhiều khung."""
+    key = (text, size, fg, bg, pad)
+    hit = _patches.get(key)
+    if hit is not None:
+        return hit
+    font = _font(size)
+    if font is not None:
+        from PIL import Image, ImageDraw
+
+        l, t_, r, b = font.getbbox(text)
+        asc, desc = font.getmetrics()
+        im = Image.new("RGB", (r - l + 2 * pad, asc + desc + pad), bg[::-1])
+        ImageDraw.Draw(im).text((pad - l, pad // 2), text, font=font, fill=fg[::-1])
+        patch = np.asarray(im)[:, :, ::-1].copy()
+    else:
+        import cv2
+
+        txt, sc = no_accent(text), size / 26.0
+        (tw, th), base = cv2.getTextSize(txt, cv2.FONT_HERSHEY_SIMPLEX, sc, 1)
+        patch = np.full((th + base + pad, tw + 2 * pad, 3), bg, np.uint8)
+        cv2.putText(patch, txt, (pad, th + pad // 2), cv2.FONT_HERSHEY_SIMPLEX, sc, fg, 1, cv2.LINE_AA)
+    if len(_patches) > 600:
+        _patches.clear()
+    _patches[key] = patch
+    return patch
+
+
+def _blit(out: np.ndarray, patch: np.ndarray, x: int, y: int, alpha: float = 1.0) -> None:
+    H, W = out.shape[:2]
+    x, y = max(0, min(x, W - 1)), max(0, min(y, H - 1))
+    ph, pw = min(patch.shape[0], H - y), min(patch.shape[1], W - x)
+    if ph <= 0 or pw <= 0:
+        return
+    roi = out[y:y + ph, x:x + pw]
+    roi[:] = patch[:ph, :pw] if alpha >= 1.0 else (alpha * patch[:ph, :pw] + (1 - alpha) * roi).astype(np.uint8)
 
 
 def render(img: np.ndarray, ca: CameraAnalyzer, views: list[TrackView], cfg) -> np.ndarray:
+    """Vẽ lên hình: khung người theo mức (xanh/cam/đỏ), khung xương màu theo bộ phận, nhãn "ID 1 · NGỒI 92%",
+    và thanh trạng thái phía trên (AN TOÀN / CHÚ Ý / BÁO ĐỘNG). Báo động: viền đỏ quanh cả khung hình."""
     import cv2
 
     h, w = img.shape[:2]
     scale = cfg.behavior_clip_width / w if w > cfg.behavior_clip_width else 1.0
     out = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA) if scale != 1.0 else img.copy()
-    for v in views:
+    H, W = out.shape[:2]
+    fs = max(12, min(18, W // 44))  # cỡ chữ theo chiều rộng hình
+    banner = bool(getattr(cfg, "behavior_overlay_status", True))
+    top = (fs + 12) if banner else 0
+    for v in sorted(views, key=lambda v: v.level):  # người đang báo động vẽ sau cùng (nằm trên)
         tr = ca.tracker.tracks.get(v.id)
         col = _COL[v.level]
         x1, y1, x2, y2 = (int(c * scale) for c in v.box)
@@ -430,9 +622,38 @@ def render(img: np.ndarray, ca: CameraAnalyzer, views: list[TrackView], cfg) -> 
             for i, j in EDGES:
                 if kp[i, 2] >= KP_CONF and kp[j, 2] >= KP_CONF:
                     cv2.line(out, (int(kp[i, 0] * scale), int(kp[i, 1] * scale)),
-                             (int(kp[j, 0] * scale), int(kp[j, 1] * scale)), col, 2, cv2.LINE_AA)
-        txt = f"#{v.id} {v.label}".strip()
-        (tw, th), _ = cv2.getTextSize(txt, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-        cv2.rectangle(out, (x1, max(0, y1 - th - 8)), (x1 + tw + 6, y1), col, -1)
-        cv2.putText(out, txt, (x1 + 3, y1 - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
+                             (int(kp[j, 0] * scale), int(kp[j, 1] * scale)), _PART_COL[_edge_part(i, j)], 2, cv2.LINE_AA)
+            for k in range(5, 17):
+                if kp[k, 2] >= KP_CONF:
+                    cv2.circle(out, (int(kp[k, 0] * scale), int(kp[k, 1] * scale)), 3, (255, 255, 255), -1, cv2.LINE_AA)
+        txt = f"ID {v.id} · {(v.text or POSE_VI.get(v.pose, '')).upper()}"
+        if v.level == 0 and v.conf > 0:
+            txt += f" {round(v.conf * 100)}%"
+        patch = text_patch(txt, fs, (255, 255, 255), col)
+        lines = 2 if v.ppe is not None else 1  # nhãn nằm phía trên khung người (không che mặt)
+        ly = max(top, y1 - lines * patch.shape[0])
+        _blit(out, patch, x1, ly)
+        if v.ppe is not None:  # dòng thứ hai: đồ bảo hộ (cam = vi phạm · xanh = đủ · xám = không thấy rõ nên không kết luận)
+            if v.ppe_text:
+                p2 = text_patch(v.ppe_text.upper(), fs, (255, 255, 255), _COL[1])
+            elif v.ppe.get("all_ok"):
+                p2 = text_patch("ĐỦ BẢO HỘ", fs, (255, 255, 255), _COL[0])
+            elif v.ppe.get("pending"):
+                p2 = text_patch("ĐANG KIỂM ĐỒ BẢO HỘ…", fs, (255, 255, 255), (120, 120, 120))
+            else:
+                p2 = text_patch("CHƯA THẤY RÕ ĐỒ BẢO HỘ", fs, (255, 255, 255), (120, 120, 120))
+            _blit(out, p2, x1, ly + patch.shape[0])
+    if ca.ppe_on and getattr(cfg, "ppe_draw", True) and ca.ppe_dets and ca.last_t - ca.ppe_t <= 1.5:
+        for d in ca.ppe_dets:  # các món đồ bảo hộ AI nhìn thấy: hộp mảnh màu xanh ngọc
+            if d.worn:
+                bx1, by1, bx2, by2 = (int(c * scale) for c in d.box)
+                cv2.rectangle(out, (bx1, by1), (bx2, by2), (220, 220, 60), 1)
+    if banner:
+        level, text = summarize(views)
+        strip = out[:top]
+        strip[:] = (strip * 0.35).astype(np.uint8)  # dải tối mờ phía trên
+        head = ("TRẠNG THÁI: " if level == 0 else "") + text
+        _blit(out, text_patch(head, fs, _COL[level] if level else (140, 235, 140), (0, 0, 0), pad=6), 4, 2, alpha=0.999)
+        if level == 2:
+            cv2.rectangle(out, (1, 1), (W - 2, H - 2), _COL[2], 4)
     return out

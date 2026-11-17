@@ -89,7 +89,7 @@ dialog::backdrop{background:rgba(0,0,0,.6)}
     <h2>Lịch sử sự kiện
       <span class="spacer"></span>
       <select id="f-kind"><option value="">Mọi loại</option><option value="FALL">Té ngã</option><option value="LYING_DOWN">Nằm xuống đột ngột</option><option value="LYING_STILL">Ngã gục / nằm bất động</option>
-        <option value="SLUMPED">Ngồi gục bất động</option><option value="FIGHT">Đánh nhau / xô đẩy</option></select>
+        <option value="SLUMPED">Ngồi gục bất động</option><option value="FIGHT">Đánh nhau / xô đẩy</option><option value="PPE">Vi phạm đồ bảo hộ</option></select>
     </h2>
     <div class="body" style="overflow-x:auto">
       <table><thead><tr><th>Ảnh</th><th>Thời gian</th><th>Loại</th><th>Camera</th><th>Nguồn</th><th>Trạng thái</th><th>Đánh giá</th></tr></thead>
@@ -124,7 +124,7 @@ dialog::backdrop{background:rgba(0,0,0,.6)}
 
 <script>
 const $ = s => document.querySelector(s);
-const KIND = {FALL:"Té ngã", LYING_DOWN:"Nằm xuống đột ngột / nằm dưới sàn", LYING_STILL:"Ngã gục / nằm bất động", SLUMPED:"Ngồi gục bất động", FIGHT:"Đánh nhau / xô đẩy"};
+const KIND = {PPE:"Vi phạm đồ bảo hộ", FALL:"Té ngã", LYING_DOWN:"Nằm xuống đột ngột / nằm dưới sàn", LYING_STILL:"Ngã gục / nằm bất động", SLUMPED:"Ngồi gục bất động", FIGHT:"Đánh nhau / xô đẩy"};
 const SRC = {rules:"Luật", model:"Model", "rules+model":"Luật + model"};
 let toastT; function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("on");clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove("on"),3500);}
 async function api(path, opts={}){

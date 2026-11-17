@@ -53,6 +53,7 @@ class BehaviorMonitor:
         self.loading = analyzer is None
         self.error = ""
         self.classifier_info: dict | None = None
+        self.ppe_info: dict = {"ready": False, "error": "", "hint": ""}
         self.stats = {"loop_fps": 0.0, "infer_ms": 0.0, "frames": 0, "events": 0}
         allow = cfg.behavior_cameras.strip()
         self._allow = None if allow.lower() in ("", "all", "*") else {x.strip() for x in allow.split(",") if x.strip()}
@@ -107,7 +108,15 @@ class BehaviorMonitor:
             self.emit(Event(self.clock.time(), "BEHAVIOR_NO_MODEL", "warn",
                             "ARES_BEHAVIOR_MODE=model nhưng chưa có model đã train — tạm dùng luật. "
                             "Train bằng: python -m ares.behavior train"))
-        self.analyzer = Analyzer(cfg, pose, clf)
+        from ares.ppe.load import load_detector, load_rules
+
+        ppe, self.ppe_info = load_detector(cfg)
+        self.analyzer = Analyzer(cfg, pose, clf, ppe)
+        self.analyzer.ppe_rules = load_rules(cfg)  # luật theo camera lần trước server gửi (dùng được cả khi mất mạng)
+        if ppe is not None:
+            self.emit(Event(self.clock.time(), "PPE_READY", "info",
+                            f"AI bảo hộ sẵn sàng: {self.ppe_info['weights']} trên {ppe.device}, nhận ra: "
+                            + ", ".join(self.ppe_info["items"]) + "."))
         mode = cfg.behavior_mode if clf is not None or cfg.behavior_mode == "rules" else "rules (chưa có model)"
         self.emit(Event(self.clock.time(), "BEHAVIOR_READY", "info",
                         f"Nhận diện hành vi sẵn sàng: pose {Path(pose.weights).name} trên {device}, chế độ {mode}."))
@@ -180,6 +189,8 @@ class BehaviorMonitor:
             msg += (f", nằm xuống đột ngột ({ev.detail.get('lying_s', 0):.0f} giây sau khi đang đứng/ngồi)"
                     if ev.detail.get("sudden") else f", nằm liên tục {ev.detail.get('lying_s', 0):.0f} giây")
             msg += ", vẫn còn cử động" if ev.detail.get("moving") else ", ít cử động"
+        if ev.kind == "PPE":
+            msg += f": {ev.detail.get('text', '')}"
         if ev.kind == "FIGHT":
             msg += f", người #{ev.track_ids[0]} và #{ev.track_ids[1]}"
         else:
@@ -236,16 +247,38 @@ class BehaviorMonitor:
         o = self._overlay.get(cam_id)
         return (o[0], o[1]) if o else (None, 0.0)
 
+    def set_ppe_rules(self, rules: dict) -> bool:
+        """Luật đồ bảo hộ theo camera từ server ({cam_id: {"required": [...], "forbidden": [...]}}). True nếu có đổi."""
+        from ares.ppe import clean_rules
+        from ares.ppe.load import save_rules
+
+        new = {str(k): clean_rules(v) for k, v in (rules or {}).items()}
+        if self.analyzer is None or new == self.analyzer.ppe_rules:
+            return False
+        self.analyzer.ppe_rules = new
+        try:
+            save_rules(self.cfg, new)
+        except OSError:
+            log.warning("Không lưu được luật đồ bảo hộ")
+        return True
+
+    def ppe_status(self) -> dict:
+        a = self.analyzer
+        return {**self.ppe_info, "default": a.ppe_default if a else None,
+                "cameras": {c: r for c, r in (a.ppe_rules if a else {}).items() if any(r.values())}}
+
     def status(self) -> dict:
         now = self.clock.time()
         cams = []
         for cid, (jpg, t, views) in list(self._overlay.items()):
             cams.append({"id": cid, "name": self.name_of(cid), "age_s": round(now - t, 1), "n_people": len(views),
-                         "tracks": [{"id": v.id, "posture": v.posture, "label": v.label, "level": v.level,
+                         "tracks": [{"id": v.id, "posture": v.posture, "label": (v.text or v.label) + (" · " + v.ppe_text if v.ppe_text else ""),
+                                     "level": v.level, "pose": v.pose,
+                                     "conf": v.conf,
                                      "still_s": v.still_s, "motion": v.motion, "probs": v.probs} for v in views]})
         cfg = self.cfg
         return {"enabled": True, "loading": self.loading, "error": self.error, "mode": cfg.behavior_mode,
-                "classifier": self.classifier_info, "stats": dict(self.stats), "cameras": cams,
+                "classifier": self.classifier_info, "stats": dict(self.stats), "cameras": cams, "ppe": self.ppe_status(),
                 "counts": self.store.counts(),
                 "config": {"still_s": cfg.behavior_still_s, "fps": cfg.behavior_fps, "cameras": cfg.behavior_cameras,
                            "clip_pre_s": cfg.behavior_clip_pre_s, "clip_post_s": cfg.behavior_clip_post_s,

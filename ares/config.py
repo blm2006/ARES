@@ -256,6 +256,17 @@ class AresSettings(BaseSettings):
     behavior_clip_post_s: float = Field(10.0, ge=0.0, le=60.0)  # ... và giây SAU sự kiện
     behavior_clip_fps: float = Field(8.0, ge=2.0, le=30.0)
     behavior_clip_width: int = Field(640, ge=160, le=1920)
+    # ---- AI bảo hộ lao động (ares/ppe): thiếu kính / chụp tai / khẩu trang / nón / áo..., hoặc đeo đồ bị cấm (găng tay gần máy)
+    ppe_weights: str = "ppe_sh17_yolo8s.pt"  # model YOLO đồ bảo hộ; cài bằng CAI_AI_BAO_HO.bat (python -m ares.ppe setup)
+    ppe_required: str = ""  # món bắt buộc cho MỌI camera của máy này, vd "goggles,ear,mask" hoặc tên mẫu "woodshop" (rỗng = theo từng địa điểm trên server)
+    ppe_forbidden: str = ""  # món bị cấm, vd "gloves"
+    ppe_fps: float = Field(2.0, ge=0.2, le=10.0)  # số lần kiểm đồ bảo hộ / giây / camera (không cần nhanh như té ngã)
+    ppe_conf: float = Field(0.3, ge=0.05, le=0.95)
+    ppe_imgsz: int = 960  # đồ bảo hộ là vật nhỏ (kính, chụp tai) nên cho model nhìn ảnh to hơn YOLO người
+    ppe_missing_s: float = Field(5.0, ge=1.0, le=600.0)  # thiếu (hoặc đeo đồ cấm) liên tục chừng này giây thì cảnh báo
+    ppe_remind_s: float = Field(300.0, ge=10.0, le=86400.0)  # vẫn vi phạm thì nhắc lại sau chừng này giây
+    ppe_draw: bool = True  # vẽ hộp các món đồ bảo hộ AI nhìn thấy lên hình
+    behavior_overlay_status: bool = True  # vẽ thanh trạng thái (AN TOÀN / CHÚ Ý / BÁO ĐỘNG) phía trên hình kết quả AI
     behavior_keep_days: int = Field(30, ge=0)  # 0 = giữ mãi; >0 = tự xoá sự kiện cũ hơn chừng này ngày
 
     # ------------------------------------------------------------- gửi lên server trung tâm (ares_server)

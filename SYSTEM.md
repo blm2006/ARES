@@ -1,8 +1,8 @@
 # ARES — Hệ thống AI camera (tài liệu tổng thể)
 
 > Sơ đồ workflow có hình minh hoạ: `WORKFLOW.html` (mở bằng trình duyệt).
-> Chi tiết phần nhận diện hành vi: `BEHAVIOR_AI.md`. Cách triển khai server: `deploy/server/README.md`.
-> Cập nhật: 15/11/2026.
+> Chi tiết phần nhận diện hành vi: `BEHAVIOR_AI.md`. AI bảo hộ lao động: `PPE_AI.md`. Cách triển khai server: `deploy/server/README.md`.
+> Cập nhật: 17/11/2026.
 
 ## 1. Sản phẩm
 
@@ -103,10 +103,21 @@ Sửa: tắt ARES → chạy **`NANG_CAP_GPU.bat`** (cài PyTorch bản CUDA 12.
 Các tối ưu khác đã bật sẵn: webcam gửi 640px chất lượng 0,7 không dồn hàng đợi; máy chủ đọc camera của máy khác 15 vòng/giây (`ARES_HUB_FPS=15`);
 hình trực tiếp gửi luồng riêng mỗi 0,5 giây (`ARES_UPLINK_LIVE_S=0.5`), bỏ khung không đổi, không nén lại; dashboard tải ảnh nối tiếp, chỉ ảnh đang hiện.
 
+**Nhãn tư thế trên hình.** Mọi hình kết quả AI (camera trực tiếp, clip cảnh báo, Thử video) đều vẽ: khung người theo mức
+(xanh an toàn · cam chú ý · đỏ báo động), khung xương màu theo bộ phận, nhãn `ID 1 · NGỒI 92%` (Đứng / Đang đi / Ngồi / Nằm / Ngồi gục /
+Thấy nửa người), và thanh trạng thái phía trên: `TRẠNG THÁI: AN TOÀN · 2 người: 1 đứng, 1 ngồi` → `CHÚ Ý: Mất thăng bằng? (người #1)` →
+`BÁO ĐỘNG: TÉ NGÃ! (người #1)` kèm viền đỏ. % là độ chắc của tư thế (độ đồng thuận 1 giây gần nhất × độ tin cậy các khớp), không phải xác suất té ngã.
+Tắt thanh trạng thái: `ARES_BEHAVIOR_OVERLAY_STATUS=false`.
+
+**AI bảo hộ (đồ bảo hộ lao động).** Mỗi địa điểm chọn món **bắt buộc** / **cấm** (Địa điểm → Chọn đồ bảo hộ; có mẫu Xưởng gỗ,
+Công trường, Phòng thí nghiệm). Mẫu Xưởng gỗ: bắt buộc kính + chụp tai + khẩu trang, cấm găng tay. Người thiếu liên tục ~5 giây → cảnh báo
+"Vi phạm đồ bảo hộ" kèm clip; trên hình ghi `THIẾU KÍNH, CHỤP TAI` / `ĐỦ BẢO HỘ`. Chỉ kết luận khi thấy rõ người. Cài model 1 lần trên máy chủ:
+`CAI_AI_BAO_HO.bat`. Model mặc định (SH17) chỉ dùng phi thương mại. Thử video cũng chọn được "Kiểm đồ bảo hộ". Chi tiết: `PPE_AI.md`.
+
 **Thử video** (mục riêng, không liên quan camera): ở bất kỳ máy nào, vào **Thử video** → **Chọn video…** → **Tải lên và phân tích**.
 Video lên máy chủ, máy AI nhận việc (luồng riêng, không làm chậm camera trực tiếp), chạy YOLO người + YOLO hành vi 10 khung/giây, trả về:
 video đã vẽ khung xương (phát ngay trong dashboard, có tua/tốc độ, bấm sự kiện để nhảy tới đúng lúc), danh sách sự kiện kèm mốc thời gian,
-số người tối đa, thời gian xử lý, nút tải video kết quả. Tối đa 500 MB/video, mỗi người 3 video chờ; xoá video là máy AI dừng ngay.
+số người tối đa, thời gian xử lý, nút tải video kết quả; thêm thẻ trạng thái đổi theo từng khung (An toàn / Chú ý / Báo động), dải thời gian tô màu theo mức (bấm để tua) và tổng thời gian từng tư thế. Tối đa 500 MB/video, mỗi người 3 video chờ; xoá video là máy AI dừng ngay.
 Máy AI không giữ lại video sau khi xử lý. Tắt tính năng: `ARES_UPLINK_VIDEO_JOBS=false`. Thử bằng lệnh trên chính máy chủ vẫn được: `python -m ares.behavior video x.mp4`.
 
 **Cảm biến (mục Cảm biến trong dashboard).** Mỗi mạch thuộc 1 địa điểm, giống camera; số đo hiện trên thẻ địa điểm ở Tổng quan.
@@ -155,7 +166,7 @@ python -m ares.behavior video samples\x.mp4   :: thử AI hành vi trên video
 
 ## 7. Kiểm thử đã chạy
 
-- **269 test tự động pass.** Gồm luật hành vi trên khung xương tổng hợp, server (khoá thiết bị, chống trùng, chống CSRF, đăng nhập, địa điểm theo người dùng: chỉ thấy của mình, gán camera, đổi tên/xoá), AI tự chuyển CPU khi GPU lỗi, thử video tải lên (nhận job, huỷ, nhận lại khi máy AI tắt), dashboard từ xa (CORS, token, an toàn sau đường hầm), mạch cảm biến (Wi-Fi bằng khoá, USB bằng phiên đăng nhập, lệnh relay/LED, chặn người khác), uplink qua HTTP thật (mất mạng, gửi bù, khoá sai, chế độ không gửi ảnh, đồng bộ đánh giá ngược).
+- **280 test tự động pass.** Gồm luật hành vi trên khung xương tổng hợp, server (khoá thiết bị, chống trùng, chống CSRF, đăng nhập, địa điểm theo người dùng: chỉ thấy của mình, gán camera, đổi tên/xoá), AI tự chuyển CPU khi GPU lỗi, thử video tải lên (nhận job, huỷ, nhận lại khi máy AI tắt), dashboard từ xa (CORS, token, an toàn sau đường hầm), đồ bảo hộ (ánh xạ lớp model, ghép đồ với người, thiếu/cấm, luật theo địa điểm tới máy AI), mạch cảm biến (Wi-Fi bằng khoá, USB bằng phiên đăng nhập, lệnh relay/LED, chặn người khác), uplink qua HTTP thật (mất mạng, gửi bù, khoá sai, chế độ không gửi ảnh, đồng bộ đánh giá ngược).
 - **Chạy thật trên máy dev** với 2 Edge cùng lúc:
   - 1 Edge nhận video giám sát thật, chạy YOLO-pose + model đánh nhau.
   - 1 Edge mô phỏng đèn/điều hòa.
@@ -166,7 +177,7 @@ python -m ares.behavior video samples\x.mp4   :: thử AI hành vi trên video
 
 ## 8. Trước khi bán: còn thiếu
 
-1. Đo độ chính xác té ngã trên video thật (URFD + quay tại UEH), báo cáo tỉ lệ đúng/nhầm.
+1. Đo độ chính xác té ngã trên video thật (URFD + quay tại UEH), báo cáo tỉ lệ đúng/nhầm. Đo AI bảo hộ tại xưởng thật; train model đồ bảo hộ riêng (model SH17 mặc định chỉ dùng phi thương mại).
 2. Pilot 2–4 tuần tại 1 địa điểm thật.
 3. Chia sẻ 1 địa điểm cho nhiều tài khoản (hiện mỗi địa điểm thuộc đúng 1 tài khoản; quản trị viên thấy tất cả).
 4. Cập nhật model từ xa (OTA), Telegram/Zalo, sao lưu và giám sát server.

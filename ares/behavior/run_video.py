@@ -40,8 +40,9 @@ def load_models(cfg):
 
 
 def analyze(cfg, pose, clf, path: Path, out_mp4: Path | None = None, fps: float = 10.0, frames_zip: Path | None = None,
-            max_w: int = 0, progress=None, should_stop=None, debug: bool = False) -> dict:
-    """Chạy Analyzer trên 1 video. Trả {events, frames, fps, duration, people_max, people_series, processing_s}.
+            max_w: int = 0, progress=None, should_stop=None, debug: bool = False, ppe=None, ppe_rules=None) -> dict:
+    """Chạy Analyzer trên 1 video. Trả {events, frames, fps, duration, people_max, people_series, processing_s,
+    status_runs, posture_s}.
 
     out_mp4: ghi video kết quả · frames_zip: ghi từng khung JPEG (0001.jpg...) để trình duyệt phát được ở mọi máy
     progress(tỉ lệ 0..1, số khung): gọi ~mỗi giây · should_stop(): True thì dừng giữa chừng (raise InterruptedError).
@@ -50,17 +51,23 @@ def analyze(cfg, pose, clf, path: Path, out_mp4: Path | None = None, fps: float 
 
     import cv2
 
-    from ares.behavior.analyzer import Analyzer
+    from ares.behavior.analyzer import POSE_KEYS, Analyzer, summarize
 
     cap = cv2.VideoCapture(str(path))
     src_fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
     total = cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0
     cap.release()
     duration = total / src_fps if src_fps and total > 0 else 0.0
-    an = Analyzer(cfg, pose, clf)
+    an = Analyzer(cfg, pose, clf, ppe)  # ppe: PPEDetector hoặc None; ppe_rules: luật đồ bảo hộ riêng cho video này
+    if ppe_rules is not None:
+        from ares.ppe import clean_rules
+
+        an.ppe_rules["video"] = clean_rules(ppe_rules)
     draw = out_mp4 is not None or frames_zip is not None
     vw, zf, events, n, t0, last_dbg, last_p = None, None, [], 0, time.time(), -1.0, 0.0
     series, people_max, sec, sec_max = [], 0, -1, 0
+    runs: list = []  # [khung bắt đầu, mức 0/1/2, câu trạng thái] — chỉ ghi khi trạng thái đổi (thanh trạng thái + dải thời gian)
+    pose_s = {k: 0.0 for k in POSE_KEYS}  # tổng thời gian (người × giây) ở từng tư thế
     if frames_zip is not None:
         zf = zipfile.ZipFile(frames_zip, "w", zipfile.ZIP_STORED)
     try:
@@ -73,6 +80,12 @@ def analyze(cfg, pose, clf, path: Path, out_mp4: Path | None = None, fps: float 
             n += 1
             k = len(res.tracks)
             people_max = max(people_max, k)
+            lv, txt = summarize(res.tracks)
+            if (not runs or runs[-1][1] != lv or runs[-1][2] != txt) and len(runs) < 5000:
+                runs.append([n, lv, txt])
+            for v in res.tracks:
+                if v.pose in pose_s:
+                    pose_s[v.pose] += 1.0 / fps
             if int(t) != sec:
                 if sec >= 0:
                     series.append([sec, sec_max])
@@ -103,7 +116,7 @@ def analyze(cfg, pose, clf, path: Path, out_mp4: Path | None = None, fps: float 
                 for v in res.tracks:
                     pr = "" if not v.probs else " model " + max(v.probs, key=v.probs.get)
                     print(f"    {_mmss(t)} #{v.id:<3d} tư thế {v.posture:8s} chuyển động {v.motion if v.motion is not None else '—':<6} "
-                          f"bất động {v.still_s:5.1f}s {v.label}{pr}")
+                          f"bất động {v.still_s:5.1f}s {v.text}{pr}")
             if progress is not None and time.time() - last_p >= 1.0:
                 last_p = time.time()
                 progress(min(0.99, t / duration) if duration else 0.0, n)
@@ -115,7 +128,9 @@ def analyze(cfg, pose, clf, path: Path, out_mp4: Path | None = None, fps: float 
         if zf is not None:
             zf.close()
     return {"events": events, "frames": n, "fps": fps, "duration": round(duration or n / fps, 2), "people_max": people_max,
-            "people_series": series, "processing_s": round(time.time() - t0, 1)}
+            "people_series": series, "processing_s": round(time.time() - t0, 1),
+            "status_runs": runs, "posture_s": {k: round(v, 1) for k, v in pose_s.items()},
+            "ppe": {"rules": an.rules_for("video"), "ready": ppe is not None}}
 
 
 def run(cfg, path: Path, out_dir: Path | None = None, fps: float = 10.0, debug: bool = False, write: bool = True) -> list[dict]:
@@ -124,6 +139,13 @@ def run(cfg, path: Path, out_dir: Path | None = None, fps: float = 10.0, debug: 
         print(f"Không thấy video trong {path}")
         return []
     pose, clf, cpath = load_models(cfg)
+    ppe = None
+    if cfg.ppe_required or cfg.ppe_forbidden:
+        from ares.ppe.load import load_detector
+
+        ppe, info = load_detector(cfg)
+        print("AI bảo hộ: " + (f"{info['weights']} — nhận ra {', '.join(info['items'])}" if ppe else
+                               (info.get("error") or info.get("hint", "chưa cài"))))
     print(f"Pose {Path(pose.weights).name} trên {pose.device} · chế độ {cfg.behavior_mode}"
           f"{' + model ' + cpath.name if clf else ' (chỉ luật)'} · bất động >= {cfg.behavior_still_s:g}s · {fps:g} khung/giây")
     out_dir = Path(out_dir or Path(cfg.behavior_dir) / "video_tests")
@@ -131,7 +153,7 @@ def run(cfg, path: Path, out_dir: Path | None = None, fps: float = 10.0, debug: 
     all_events = []
     for p in paths:
         out_mp4 = out_dir / f"{p.stem}_behavior.mp4"
-        r = analyze(cfg, pose, clf, p, out_mp4 if write else None, fps, debug=debug)
+        r = analyze(cfg, pose, clf, p, out_mp4 if write else None, fps, debug=debug, ppe=ppe)
         dt, n, events = r["processing_s"], r["frames"], r["events"]
         print(f"{p.name}: {n} khung trong {dt:.1f}s ({n / dt if dt else 0:.1f} khung/giây xử lý) — {len(events)} sự kiện"
               + (f" -> {out_mp4}" if write else ""))

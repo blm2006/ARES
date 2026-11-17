@@ -591,7 +591,9 @@ def test_video_upload_job_roundtrip(tmp_path, live_server):
             for i in range(1, 4):
                 z.writestr(f"{i:04d}.jpg", JPG)
         return {"events": [{"t": 0.2, "time": "00:00.20", "kind": "FALL", "label": "Té ngã", "tracks": [1], "frame": 3}],
-                "frames": 3, "fps": fps, "duration": 0.3, "people_max": 1, "people_series": [[0, 1]], "processing_s": 0.1}
+                "frames": 3, "fps": fps, "duration": 0.3, "people_max": 1, "people_series": [[0, 1]], "processing_s": 0.1,
+                "status_runs": [[1, 0, "AN TOÀN · 1 người: 1 đứng"], [3, 2, "BÁO ĐỘNG: TÉ NGÃ! (người #1)"], "rác"],
+                "posture_s": {"standing": 0.2, "lying": 0.1}}
 
     cfg = AresSettings(storage_root=tmp_path / "e", uplink_url=f"http://127.0.0.1:{scfg.port}", uplink_key=key,
                        uplink_edge_id="may-chu")
@@ -602,6 +604,8 @@ def test_video_upload_job_roundtrip(tmp_path, live_server):
     j = an.get(f"/api/videos/{jid}").json()
     assert j["status"] == "done" and j["n_frames"] == 3 and j["result"]["events"][0]["kind"] == "FALL"
     assert j["result"]["device"] == "cpu" and j["name"] == "té ngã.mp4"
+    assert j["result"]["status_runs"] == [[1, 0, "AN TOÀN · 1 người: 1 đứng"], [3, 2, "BÁO ĐỘNG: TÉ NGÃ! (người #1)"]]
+    assert j["result"]["posture_s"] == {"standing": 0.2, "lying": 0.1}
     assert an.get(f"/api/videos/{jid}/frames/2.jpg").content == JPG
     assert binh.get(f"/api/videos/{jid}/frames/2.jpg").status_code == 404
     assert an.get("/api/videos").json()["items"][0]["n_events"] == 1
@@ -652,6 +656,7 @@ def test_analyze_writes_frames_zip(tmp_path):
         names = z.namelist()
     assert r["frames"] == 20 and len(names) == 20 and names[0] == "0001.jpg"
     assert r["events"] == [] and r["people_max"] == 0 and r["people_series"][0] == [0, 0] and abs(r["duration"] - 2.0) < 0.1
+    assert r["status_runs"] == [[1, 0, "Không có người trong khung hình"]] and set(r["posture_s"].values()) == {0.0}
 
 
 # ------------------------------------------------------------------ dashboard trên GitHub Pages: CORS + token, an toàn sau đường hầm

@@ -145,6 +145,12 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}
 .vgrid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:0}
 @media (max-width:860px){ .vgrid{grid-template-columns:1fr} }
 .vside{border-left:1px solid var(--border);padding:12px 14px;max-height:74vh;overflow:auto;display:grid;gap:8px;align-content:start}
+.vtl{position:relative;height:12px;margin:8px 12px 0;border-radius:6px;cursor:pointer;background:var(--surface2);overflow:hidden}
+.vtl i{position:absolute;top:0;bottom:0;width:3px;background:var(--ink);border-radius:2px;pointer-events:none}
+.vstat{border:2px solid var(--ok);background:var(--ok-bg);border-radius:12px;padding:10px 12px;display:grid;gap:4px}
+.vstat b{color:var(--ok);font-size:15px} .vstat span{font-size:13px}
+.vstat.l1{border-color:var(--warn);background:var(--warn-bg)} .vstat.l1 b{color:var(--warn)}
+.vstat.l2{border-color:var(--red);background:var(--red-bg)} .vstat.l2 b{color:var(--red)}
 .vev{border:1px solid var(--border);border-radius:10px;padding:8px 10px;cursor:pointer;display:grid;gap:2px}
 .vev:hover{border-color:var(--ink)} .vev.on{border-color:var(--red);background:var(--red-bg)}
 </style>
@@ -226,7 +232,7 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}
         <div class="filters">
           <select id="f-status"><option value="">Tất cả</option><option value="new">Chưa xử lý</option><option value="ack">Đã xử lý</option></select>
           <select id="f-kind"><option value="">Mọi loại</option><option value="FALL">Té ngã</option><option value="LYING_DOWN">Nằm xuống đột ngột</option><option value="LYING_STILL">Nằm bất động</option>
-            <option value="SLUMPED">Ngồi gục</option><option value="FIGHT">Đánh nhau</option></select>
+            <option value="SLUMPED">Ngồi gục</option><option value="FIGHT">Đánh nhau</option><option value="PPE">Vi phạm đồ bảo hộ</option></select>
           <select id="f-place"><option value="0">Mọi địa điểm</option></select>
         </div></h2>
       <div class="body" style="overflow-x:auto">
@@ -277,6 +283,7 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}
       <div class="row">
         <label class="btn" for="vf">Chọn video…</label><input type="file" id="vf" accept="video/*,.mp4,.avi,.mov,.mkv,.webm,.m4v" hidden>
         <span class="small" id="vf-name">Chưa chọn file</span>
+        <select id="vf-ppe" title="Kiểm tra đồ bảo hộ trong video"><option value="">Không kiểm đồ bảo hộ</option></select>
         <button class="btn dark" id="vf-up">Tải lên và phân tích</button>
         <span class="small muted" id="vf-msg"></span>
       </div>
@@ -382,10 +389,26 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}
   <h2><span id="vd-title">—</span><span class="spacer"></span><a class="btn" id="vd-mp4" href="#" download hidden>Tải video kết quả</a><button class="btn" id="vd-close">Đóng</button></h2>
   <div class="vgrid">
     <div class="player"><img id="vd-img" alt="Kết quả AI">
+      <div class="vtl" id="vd-tl" title="Dải thời gian: xanh = an toàn · cam = chú ý · đỏ = báo động (bấm để tua)"><i id="vd-tlpos"></i></div>
       <div class="ctl"><button class="btn dark" id="vd-play">Phát</button><input type="range" id="vd-seek" min="1" max="1" value="1"><span class="muted small" id="vd-pos"></span>
         <select id="vd-speed" title="Tốc độ phát"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select></div>
       <div class="ctl small muted" id="vd-sum"></div></div>
-    <div class="vside"><b>Sự kiện AI phát hiện</b><div id="vd-events"></div></div>
+    <div class="vside">
+      <div class="vstat l0" id="vd-status"><b id="vd-st-h">—</b><span id="vd-st-t"></span></div>
+      <b>Tư thế trong video</b><div class="schips" id="vd-poses"></div>
+      <b>Sự kiện AI phát hiện</b><div id="vd-events" style="display:grid;gap:8px"></div></div>
+  </div></div></dialog>
+<dialog id="ppedlg" style="width:min(620px,97vw)"><div class="card" style="border:0">
+  <h2><span id="pp-title">Đồ bảo hộ</span><span class="spacer"></span><button class="btn" data-close="ppedlg">Đóng</button></h2>
+  <div class="body">
+    <div id="pp-model"></div>
+    <p class="small muted" style="margin:10px 0 6px">Chọn nhanh theo loại nơi làm việc:</p>
+    <div class="row" id="pp-presets"></div>
+    <table style="margin-top:12px"><thead><tr><th>Món</th><th>Bắt buộc đeo</th><th>Cấm đeo</th></tr></thead><tbody id="pp-rows"></tbody></table>
+    <p class="hint">AI chỉ nhắc khi <b>thấy rõ</b> người đó (thấy mặt mới xét kính / khẩu trang; ở quá xa thì không kết luận) và thiếu liên tục khoảng 5 giây.
+      Xưởng gỗ: găng tay để ở cột <b>Cấm</b> vì găng dễ bị cuốn vào lưỡi cưa, mũi khoan đang quay — bỏ chọn nếu xưởng chỉ dùng dụng cụ cầm tay.
+      Kính thường (kính cận) có thể bị nhận là kính bảo hộ.</p>
+    <div class="row"><button class="btn dark" id="pp-save">Lưu</button><button class="btn" id="pp-off">Tắt kiểm đồ bảo hộ ở địa điểm này</button></div>
   </div></div></dialog>
 <dialog id="sdlg" style="width:min(760px,97vw)"><div class="card" style="border:0">
   <h2><span id="sd-title">Nạp code cho mạch</span><span class="spacer"></span><button class="btn" data-close="sdlg">Đóng</button></h2>
@@ -419,7 +442,7 @@ if(REMOTE){ const q=new URLSearchParams(location.search).get("server");
 const U = p => { const u=API+p; return TOKEN ? u+(u.includes("?")?"&":"?")+"t="+encodeURIComponent(TOKEN) : u; };  // cho <img>/<a>
 const AH = () => TOKEN ? {"Authorization":"Bearer "+TOKEN} : {};
 function setToken(t){ TOKEN=REMOTE?(t||""):""; if(REMOTE) LS.set("ares_token",TOKEN); }
-const KIND = {FALL:"Té ngã", LYING_DOWN:"Nằm xuống đột ngột / nằm dưới sàn", LYING_STILL:"Nằm bất động", SLUMPED:"Ngồi gục bất động", FIGHT:"Đánh nhau / xô đẩy"};
+const KIND = {PPE:"Vi phạm đồ bảo hộ", FALL:"Té ngã", LYING_DOWN:"Nằm xuống đột ngột / nằm dưới sàn", LYING_STILL:"Nằm bất động", SLUMPED:"Ngồi gục bất động", FIGHT:"Đánh nhau / xô đẩy"};
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const tfmt = t => t ? new Date(t*1000).toLocaleString("vi-VN",{hour12:false}) : "—";
 function ago(t){ if(!t) return "chưa bao giờ"; const s=Math.max(0,Date.now()/1000-t); if(s<60) return `${Math.round(s)} giây trước`; if(s<3600) return `${Math.round(s/60)} phút trước`; if(s<86400) return `${Math.round(s/3600)} giờ trước`; return `${Math.round(s/86400)} ngày trước`; }
@@ -544,6 +567,7 @@ function placeCard(p, withThumbs){
       <div><b style="color:${p.new_alerts?"var(--red)":"inherit"}">${p.new_alerts}</b><span class="muted small">cảnh báo mới</span></div></div>
     ${withThumbs&&live.length?`<div class="thumbs">${live.map(c=>`<img data-live="${liveKey(c)}" alt="${esc(c.name)}" title="${esc(c.name)}">`).join("")}</div>`:""}
     <div class="chips">${p.cams.map(camChip).join("")||'<span class="muted small">Chưa có camera</span>'}</div>
+    ${p.ppe&&(p.ppe.required.length||p.ppe.forbidden.length)?`<div class="schips">${ppeChips(p.ppe)}</div>`:""}
     ${(p.sensors||[]).length?`<div class="schips">${p.sensors.map(d=>`<span class="pill ${d.online?(sensorAlarm(d.data)?"red":"ok"):""}" title="${esc(d.name)}"><i class="dot"></i>${esc(d.name)}${d.online?" · "+esc(sensorShort(d.data)):" · mất kết nối"}</span>`).join("")}</div>`:""}</div>`;
 }
 function setHTML(el, html){ if(el.dataset.h!==html){ el.dataset.h=html; el.innerHTML=html; } }  // tránh vẽ lại (ảnh không bị nháy)
@@ -635,12 +659,13 @@ async function renderPlaces(){
   const html=users.map(u=>{ const mine=pl.filter(p=>p.user_id===u.id);
     return `<div class="card ucard"><h2><span class="av">${esc(initial(u))}</span>${esc(u.name||u.username)} <span class="muted small">${esc(u.username)} · ${u.role==="admin"?"Quản trị viên":"Người dùng"}</span>
       <span class="spacer"></span><button class="btn" data-addplace="${u.id}">+ Thêm địa điểm</button></h2><div class="body" style="overflow-x:auto">
-      <table><thead><tr><th>Địa điểm</th><th>Người</th><th>Camera hoạt động</th><th>Cảnh báo mới</th><th>Camera</th><th></th></tr></thead><tbody>
+      <table><thead><tr><th>Địa điểm</th><th>Người</th><th>Camera hoạt động</th><th>Cảnh báo mới</th><th>Camera</th><th>Đồ bảo hộ</th><th></th></tr></thead><tbody>
       ${mine.map(p=>`<tr><td><b>${esc(p.name)}</b></td><td><b>${p.people}</b></td><td>${p.cams_online}</td>
         <td>${p.new_alerts?`<b style="color:var(--red)">${p.new_alerts}</b>`:"0"}</td>
         <td>${p.cams.map(c=>`<div class="row small" style="margin:3px 0">${camChip(c)}${(isAdmin()||c.client_id)&&pl.length>1?`<select data-mv="${c.site_id}|${esc(c.edge_id)}|${esc(c.cam_id)}" title="Chuyển camera sang địa điểm khác"><option value="">Chuyển tới…</option>${opts({}).replace(`value="${p.id}"`,`value="${p.id}" disabled`)}</select>`:""}</div>`).join("")||'<span class="muted small">Chưa có camera</span>'}</td>
+        <td><div class="schips">${ppeChips(p.ppe)}</div><button class="btn" data-ppeplace="${p.id}" style="margin-top:6px">Chọn đồ bảo hộ</button></td>
         <td><div class="row"><button class="btn" data-rnplace="${p.id}" data-name="${esc(p.name)}">Đổi tên</button>${mine.length>1?`<button class="btn warn" data-delplace="${p.id}" data-name="${esc(p.name)}">Xoá</button>`:""}</div></td></tr>`).join("")
-        ||'<tr><td colspan="6" class="empty">Chưa có địa điểm.</td></tr>'}
+        ||'<tr><td colspan="7" class="empty">Chưa có địa điểm.</td></tr>'}
       </tbody></table></div></div>`; }).join("");
   setHTML($("#places-box"), html);
 }
@@ -677,6 +702,8 @@ async function renderSetup(){
   if(!ai.online) h=`<div class="stat"><span class="pill red"><i class="dot"></i>Mất kết nối</span><span>Chưa có máy chạy AI trực tuyến. Trên máy chủ mở <code>ARES_MAY_CHU.bat</code>.</span></div>`;
   else { const gpu=ai.device&&ai.device!=="cpu";
     h=`<div class="stat"><span class="pill ok"><i class="dot"></i>Đang chạy</span><span class="big">${gpu?"GPU":"CPU"}</span><span class="muted">${esc(ai.device||"")} · phiên bản ${esc(ai.version||"")} · AI hành vi: ${({running:"đang chạy",loading:"đang khởi động",error:"lỗi",off:"tắt"})[ai.behavior]||ai.behavior}</span></div>`
+      + `<div class="row small" style="margin-top:10px">AI bảo hộ: ${ai.ppe&&ai.ppe.ready?`<span class="pill ok">đã cài</span> <span class="muted">${esc(ai.ppe.weights||"")} — nhận ra ${(ai.ppe.items||[]).map(ppeName).map(esc).join(", ")}. Chọn món bắt buộc ở mục Địa điểm.</span>`
+          :`<span class="pill warn">chưa cài</span> <span class="muted">${esc((ai.ppe&&(ai.ppe.error||ai.ppe.hint))||"")} Chạy <code>CAI_AI_BAO_HO.bat</code> trên máy chủ để kiểm kính, chụp tai, khẩu trang, nón...</span>`}</div>`
       + (ai.fallback?`<div class="warnbox" style="margin-top:12px"><b>GPU không chạy được, AI đang chạy bằng CPU nên bị chậm/trễ.</b><br><span class="small">${esc(ai.fallback)}</span><br>
          Cách sửa: tắt ARES, chạy <code>NANG_CAP_GPU.bat</code> trong thư mục C:\\yolo-al (cài PyTorch hợp với card), rồi mở lại <code>ARES_MAY_CHU.bat</code>.</div>`:""); }
   setHTML($("#ai-box"), h);
@@ -705,13 +732,14 @@ $("#ac-btn").onclick=async()=>{ const [sid,edge]=($("#ac-edge").value||"").split
 
 // ------------------------------------------------ hành động
 document.addEventListener("click", async ev=>{
-  const t=ev.target.closest("[data-open],[data-ack],[data-v],[data-rotate],[data-toggle],[data-rmcam],[data-ustatus],[data-upw],[data-udel],[data-goto],[data-delcam],[data-addplace],[data-rnplace],[data-delplace],[data-gplace]"); if(!t) return;
+  const t=ev.target.closest("[data-open],[data-ack],[data-v],[data-rotate],[data-toggle],[data-rmcam],[data-ustatus],[data-upw],[data-udel],[data-goto],[data-delcam],[data-addplace],[data-rnplace],[data-delplace],[data-gplace],[data-ppeplace]"); if(!t) return;
   if(t.tagName==="A") ev.preventDefault();
   try{
     if(t.dataset.ack){ await api(`/api/events/${t.dataset.ack}/ack`,{method:"POST"}); toast("Đã đánh dấu đã xử lý"); refresh(); }
     else if(t.dataset.v){ await api(`/api/events/${t.dataset.id}/verdict`,{method:"POST",body:{verdict:t.dataset.v}}); toast(t.dataset.v==="true"?"Đã ghi: đúng sự kiện":"Đã ghi: báo nhầm"); refresh(); }
     else if(t.dataset.open){ openEvent(+t.dataset.open); }
     else if(t.dataset.goto){ go(t.dataset.goto); }
+    else if(t.dataset.ppeplace){ openPpe(+t.dataset.ppeplace); }
     else if(t.dataset.gplace){ LIVE_PLACE=+t.dataset.gplace; go("live"); }
     else if(t.dataset.addplace){ const name=prompt("Tên địa điểm mới (vd: Nhà, Cửa hàng, Phòng 101):"); if(!name||!name.trim()) return;
       await api("/api/places",{method:"POST",body:{name:name.trim(),user_id:+t.dataset.addplace}}); PLACES=[]; toast("Đã thêm địa điểm"); refresh(); }
@@ -1034,11 +1062,42 @@ setInterval(async()=>{ for(const [id,S] of Object.entries(SER)){ if(!S.latest||D
   try{ const r=await api(`/api/devices/${id}/data`,{method:"POST",body:data}); if(r.cmd&&Object.keys(r.cmd).length) serWrite(id, r.cmd); }catch(_){} } },500);
 if("serial" in navigator) navigator.serial.addEventListener("disconnect", e=>{ for(const [id,S] of Object.entries(SER)) if(S.port===e.target){ serClose(+id); refresh(); } });
 
+
+// ------------------------------------------------ đồ bảo hộ: mỗi địa điểm chọn món bắt buộc / cấm; AI trên máy chủ kiểm
+let PPE=null, PPE_PLACE=null;
+const PPE_FALLBACK={goggles:"kính bảo hộ",ear:"chụp tai chống ồn",mask:"khẩu trang",helmet:"nón bảo hộ",vest:"áo phản quang",coat:"áo bảo hộ / tạp dề",gloves:"găng tay",boots:"giày bảo hộ"};
+const ppeName=k=>(PPE&&PPE.items[k]?PPE.items[k].name:PPE_FALLBACK[k]||k);
+function ppeChips(r){ if(!r||(!r.required.length&&!r.forbidden.length)) return '<span class="muted small">Không kiểm</span>';
+  return r.required.map(k=>`<span class="pill ok">${esc(ppeName(k))}</span>`).join("")+r.forbidden.map(k=>`<span class="pill warn">cấm ${esc(ppeName(k))}</span>`).join(""); }
+async function loadPpe(force){ if(!PPE||force){ PPE=await api("/api/ppe");
+    fillSel($("#vf-ppe"), [["","Không kiểm đồ bảo hộ"],...Object.entries(PPE.presets).map(([k,v])=>[k,"Kiểm đồ bảo hộ: "+v.name])], "—"); } return PPE; }
+function ppeModelBox(m){
+  if(m.ready) return `<span class="pill ok"><i class="dot"></i>AI bảo hộ đã sẵn sàng</span> <span class="small muted">nhận ra: ${(m.items||[]).map(ppeName).map(esc).join(", ")}</span>`;
+  return `<div class="warnbox small"><b>Máy chủ chưa có model đồ bảo hộ.</b> ${esc(m.error||m.hint||"")}<br>Trên máy chủ chạy <code>CAI_AI_BAO_HO.bat</code> rồi mở lại <code>ARES_MAY_CHU.bat</code>. Bạn vẫn lưu lựa chọn được, AI sẽ kiểm khi có model.</div>`; }
+function ppeFill(r){ document.querySelectorAll("#pp-rows input").forEach(i=>{ i.checked=(i.dataset.col==="req"?r.required:r.forbidden).includes(i.dataset.item); }); }
+async function openPpe(pid){
+  const p=PLACES.find(x=>x.id===pid); if(!p) return; PPE_PLACE=pid; await loadPpe(true);
+  $("#pp-title").textContent=`Đồ bảo hộ — ${p.name}`; $("#pp-model").innerHTML=ppeModelBox(PPE.model);
+  const can=PPE.model.ready?new Set(PPE.model.items||[]):null;
+  $("#pp-presets").innerHTML=Object.entries(PPE.presets).map(([k,v])=>`<button class="btn" data-pppreset="${k}">${esc(v.name)}</button>`).join("");
+  $("#pp-rows").innerHTML=Object.entries(PPE.items).map(([k,v])=>`<tr><td>${esc(v.name)}${can&&!can.has(k)?' <span class="pill warn" title="Model đang cài không nhận ra món này">model chưa nhận ra</span>':""}</td>
+    <td><input type="checkbox" data-col="req" data-item="${k}"></td><td><input type="checkbox" data-col="forb" data-item="${k}"></td></tr>`).join("");
+  ppeFill(p.ppe||{required:[],forbidden:[]}); $("#ppedlg").showModal();
+}
+$("#pp-presets").addEventListener("click",e=>{ const b=e.target.closest("[data-pppreset]"); if(b) ppeFill(PPE.presets[b.dataset.pppreset]); });
+$("#pp-rows").addEventListener("change",e=>{ const i=e.target; if(!i.checked) return;  // một món không thể vừa bắt buộc vừa cấm
+  const o=$("#pp-rows").querySelector(`input[data-item="${i.dataset.item}"][data-col="${i.dataset.col==="req"?"forb":"req"}"]`); if(o) o.checked=false; });
+async function savePpe(rules){ try{ await api(`/api/places/${PPE_PLACE}/ppe`,{method:"POST",body:rules}); $("#ppedlg").close();
+    toast(rules.required.length||rules.forbidden.length?"Đã lưu — máy chủ AI áp dụng trong khoảng 30 giây":"Đã tắt kiểm đồ bảo hộ ở địa điểm này"); PLACES=[]; refresh(); }catch(e){ toast(e.message); } }
+$("#pp-save").onclick=()=>{ const pick=c=>[...document.querySelectorAll(`#pp-rows input[data-col="${c}"]:checked`)].map(i=>i.dataset.item); savePpe({required:pick("req"),forbidden:pick("forb")}); };
+$("#pp-off").onclick=()=>savePpe({required:[],forbidden:[]});
+
 // ------------------------------------------------ thử video: tải lên -> AI máy chủ phân tích -> xem kết quả
 const VST={queued:["warn","Đang chờ"],running:["warn","Đang phân tích"],done:["ok","Xong"],error:["red","Lỗi"]};
 const mmss=t=>`${String(Math.floor(t/60)).padStart(2,"0")}:${String(Math.floor(t%60)).padStart(2,"0")}`;
 const mb=b=>b>=1048576?`${(b/1048576).toFixed(1)} MB`:`${Math.max(1,Math.round(b/1024))} KB`;
 async function renderVideos(){
+  loadPpe(false).catch(()=>{});
   const r=await api("/api/videos"), ai=r.ai;
   setHTML($("#vf-ai"), ai.online?(ai.fallback?'<span class="pill warn">Máy chủ AI đang chạy bằng CPU — video sẽ phân tích chậm</span>':`<span class="pill ok">Máy chủ AI sẵn sàng (${ai.device&&ai.device!=="cpu"?"GPU":"CPU"})</span>`)
     :'<span class="pill red">Máy chủ AI chưa chạy — video sẽ chờ tới khi máy chủ mở ARES_MAY_CHU.bat</span>');
@@ -1055,7 +1114,7 @@ $("#vf").onchange=()=>{ const f=$("#vf").files[0]; $("#vf-name").textContent=f?`
 $("#vf-up").onclick=()=>{
   const f=$("#vf").files[0]; if(!f){ toast("Chọn file video trước"); return; }
   if(f.size>500*1048576){ toast("Video tối đa 500 MB"); return; }
-  const xhr=new XMLHttpRequest(); xhr.open("POST",`${API}/api/videos?name=${encodeURIComponent(f.name)}`);
+  const xhr=new XMLHttpRequest(); xhr.open("POST",`${API}/api/videos?name=${encodeURIComponent(f.name)}&ppe=${encodeURIComponent($("#vf-ppe").value)}`);
   xhr.setRequestHeader("X-ARES","1"); if(TOKEN) xhr.setRequestHeader("Authorization","Bearer "+TOKEN); xhr.setRequestHeader("Content-Type", f.type||"application/octet-stream");
   $("#vf-bar").hidden=false; $("#vf-up").disabled=true;
   xhr.upload.onprogress=e=>{ if(e.lengthComputable){ const p=e.loaded/e.total; $("#vf-bar i").style.width=`${p*100}%`; $("#vf-msg").textContent=`Đang tải lên ${Math.round(p*100)}% (${mb(e.loaded)}/${mb(e.total)})`; } };
@@ -1069,18 +1128,34 @@ $("#vf-up").onclick=()=>{
 let V={id:null,n:0,i:1,timer:null,fps:10,ev:[]};
 async function openVideo(id){
   let j; try{ j=await api(`/api/videos/${id}`); }catch(e){ toast(e.message); return; }
-  vstop(); const R=j.result||{}; V={id,n:j.n_frames||0,i:1,timer:null,fps:R.fps||10,ev:R.events||[]};
+  vstop(); const R=j.result||{}; V={id,n:j.n_frames||0,i:1,timer:null,fps:R.fps||10,ev:R.events||[],runs:R.status_runs||[]};
+  // dải thời gian tô màu theo mức an toàn của từng đoạn
+  const LC=["var(--ok)","var(--warn)","var(--red)"], N=Math.max(1,V.n);
+  $("#vd-tl").style.background=V.runs.length?`linear-gradient(to right,${V.runs.map((r,k)=>{ const a=((r[0]-1)/N*100).toFixed(2), b=(((V.runs[k+1]?V.runs[k+1][0]:N+1)-1)/N*100).toFixed(2); return `${LC[r[1]]} ${a}%,${LC[r[1]]} ${b}%`; }).join(",")})`:"";
+  const PV={standing:"Đứng",walking:"Đang đi",sitting:"Ngồi",lying:"Nằm",slumped:"Ngồi gục",upper:"Thấy nửa người"}, ps=R.posture_s||{};
+  const tot=Object.values(ps).reduce((a,b)=>a+b,0);
+  $("#vd-poses").innerHTML=tot?Object.entries(PV).filter(([k])=>ps[k]>=0.5).map(([k,v])=>`<span class="pill ${k==="lying"||k==="slumped"?"warn":""}">${v} ${ps[k]>=60?mmss(ps[k]):Math.round(ps[k])+" giây"} · ${Math.round(ps[k]/tot*100)}%</span>`).join("")
+    :'<span class="muted small">Không thấy người trong video.</span>';
   $("#vd-title").textContent=`Kết quả AI — ${j.name}`;
   $("#vd-mp4").hidden=!j.has_mp4; $("#vd-mp4").href=U(`/api/videos/${id}/result.mp4`);
   $("#vd-seek").max=Math.max(1,V.n);
   $("#vd-sum").textContent=`Thời lượng ${mmss(R.duration||0)} · ${R.frames||V.n} khung phân tích · tối đa ${R.people_max??"?"} người cùng lúc · xử lý ${R.processing_s??"?"} giây trên ${String(R.device||"?").toUpperCase()}${R.mode?" · chế độ "+R.mode:""}`;
-  $("#vd-events").innerHTML=V.ev.length?V.ev.map((e,k)=>`<div class="vev" data-vk="${k}"><b>${esc(KIND[e.kind]||e.label)}</b><span class="small muted">${esc(e.time)} · người ${esc((e.tracks||[]).join(", "))}${e.source?" · "+esc(e.source):""}</span></div>`).join("")
-    :'<div class="muted small">Không phát hiện sự kiện nguy hiểm nào trong video.</div>';
+  const pr=(R.ppe||{}).rules||{}, pOn=(pr.required||[]).length||(pr.forbidden||[]).length;
+  const pNote=R.ppe_note?`<div class="warnbox small"><b>Chưa kiểm được đồ bảo hộ:</b> ${esc(R.ppe_note)}</div>`:pOn?`<div class="small muted">Kiểm đồ bảo hộ: ${ppeChips(pr)}</div>`:"";
+  $("#vd-events").innerHTML=pNote+(V.ev.length?V.ev.map((e,k)=>`<div class="vev" data-vk="${k}"><b>${esc(KIND[e.kind]||e.label)}</b><span class="small muted">${esc(e.time)} · người ${esc((e.tracks||[]).join(", "))}${e.kind==="PPE"&&e.detail&&e.detail.text?" · "+esc(e.detail.text):e.source?" · "+esc(e.source):""}</span></div>`).join("")
+    :'<div class="muted small">Không phát hiện sự kiện nguy hiểm nào trong video.</div>');
   if(V.n){ vshow(1); } else { $("#vd-img").removeAttribute("src"); $("#vd-pos").textContent="không có khung kết quả"; }
   $("#vdlg").showModal(); if(V.n) vplay();
 }
 function vshow(i){ V.i=i; $("#vd-seek").value=i; $("#vd-img").src=U(`/api/videos/${V.id}/frames/${i}.jpg`);
   const t=(i-1)/V.fps; $("#vd-pos").textContent=`${mmss(t)} / ${mmss((V.n-1)/V.fps)}`;
+  $("#vd-tlpos").style.left=`calc(${((i-1)/Math.max(1,V.n-1)*100).toFixed(2)}% - 1px)`;
+  let run=null; for(const r of V.runs){ if(r[0]<=i) run=r; else break; }
+  if(run){ const lv=run[1], m=run[2].match(/^(BÁO ĐỘNG|CHÚ Ý|AN TOÀN)\s*[:·]\s*(.*)$/);
+    $("#vd-status").className="vstat l"+lv;
+    $("#vd-st-h").textContent=lv===2?"BÁO ĐỘNG":lv===1?"CHÚ Ý — AI đang theo dõi":(m?"TRẠNG THÁI AN TOÀN":"KHÔNG CÓ NGƯỜI");
+    $("#vd-st-t").textContent=m?m[2]:run[2]; }
+  else { $("#vd-status").className="vstat l0"; $("#vd-st-h").textContent="—"; $("#vd-st-t").textContent="Video này phân tích bằng bản cũ — tải lại video để có trạng thái từng khung."; }
   let cur=-1; V.ev.forEach((e,k)=>{ if(e.t<=t+0.05 && t-e.t<4) cur=k; });
   document.querySelectorAll(".vev").forEach(el=>el.classList.toggle("on", +el.dataset.vk===cur)); }
 function vplay(){ vstop(); $("#vd-play").textContent="Dừng"; const sp=+$("#vd-speed").value||1;
@@ -1089,6 +1164,7 @@ function vstop(){ if(V.timer){ clearInterval(V.timer); V.timer=null; } $("#vd-pl
 $("#vd-play").onclick=()=>{ if(V.timer) vstop(); else { if(V.i>=V.n) vshow(1); vplay(); } };
 $("#vd-seek").oninput=e=>{ vstop(); vshow(+e.target.value); };
 $("#vd-speed").onchange=()=>{ if(V.timer) vplay(); };
+$("#vd-tl").onclick=e=>{ const r=e.currentTarget.getBoundingClientRect(); vstop(); vshow(Math.max(1,Math.min(V.n,Math.round((e.clientX-r.left)/r.width*(V.n-1))+1))); };
 $("#vd-close").onclick=()=>{ vstop(); $("#vdlg").close(); }; $("#vdlg").addEventListener("close",vstop);
 $("#vd-events").addEventListener("click",e=>{ const el=e.target.closest("[data-vk]"); if(!el) return; const ev=V.ev[+el.dataset.vk];
   vstop(); vshow(Math.max(1,Math.min(V.n, ev.frame||Math.round(ev.t*V.fps)+1))); });

@@ -71,6 +71,7 @@ không phụ thuộc người đứng gần hay xa camera.
 | Sự kiện | Điều kiện (mặc định) |
 |---|---|
 | **Té ngã** | đang đứng/ngồi → nằm trong ≤ 1,5 s, hông tụt ≥ 0,35 × chiều cao, rồi ≥ 60% thời gian 1 s sau vẫn nằm |
+| **Tư thế hiển thị** (không phải cảnh báo) | Đứng · Đang đi (tâm khung người dịch > 0,3 chiều cao/giây, có trễ 0,18) · Ngồi · Nằm · Ngồi gục · Thấy nửa người (không thấy hông + gối thì không đoán đứng/ngồi). Ngồi = đùi gần nằm ngang; nhận cả người **ngồi sẵn từ đầu** (đùi ngắn hơn nửa thân, không phụ thuộc chiều cao tham chiếu) |
 | **Nằm xuống đột ngột / nằm dưới sàn** | nằm liên tục **5 s** → báo **dù vẫn cử động**; nếu ≤ 3 s trước đó còn đứng/ngồi (nằm xuống đột ngột, không đủ tiêu chí té ngã) → chỉ cần **2 s**. Đã báo té ngã cho người đó thì không báo trùng. Ghi rõ "vẫn còn cử động" / "ít cử động" |
 | **Nằm bất động** | tư thế nằm + chuyển động < 0,05 liên tục **15 s** (chỉ đếm khi đo được khớp); cử động > 1,5 × ngưỡng là đếm lại từ đầu. Sau cú ngã → ghi "sau cú ngã", mức khẩn cấp |
 | **Ngồi gục bất động** | tư thế `slumped` + bất động 15 s |

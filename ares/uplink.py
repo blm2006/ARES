@@ -133,7 +133,8 @@ class Uplink:
         if beh is not None:
             bstat = {"running": not beh.loading and not beh.error, "loading": beh.loading, "error": beh.error,
                      "mode": cfg.behavior_mode, "classifier": beh.classifier_info is not None,
-                     "loop_fps": beh.stats.get("loop_fps"), "new_events": beh.store.counts().get("new", 0)}
+                     "loop_fps": beh.stats.get("loop_fps"), "new_events": beh.store.counts().get("new", 0),
+                     "ppe": {k: v for k, v in (getattr(beh, "ppe_info", None) or {}).items() if k in ("ready", "error", "weights", "items", "hint")}}
         lighting = rt.state.get_lighting()
         ac = rt.state.get_ac()
         sens = rt.state.get_sensors()
@@ -172,6 +173,10 @@ class Uplink:
         sent = {x["id"] for x in payload["command_results"]}
         self._results = [x for x in self._results if x["id"] not in sent]
         self.apply_updates(r.get("updates") or [])
+        beh = getattr(self.rt, "behavior", None)
+        if hasattr(beh, "set_ppe_rules") and isinstance(r.get("ppe_rules"), dict) and beh.set_ppe_rules(r["ppe_rules"]):
+            self.emit(Event(time.time(), "PPE_RULES", "info", "Đã nhận luật đồ bảo hộ mới từ server cho "
+                            f"{sum(1 for v in r['ppe_rules'].values() if any((v or {}).values()))} camera."))
         for cmd in r.get("commands") or []:
             self._results.append(self.run_command(cmd))
 

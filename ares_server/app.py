@@ -36,6 +36,8 @@ log = logging.getLogger(__name__)
 STATIC = Path(__file__).parent / "static"
 EDGE_RE = re.compile(r"^[A-Za-z0-9_.\-]{1,40}$")
 EVID_RE = re.compile(r"^[A-Za-z0-9_.\-]{1,64}$")
+from ares_server.ppe import ITEMS as PPE_ITEMS, PRESETS as PPE_PRESETS, clean_rules as clean_ppe  # noqa: E402
+
 KIND_RE = re.compile(r"^[A-Z_]{0,20}$")
 VIDEO_EXT = {".mp4", ".avi", ".mov", ".mkv", ".webm", ".m4v", ".mpg", ".mpeg", ".wmv", ".3gp"}
 MAX_VIDEO_BYTES = 500 * 1024 * 1024  # 500 MB / video
@@ -381,7 +383,7 @@ def create_app(cfg: ServerSettings | None = None, db: ServerDB | None = None) ->
         if isinstance(payload.get("command_results"), list):
             db.save_results(a[0]["id"], a[1], payload["command_results"])
         return {"ok": True, "time": time.time(), "updates": db.pop_updates(a[0]["id"], a[1]),
-                "commands": db.pop_commands(a[0]["id"], a[1])}
+                "commands": db.pop_commands(a[0]["id"], a[1]), "ppe_rules": ppe_rules_for(a[0]["id"], a[1])}
 
     # ------------------------------------------------------------------ thử video: máy AI nhận job, tải video, gửi kết quả
     vdir = media / "videos"
@@ -408,7 +410,11 @@ def create_app(cfg: ServerSettings | None = None, db: ServerDB | None = None) ->
         j = db.claim_video_job(a[0]["id"], a[1])
         if j is None:
             return Response(status_code=204)
-        return {"id": j["id"], "name": j["name"], "ext": j["ext"], "size": j["size"]}
+        try:
+            rules = clean_ppe(json.loads(j.get("ppe") or "{}"))
+        except ValueError:
+            rules = clean_ppe(None)
+        return {"id": j["id"], "name": j["name"], "ext": j["ext"], "size": j["size"], "ppe": rules}
 
     @app.get("/api/v1/jobs/{jid}/video")
     def v1_job_video(jid: int, request: Request):
@@ -460,7 +466,9 @@ def create_app(cfg: ServerSettings | None = None, db: ServerDB | None = None) ->
                 (d / "result.mp4").write_bytes(data)
                 has_mp4 = 1
         keep = {k: meta.get(k) for k in ("events", "fps", "duration", "people_max", "people_series", "processing_s", "frames",
-                                         "device", "mode")}
+                                         "device", "mode", "posture_s", "ppe", "ppe_note")}
+        keep["status_runs"] = [[int(r[0]), int(r[1]), str(r[2])[:200]] for r in (meta.get("status_runs") or [])[:5000]
+                               if isinstance(r, list) and len(r) == 3]
         keep["events"] = (keep.get("events") or [])[:500]
         keep["people_series"] = (keep.get("people_series") or [])[:7200]
         db.update_video_job(jid, status="done", progress=1.0, finished=time.time(), result=keep, n_frames=n_frames,
@@ -771,6 +779,21 @@ def create_app(cfg: ServerSettings | None = None, db: ServerDB | None = None) ->
                 m[k] = fallback
         return m
 
+    def place_ppe(p: dict) -> dict:
+        try:
+            return clean_ppe(json.loads(p.get("ppe") or "{}"))
+        except ValueError:
+            return clean_ppe(None)
+
+    def ppe_rules_for(site_id: int, edge_id: str) -> dict:
+        """Luật đồ bảo hộ cho từng camera của 1 máy AI = luật của địa điểm chứa camera đó. Gửi về trong heartbeat."""
+        pinfo = {p["id"]: place_ppe(p) for p in db.places()}
+        out = {}
+        for (sid, eid, cam), pid in place_of_cams().items():
+            if sid == site_id and eid == edge_id:
+                out[cam] = pinfo.get(pid) or clean_ppe(None)
+        return out
+
     def user_scope(uid: int) -> list[tuple]:
         mine = {p["id"] for p in db.places(uid)}
         return [k for k, pid in place_of_cams().items() if pid in mine]
@@ -822,7 +845,7 @@ def create_app(cfg: ServerSettings | None = None, db: ServerDB | None = None) ->
                         "owner_username": owner.get("username", "?"), "cams": cams,
                         "cams_online": sum(1 for c in cams if c["online"]), "cams_total": len(cams),
                         "people": sum(c["n_people"] for c in cams), "new_alerts": sum(c["new_alerts"] for c in cams),
-                        "sensors": devs_by_place.get(p["id"], [])})
+                        "sensors": devs_by_place.get(p["id"], []), "ppe": place_ppe(p)})
         return out
 
     DEVICE_ONLINE_S = 60.0
@@ -836,7 +859,7 @@ def create_app(cfg: ServerSettings | None = None, db: ServerDB | None = None) ->
         beh = ai.get("behavior") or {}
         return {"online": True, "name": e["name"], "device": ai.get("device") or beh.get("device") or "",
                 "fallback": beh.get("fallback") or ai.get("fallback") or "",
-                "behavior": _behavior_state([e]), "version": e["version"]}
+                "behavior": _behavior_state([e]), "version": e["version"], "ppe": beh.get("ppe")}
 
     def in_scope(request: Request, site_id: int, edge_id: str, cam_id: str) -> bool:
         sc = scope_of(request)
@@ -937,6 +960,27 @@ def create_app(cfg: ServerSettings | None = None, db: ServerDB | None = None) ->
         except ValueError as e:
             return _err(400, str(e))
         return {"ok": True}
+
+    @app.get("/api/ppe")
+    def ppe_catalog():
+        """Danh mục đồ bảo hộ + mẫu + tình trạng model trên máy chủ AI (đã cài chưa, nhận ra món nào)."""
+        e = ai_edge()
+        st = ((((e or {}).get("info") or {}).get("ai") or {}).get("behavior") or {}).get("ppe") if e else None
+        return JSONResponse({"items": {k: {"name": v[0], "short": v[1]} for k, v in PPE_ITEMS.items()},
+                             "presets": PPE_PRESETS, "model": st or {"ready": False, "hint": "Máy chủ AI chưa chạy hoặc chưa cập nhật bản mới."}},
+                            headers=NO_STORE)
+
+    @app.post("/api/places/{pid}/ppe")
+    async def place_set_ppe(pid: int, request: Request):
+        if _place_for(request, pid) is None:
+            return _err(404, "Không có địa điểm này")
+        try:
+            body = json.loads(await request.body() or b"{}")
+        except ValueError:
+            return _err(400, "JSON không hợp lệ")
+        rules = clean_ppe(body.get("preset") if isinstance(body, dict) and body.get("preset") else body)
+        db.set_place_ppe(pid, rules)
+        return {"ok": True, "ppe": rules}
 
     @app.post("/api/places/{pid}/delete")
     def place_delete(pid: int, request: Request):
@@ -1078,7 +1122,7 @@ def create_app(cfg: ServerSettings | None = None, db: ServerDB | None = None) ->
         return j if j and (j["user_id"] == u["id"] or u["role"] == "admin") else None
 
     @app.post("/api/videos")
-    async def video_upload(request: Request, name: str = ""):
+    async def video_upload(request: Request, name: str = "", ppe: str = ""):
         u = request.state.user
         name = (name or "video.mp4").replace("\\", "/").split("/")[-1].strip()[:120] or "video.mp4"
         ext = Path(name).suffix.lower()
@@ -1090,7 +1134,9 @@ def create_app(cfg: ServerSettings | None = None, db: ServerDB | None = None) ->
         size = int(request.headers.get("content-length") or 0)
         if size > MAX_VIDEO_BYTES:
             return _err(413, "Video tối đa 500 MB — cắt ngắn bớt rồi tải lại")
-        jid = db.add_video_job(u["id"], name, ext, size)
+        if ppe and ppe not in PPE_PRESETS:
+            return _err(400, "Mẫu đồ bảo hộ không hợp lệ")
+        jid = db.add_video_job(u["id"], name, ext, size, clean_ppe(ppe) if ppe else None)
         p = _job_dir(jid) / f"source{ext}"
         n = 0
         try:

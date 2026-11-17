@@ -60,11 +60,12 @@ def frame_features(kp: np.ndarray, box: np.ndarray, ref_h: float) -> FrameFeat:
     head = _mean_pts(kp, HEAD)
     knee = _mean_pts(kp, (L_KNE, R_KNE))
 
-    angle = None
+    angle, torso = None, None
     if sho is not None and hip is not None:
         dx, dy = sho[0] - hip[0], sho[1] - hip[1]
         n = math.hypot(dx, dy)
         if n >= 0.06 * ref_h:  # thân quá ngắn trên ảnh = không đáng tin
+            torso = n
             angle = math.degrees(math.acos(max(-1.0, min(1.0, -dy / n))))  # 0 = vai thẳng trên hông
             if angle > 90:  # vai thấp hơn hông (lộn ngược / nằm đầu thấp): chắc chắn không đứng
                 angle = max(180.0 - angle, 75.0)
@@ -74,7 +75,10 @@ def frame_features(kp: np.ndarray, box: np.ndarray, ref_h: float) -> FrameFeat:
         head_drop = head[1] >= sho[1] - 0.03 * ref_h
     sitting = None
     if hip is not None and knee is not None:
-        sitting = (knee[1] - hip[1]) < 0.18 * ref_h and bh < 0.85 * ref_h
+        dy = knee[1] - hip[1]
+        # ngồi = đùi gần nằm ngang. Điều kiện 2 (đùi ngắn hơn nửa thân, không cần ref_h): người ngồi sẵn từ lúc mới vào
+        # khung hình thì ref_h chính là chiều cao lúc ngồi, điều kiện "khung thấp hơn lúc đứng" không bao giờ đúng.
+        sitting = dy < 0.18 * ref_h and (bh < 0.85 * ref_h or (torso is not None and angle < 45 and dy < 0.5 * torso))
 
     posture = classify_posture(angle, aspect, head_drop, sitting)
     return FrameFeat(angle, aspect, None if hip is None else float(hip[1]), center, head_drop, sitting, posture)

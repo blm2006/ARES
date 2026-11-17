@@ -70,6 +70,16 @@ class VideoJobWorker:
                 self._models = load_models(self.cfg)
         return self._models
 
+    def ppe_detector(self):
+        if getattr(self, "_ppe", None) is None or self._ppe[0] is None:
+            if self._models_factory is not None and hasattr(self, "_ppe_factory"):
+                self._ppe = self._ppe_factory()
+            else:
+                from ares.ppe.load import load_detector
+
+                self._ppe = load_detector(self.cfg)
+        return self._ppe
+
     def run_once(self) -> bool:
         """Nhận + xử lý 1 job. True nếu có job."""
         try:
@@ -102,8 +112,15 @@ class VideoJobWorker:
                     self._progress(jid, p, f"Đang phân tích ({round(p * 100)}%, {n} khung)")
 
             fps = float(self.cfg.uplink_video_fps)
+            kw = {}
+            rules = r.get("ppe") or {}
+            if any((rules.get(k) for k in ("required", "forbidden"))):  # người dùng chọn kiểm đồ bảo hộ cho video này
+                det, info = self.ppe_detector()
+                kw = {"ppe": det, "ppe_rules": rules}
             res = analyze(self.cfg, pose, clf, src, d / "result.mp4", fps, frames_zip=d / "frames.zip",
-                          max_w=int(self.cfg.uplink_video_width), progress=prog, should_stop=self._stop.is_set)
+                          max_w=int(self.cfg.uplink_video_width), progress=prog, should_stop=self._stop.is_set, **kw)
+            if kw and kw["ppe"] is None:
+                res["ppe_note"] = info.get("error") or info.get("hint") or "Chưa cài model đồ bảo hộ."
             res["device"] = str(getattr(pose, "device", ""))
             res["mode"] = self.cfg.behavior_mode if clf is not None or self.cfg.behavior_mode == "rules" else "rules"
             self._progress(jid, 0.99, "Đang gửi kết quả")

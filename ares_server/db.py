@@ -125,7 +125,8 @@ class ServerDB:
 
     # cột thêm ở các bản sau: DB cũ được nâng cấp tại chỗ, không mất dữ liệu
     MIGRATIONS = {"events": {"frames": "TEXT DEFAULT ''", "n_frames": "INTEGER DEFAULT 0", "synced": "INTEGER DEFAULT 1"},
-                  "client_cams": {"place_id": "INTEGER"}}
+                  "client_cams": {"place_id": "INTEGER"}, "places": {"ppe": "TEXT DEFAULT ''"},
+                  "video_jobs": {"ppe": "TEXT DEFAULT ''"}}
 
     def _migrate(self) -> None:
         for table, cols in self.MIGRATIONS.items():
@@ -395,9 +396,9 @@ class ServerDB:
             self._db.commit()
 
     # ------------------------------------------------------------------ thử video (người dùng tải lên, máy AI xử lý)
-    def add_video_job(self, user_id: int, name: str, ext: str, size: int) -> int:
-        return self._x("INSERT INTO video_jobs(user_id,name,ext,size,created,updated) VALUES(?,?,?,?,?,?)",
-                       (user_id, name[:120], ext, size, time.time(), time.time()))
+    def add_video_job(self, user_id: int, name: str, ext: str, size: int, ppe: dict | None = None) -> int:
+        return self._x("INSERT INTO video_jobs(user_id,name,ext,size,created,updated,ppe) VALUES(?,?,?,?,?,?,?)",
+                       (user_id, name[:120], ext, size, time.time(), time.time(), json.dumps(ppe) if ppe else ""))
 
     def video_job(self, jid: int) -> dict | None:
         rows = self._q("SELECT * FROM video_jobs WHERE id=?", (jid,))
@@ -466,6 +467,12 @@ class ServerDB:
             return rows[0]["id"]
         u = self.user(user_id)
         return self.create_place(user_id, (u or {}).get("name") or (u or {}).get("username") or "Địa điểm")
+
+    def set_place_ppe(self, pid: int, rules: dict) -> None:
+        """Luật đồ bảo hộ của địa điểm: {"required": [...], "forbidden": [...]} (rỗng = không kiểm)."""
+        on = rules.get("required") or rules.get("forbidden")
+        if not self._x("UPDATE places SET ppe=? WHERE id=?", (json.dumps(rules) if on else "", pid)):
+            raise KeyError(pid)
 
     def rename_place(self, pid: int, name: str) -> None:
         name = name.strip()[:60]

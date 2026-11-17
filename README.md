@@ -63,6 +63,7 @@ Card đời mới (ví dụ RTX 50xx) báo `CUDA error: no kernel image is avail
   Dashboard **:8100** dành cho kỹ thuật viên (camera, duyệt ảnh, model, thiết bị, trang `/behavior`).
 - Người trực bấm **Đúng** hoặc **Báo nhầm** trên cảnh báo; dữ liệu này dùng để train lại.
 - **Không** mở cổng 8200 thẳng ra Internet bằng port forwarding (không có HTTPS) — dùng `CHIA_SE_INTERNET.bat`.
+- **Bảo hộ lao động (PPE)**: cài bằng `CAI_AI_BAO_HO.bat`, chi tiết ở [PPE_AI.md](PPE_AI.md).
 - Hệ thống chỉ phát hiện *dấu hiệu nhìn thấy được*, không chẩn đoán y tế. Chi tiết và giới hạn: [BEHAVIOR_AI.md](BEHAVIOR_AI.md).
 
 **Đèn qua Arduino cắm USB** (thay cho ESP32 + MQTT): nạp `arduino/ares_led/ares_led.ino`, rồi thêm vào `ares_config\ares.env`:
