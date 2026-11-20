@@ -66,6 +66,9 @@ CREATE TABLE IF NOT EXISTS cam_places(
 CREATE TABLE IF NOT EXISTS cam_metrics(
   site_id INTEGER NOT NULL, edge_id TEXT NOT NULL, cam_id TEXT NOT NULL, t REAL NOT NULL, people INTEGER);
 CREATE INDEX IF NOT EXISTS ix_cam_metrics ON cam_metrics(site_id, edge_id, cam_id, t);
+CREATE TABLE IF NOT EXISTS cam_layouts(
+  site_id INTEGER NOT NULL, edge_id TEXT NOT NULL, cam_id TEXT NOT NULL, layout TEXT NOT NULL,
+  updated REAL NOT NULL, updated_by TEXT DEFAULT '', PRIMARY KEY(site_id, edge_id, cam_id));
 CREATE TABLE IF NOT EXISTS commands(
   id INTEGER PRIMARY KEY AUTOINCREMENT, site_id INTEGER NOT NULL, edge_id TEXT NOT NULL, cmd TEXT NOT NULL,
   created REAL NOT NULL, created_by TEXT DEFAULT '', delivered REAL, done REAL, ok INTEGER, message TEXT DEFAULT '');
@@ -126,7 +129,8 @@ class ServerDB:
     # cột thêm ở các bản sau: DB cũ được nâng cấp tại chỗ, không mất dữ liệu
     MIGRATIONS = {"events": {"frames": "TEXT DEFAULT ''", "n_frames": "INTEGER DEFAULT 0", "synced": "INTEGER DEFAULT 1"},
                   "client_cams": {"place_id": "INTEGER"}, "places": {"ppe": "TEXT DEFAULT ''"},
-                  "video_jobs": {"ppe": "TEXT DEFAULT ''"}}
+                  "video_jobs": {"ppe": "TEXT DEFAULT ''", "kind": "TEXT DEFAULT 'behavior'", "opts": "TEXT DEFAULT ''"},
+                  "devices": {"channels": "TEXT DEFAULT ''"}}
 
     def _migrate(self) -> None:
         for table, cols in self.MIGRATIONS.items():
@@ -340,15 +344,21 @@ class ServerDB:
         return [{"t": b, "people": round(v, 1)} for b, v in sorted(agg.items())]
 
     # ------------------------------------------------------------------ mạch cảm biến (ESP32/ESP8266 qua Wi-Fi, Arduino qua USB)
-    def add_device(self, user_id: int, place_id: int, name: str, kind: str) -> dict:
+    def add_device(self, user_id: int, place_id: int, name: str, kind: str, channels: list | None = None) -> dict:
+        """channels: kênh đèn của mạch [{"key":"ch1","name":"Đèn 1","type":"led"|"relay","pin":9}, ...]"""
         token = secrets.token_urlsafe(18)
-        did = self._x("INSERT INTO devices(user_id,place_id,name,kind,token,created) VALUES(?,?,?,?,?,?)",
-                      (user_id, place_id, name.strip()[:60], kind, token, time.time()))
+        did = self._x("INSERT INTO devices(user_id,place_id,name,kind,token,created,channels) VALUES(?,?,?,?,?,?,?)",
+                      (user_id, place_id, name.strip()[:60], kind, token, time.time(),
+                       json.dumps(channels or [], ensure_ascii=False)))
         return self.device(did)
 
     @staticmethod
     def _dev_row(d: dict) -> dict:
         d["last_data"] = json.loads(d["last_data"]) if d.get("last_data") else {}
+        try:
+            d["channels"] = json.loads(d.get("channels") or "[]")
+        except ValueError:
+            d["channels"] = []
         d["desired"] = json.loads(d["desired"]) if d.get("desired") else {}
         return d
 
@@ -385,6 +395,8 @@ class ServerDB:
     def set_device(self, did: int, **kw) -> None:
         if "desired" in kw and not isinstance(kw["desired"], str):
             kw["desired"] = json.dumps(kw["desired"])
+        if "channels" in kw and not isinstance(kw["channels"], str):
+            kw["channels"] = json.dumps(kw["channels"], ensure_ascii=False)
         cols = ",".join(f"{k}=?" for k in kw)
         if not self._x(f"UPDATE devices SET {cols} WHERE id=?", (*kw.values(), did)):
             raise KeyError(did)
@@ -397,11 +409,14 @@ class ServerDB:
 
     # ------------------------------------------------------------------ thử video (người dùng tải lên, máy AI xử lý)
     def add_video_job(self, user_id: int, name: str, ext: str, size: int, ppe: dict | None = None,
-                      status: str = "queued") -> int:
-        """status='uploading': file đang tải lên dở — máy AI CHƯA được nhận (chỉ nhận job 'queued')."""
-        return self._x("INSERT INTO video_jobs(user_id,name,ext,size,created,updated,ppe,status,message) VALUES(?,?,?,?,?,?,?,?,?)",
+                      status: str = "queued", kind: str = "behavior", opts: dict | None = None) -> int:
+        """status='uploading': file đang tải lên dở — máy AI CHƯA được nhận (chỉ nhận job 'queued').
+        kind: behavior (hành vi) | people (người + vùng + đèn); opts: bố trí vùng/đèn của video people."""
+        return self._x("INSERT INTO video_jobs(user_id,name,ext,size,created,updated,ppe,status,message,kind,opts) "
+                       "VALUES(?,?,?,?,?,?,?,?,?,?,?)",
                        (user_id, name[:120], ext, size, time.time(), time.time(), json.dumps(ppe) if ppe else "", status,
-                        "Đang tải lên" if status == "uploading" else ""))
+                        "Đang tải lên" if status == "uploading" else "", kind,
+                        json.dumps(opts, ensure_ascii=False) if opts else ""))
 
     def fail_stale_uploads(self, older_s: float = 0.0) -> int:
         """Video tải lên dở mà server tắt / mất mạng giữa chừng: báo lỗi rõ ràng thay vì treo mãi ở 'đang tải lên'."""
@@ -417,15 +432,26 @@ class ServerDB:
             return None
         j = rows[0]
         j["result"] = json.loads(j["result"]) if j["result"] else None
+        j["opts"] = json.loads(j["opts"]) if j.get("opts") else None
+        j["kind"] = j.get("kind") or "behavior"
         return j
 
-    def video_jobs(self, user_id: int | None = None, limit: int = 50) -> list[dict]:
-        q = "SELECT * FROM video_jobs"
-        rows = self._q(q + (" WHERE user_id=?" if user_id else "") + " ORDER BY id DESC LIMIT ?",
-                       ((user_id, limit) if user_id else (limit,)))
+    def video_jobs(self, user_id: int | None = None, limit: int = 50, kind: str | None = None) -> list[dict]:
+        where, args = [], []
+        if user_id:
+            where.append("user_id=?")
+            args.append(user_id)
+        if kind:
+            where.append("COALESCE(NULLIF(kind,''),'behavior')=?")
+            args.append(kind)
+        rows = self._q("SELECT * FROM video_jobs" + (" WHERE " + " AND ".join(where) if where else "") + " ORDER BY id DESC LIMIT ?",
+                       (*args, limit))
         for j in rows:  # danh sách chỉ cần tóm tắt, không kèm cả chuỗi sự kiện
             r = json.loads(j.pop("result") or "null") or {}
+            j.pop("opts", None)
+            j["kind"] = j.get("kind") or "behavior"
             j["duration"], j["n_events"], j["people_max"] = r.get("duration"), len(r.get("events") or []), r.get("people_max")
+            j["energy_saved_pct"] = r.get("energy_saved_pct")
         return rows
 
     def claim_video_job(self, site_id: int, edge_id: str, stale_s: float = 600) -> dict | None:
@@ -506,6 +532,29 @@ class ServerDB:
             self._db.execute("UPDATE devices SET place_id=? WHERE place_id=?", (to, pid))
             self._db.execute("DELETE FROM places WHERE id=?", (pid,))
             self._db.commit()
+
+    # ------------------------------------------------------------------ vùng + đèn của camera thật (Người & môi trường)
+    def cam_layouts(self, site_id: int | None = None, edge_id: str | None = None) -> dict[tuple, dict]:
+        q, args = "SELECT * FROM cam_layouts", ()
+        if site_id is not None:
+            q, args = q + " WHERE site_id=? AND edge_id=?", (site_id, edge_id)
+        out = {}
+        for r in self._q(q, args):
+            try:
+                out[(r["site_id"], r["edge_id"], r["cam_id"])] = {**json.loads(r["layout"]), "_updated": r["updated"],
+                                                                   "_by": r["updated_by"]}
+            except ValueError:
+                pass
+        return out
+
+    def set_cam_layout(self, site_id: int, edge_id: str, cam_id: str, layout: dict | None, user: str = "") -> None:
+        if not layout or not (layout.get("zones") or layout.get("lights")):
+            self._x("DELETE FROM cam_layouts WHERE site_id=? AND edge_id=? AND cam_id=?", (site_id, edge_id, cam_id))
+            return
+        self._x("INSERT INTO cam_layouts(site_id,edge_id,cam_id,layout,updated,updated_by) VALUES(?,?,?,?,?,?) "
+                "ON CONFLICT(site_id,edge_id,cam_id) DO UPDATE SET layout=excluded.layout, updated=excluded.updated, "
+                "updated_by=excluded.updated_by",
+                (site_id, edge_id, cam_id, json.dumps(layout, ensure_ascii=False), time.time(), user))
 
     def cam_places(self) -> list[dict]:
         return self._q("SELECT * FROM cam_places")

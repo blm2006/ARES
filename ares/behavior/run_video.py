@@ -28,7 +28,8 @@ def load_models(cfg):
     from ares.config import REPO_ROOT
 
     device = resolve_device(cfg.behavior_device or cfg.device)
-    pose = PoseEstimator(resolve_path(cfg.behavior_weights, REPO_ROOT), device, cfg.behavior_imgsz, cfg.behavior_conf, cfg.half)
+    pose = PoseEstimator(resolve_path(cfg.behavior_weights, REPO_ROOT), device, cfg.behavior_imgsz, cfg.behavior_conf, cfg.half,
+                         max_det=cfg.behavior_max_det)
     clf, cpath = None, None
     cpath = resolve_path(cfg.behavior_classifier, REPO_ROOT) if cfg.behavior_classifier else Path(cfg.behavior_dir) / "models" / "current.pt"
     if cfg.behavior_mode != "rules" and cpath.exists():
@@ -40,7 +41,8 @@ def load_models(cfg):
 
 
 def analyze(cfg, pose, clf, path: Path, out_mp4: Path | None = None, fps: float = 10.0, frames_zip: Path | None = None,
-            max_w: int = 0, progress=None, should_stop=None, debug: bool = False, ppe=None, ppe_rules=None) -> dict:
+            max_w: int = 0, progress=None, should_stop=None, debug: bool = False, ppe=None, ppe_rules=None,
+            hazards=None) -> dict:
     """Chạy Analyzer trên 1 video. Trả {events, frames, fps, duration, people_max, people_series, processing_s,
     status_runs, posture_s}.
 
@@ -58,7 +60,7 @@ def analyze(cfg, pose, clf, path: Path, out_mp4: Path | None = None, fps: float 
     total = cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0
     cap.release()
     duration = total / src_fps if src_fps and total > 0 else 0.0
-    an = Analyzer(cfg, pose, clf, ppe)  # ppe: PPEDetector hoặc None; ppe_rules: luật đồ bảo hộ riêng cho video này
+    an = Analyzer(cfg, pose, clf, ppe, hazards)  # hazards: AI bổ sung (cháy/khói, hút thuốc) hoặc None · ppe: PPEDetector hoặc None; ppe_rules: luật đồ bảo hộ riêng cho video này
     if ppe_rules is not None:
         from ares.ppe import clean_rules
 
@@ -81,6 +83,8 @@ def analyze(cfg, pose, clf, path: Path, out_mp4: Path | None = None, fps: float 
             k = len(res.tracks)
             people_max = max(people_max, k)
             lv, txt = summarize(res.tracks)
+            if res.alert and res.alert[0] >= lv:  # cháy/khói: báo cả khung hình
+                lv, txt = res.alert
             if (not runs or runs[-1][1] != lv or runs[-1][2] != txt) and len(runs) < 5000:
                 runs.append([n, lv, txt])
             for v in res.tracks:
@@ -130,7 +134,8 @@ def analyze(cfg, pose, clf, path: Path, out_mp4: Path | None = None, fps: float 
     return {"events": events, "frames": n, "fps": fps, "duration": round(duration or n / fps, 2), "people_max": people_max,
             "people_series": series, "processing_s": round(time.time() - t0, 1),
             "status_runs": runs, "posture_s": {k: round(v, 1) for k, v in pose_s.items()},
-            "ppe": {"rules": an.rules_for("video"), "ready": ppe is not None}}
+            "ppe": {"rules": an.rules_for("video"), "ready": ppe is not None},
+            "hazards": sorted((hazards or {}).keys())}
 
 
 def run(cfg, path: Path, out_dir: Path | None = None, fps: float = 10.0, debug: bool = False, write: bool = True) -> list[dict]:
@@ -139,6 +144,11 @@ def run(cfg, path: Path, out_dir: Path | None = None, fps: float = 10.0, debug: 
         print(f"Không thấy video trong {path}")
         return []
     pose, clf, cpath = load_models(cfg)
+    from ares.hazards.detector import load_hazards
+
+    hz, hz_info = load_hazards(cfg)
+    if hz:
+        print("AI bổ sung: " + ", ".join(i["name"] for i in hz_info.values() if i.get("ready")))
     ppe = None
     if cfg.ppe_required or cfg.ppe_forbidden:
         from ares.ppe.load import load_detector
@@ -153,7 +163,7 @@ def run(cfg, path: Path, out_dir: Path | None = None, fps: float = 10.0, debug: 
     all_events = []
     for p in paths:
         out_mp4 = out_dir / f"{p.stem}_behavior.mp4"
-        r = analyze(cfg, pose, clf, p, out_mp4 if write else None, fps, debug=debug, ppe=ppe)
+        r = analyze(cfg, pose, clf, p, out_mp4 if write else None, fps, debug=debug, ppe=ppe, hazards=hz)
         dt, n, events = r["processing_s"], r["frames"], r["events"]
         print(f"{p.name}: {n} khung trong {dt:.1f}s ({n / dt if dt else 0:.1f} khung/giây xử lý) — {len(events)} sự kiện"
               + (f" -> {out_mp4}" if write else ""))

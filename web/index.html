@@ -75,6 +75,13 @@ pre{background:var(--surface2);padding:12px;border-radius:10px;overflow:auto;fon
 dialog{border:0;border-radius:14px;padding:0;width:min(960px,96vw);background:var(--surface);color:var(--text)}
 dialog::backdrop{background:rgba(0,0,0,.6)}
 .player img,.player video{width:100%;display:block;background:#000;max-height:66vh;object-fit:contain}
+.vstage{position:relative;background:#000}
+.vstage canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.vmode{font-size:11px}
+.hwbox{border:1px solid var(--border);border-radius:10px;padding:8px;display:grid;gap:6px;background:var(--surface2)}
+.hwdev{display:grid;gap:4px;font-size:12px}
+.hwl{display:flex;justify-content:space-between;gap:6px;border-top:1px dashed var(--border);padding-top:3px}
+.hwl b.on{color:#c98a00}
 .ctl{display:flex;gap:10px;align-items:center;padding:10px 16px;flex-wrap:wrap}
 .ctl input[type=range]{flex:1;min-width:180px}
 .livegrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:14px}
@@ -153,6 +160,43 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}
 .vstat.l2{border-color:var(--red);background:var(--red-bg)} .vstat.l2 b{color:var(--red)}
 .vev{border:1px solid var(--border);border-radius:10px;padding:8px 10px;cursor:pointer;display:grid;gap:2px}
 .vev:hover{border-color:var(--ink)} .vev.on{border-color:var(--red);background:var(--red-bg)}
+/* 3 phần: Hành vi · Người & môi trường · Giao thông (+ Hệ thống) */
+.mods{display:flex;gap:2px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:3px;flex-wrap:wrap}
+.mods button{border:0;background:none;padding:6px 12px;border-radius:7px;font-weight:700;cursor:pointer;color:var(--muted);white-space:nowrap}
+.mods button.on{background:var(--red);color:#fff}
+.subbar{border-top:1px solid var(--border)} .subbar .bar{padding:6px 20px}
+.subbar nav{margin-left:0;flex-wrap:wrap}
+.zed{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:14px;margin-top:14px}
+@media (max-width:960px){ .zed{grid-template-columns:1fr} }
+.zcanvas{position:relative;background:#000;border-radius:10px;overflow:hidden;min-height:240px}
+.zcanvas canvas{width:100%;display:block;cursor:crosshair;touch-action:none}
+.zhint{position:absolute;left:0;right:0;bottom:0;padding:6px 10px;background:rgba(0,0,0,.65);color:#fff;font-size:13px;pointer-events:none}
+.zside{display:grid;gap:8px;align-content:start;min-width:0}
+#l-fromdev{flex:1;min-width:0;width:100%}
+.zrow{display:flex;gap:6px;align-items:center;border:1px solid var(--border);border-radius:9px;padding:6px 8px;flex-wrap:wrap;background:var(--surface)}
+.zrow.on{border-color:var(--ink)}
+.zrow input[type=text]{flex:1;min-width:90px;padding:4px 8px}
+.zrow select{padding:4px 6px}
+.sw{width:14px;height:14px;border-radius:4px;flex:none;display:inline-block}
+.xbtn{border:0;background:none;color:var(--red);font-weight:800;cursor:pointer;font-size:17px;line-height:1}
+.tframe{width:100%;height:calc(100vh - 170px);min-height:540px;border:1px solid var(--border);border-radius:14px;background:var(--surface);display:block}
+.logbox{max-height:240px;font-size:12px;white-space:pre-wrap}
+.chgrid{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(90px,1fr) 42px;gap:6px 10px;align-items:center}
+.chgrid input[type=range]{width:100%}
+.zdev{border:1px solid var(--border);border-radius:11px;padding:8px;display:grid;gap:6px;background:var(--surface2)}
+.zdev-h{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.zdev-h b{font-size:14px}
+.zlamp{border:1px solid var(--border);border-radius:9px;padding:6px 8px;display:grid;gap:5px;background:var(--surface)}
+.zlamp,.zdev{min-width:0}
+.zlamp .row,.zdev .row{flex-wrap:wrap;gap:5px}
+.zlamp input[type=text]{flex:1;min-width:0;width:auto;padding:3px 7px}
+.zlamp input[type=number]{width:62px;padding:3px 6px}
+.zlamp select,.zdev select{padding:3px 6px;max-width:100%}
+.zchips{display:flex;flex-wrap:wrap;gap:4px}
+.zchip{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--border);border-radius:999px;padding:2px 9px 2px 6px;cursor:pointer;font-size:12px;user-select:none}
+.zchip input{margin:0}
+.zchip.on{border-color:var(--ink);font-weight:700}
+.chtag{font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;background:var(--surface2);color:var(--muted);white-space:nowrap}
 </style>
 </head>
 <body>
@@ -176,17 +220,12 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}
 <header>
   <div class="bar">
     <div class="logo"><i></i>ARES</div>
-    <nav>
-      <button data-view="home" class="on">Tổng quan</button>
-      <button data-view="mycams" class="viewer-only">Camera của tôi</button>
-      <button data-view="live" class="admin-only">Trực tiếp</button>
-      <button data-view="alerts">Cảnh báo<span class="badge" id="b-new" hidden>0</span></button>
-      <button data-view="places">Địa điểm</button>
-      <button data-view="sensors">Cảm biến</button>
-      <button data-view="videos">Thử video</button>
-      <button data-view="users" class="admin-only">Tài khoản<span class="badge" id="b-pend" hidden>0</span></button>
-      <button data-view="setup" class="admin-only">Thiết lập</button>
-    </nav>
+    <div class="mods" id="mods">
+      <button data-mod="beh" class="on" title="Té ngã, nằm bất động, ngồi gục, đánh nhau, đồ bảo hộ">Hành vi</button>
+      <button data-mod="env" title="Đếm người, vùng, đèn, nhiệt độ / ánh sáng">Người &amp; môi trường</button>
+      <button data-mod="traffic" class="admin-only" title="An toàn giao thông khu vực trường học">Giao thông</button>
+      <button data-mod="sys">Hệ thống<span class="badge" id="b-pend2" hidden>0</span></button>
+    </div>
     <div class="spacer"></div>
     <div class="acct">
       <button id="acct-btn" aria-haspopup="true" aria-expanded="false"><span class="av" id="acct-av">?</span><span class="nm" id="acct-name">—</span><span class="muted">▾</span></button>
@@ -199,6 +238,26 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}
       </div>
     </div>
   </div>
+  <div class="subbar"><div class="bar">
+    <nav id="subnav">
+      <button data-view="home" data-mod="beh" class="on">Tổng quan</button>
+      <button data-view="penv" data-mod="env">Tổng quan</button>
+      <button data-view="pzones" data-mod="env">Vùng &amp; đèn</button>
+      <button data-view="tview" data-mod="traffic" class="admin-only">Tổng quan</button>
+      <button data-view="mycams" data-mod="beh env" class="viewer-only">Camera của tôi</button>
+      <button data-view="live" data-mod="beh env" class="admin-only">Trực tiếp</button>
+      <button data-view="alerts" data-mod="beh">Cảnh báo<span class="badge" id="b-new" hidden>0</span></button>
+      <button data-view="sensors" data-mod="env">Cảm biến</button>
+      <button data-view="videos" data-mod="beh">Thử video</button>
+      <button data-view="pvideos" data-mod="env">Thử video</button>
+      <button data-view="tstudio" data-mod="traffic" class="admin-only">Thử video</button>
+      <button data-view="tviol" data-mod="traffic" class="admin-only">Xử lý vi phạm</button>
+      <button data-view="train" data-mod="beh" class="admin-only">Train lại AI</button>
+      <button data-view="places" data-mod="sys">Địa điểm</button>
+      <button data-view="users" data-mod="sys" class="admin-only">Tài khoản<span class="badge" id="b-pend" hidden>0</span></button>
+      <button data-view="setup" data-mod="sys" class="admin-only">Thiết lập</button>
+    </nav>
+  </div></div>
 </header>
 
 <main>
@@ -232,7 +291,7 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}
         <div class="filters">
           <select id="f-status"><option value="">Tất cả</option><option value="new">Chưa xử lý</option><option value="ack">Đã xử lý</option></select>
           <select id="f-kind"><option value="">Mọi loại</option><option value="FALL">Té ngã</option><option value="LYING_DOWN">Nằm xuống đột ngột</option><option value="LYING_STILL">Nằm bất động</option>
-            <option value="SLUMPED">Ngồi gục</option><option value="FIGHT">Đánh nhau</option><option value="PPE">Vi phạm đồ bảo hộ</option></select>
+            <option value="SLUMPED">Ngồi gục</option><option value="FIGHT">Đánh nhau</option><option value="PPE">Vi phạm đồ bảo hộ</option><option value="FIRE">Cháy / khói</option><option value="SMOKING">Hút thuốc</option></select>
           <select id="f-place"><option value="0">Mọi địa điểm</option></select>
         </div></h2>
       <div class="body" style="overflow-x:auto">
@@ -266,7 +325,9 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}
         <select id="nd-kind"></select>
         <select id="nd-place" title="Địa điểm"></select>
         <button class="btn dark" id="nd-btn">Thêm mạch</button>
+        <button class="btn usb-find" title="Cắm Arduino vào máy này rồi bấm — tự nhận mạch">Tìm mạch USB</button>
       </div>
+      <div id="nd-ch" style="margin-top:10px"></div>
       <p class="hint"><b>ESP32 / ESP8266</b>: mạch tự gửi qua Wi-Fi về máy chủ — nạp code 1 lần rồi cắm vào cục sạc bất kỳ.
         <b>Arduino Uno/Nano/Mega</b> (không có Wi-Fi): cắm USB vào máy tính đang mở dashboard này, bấm <b>Kết nối mạch qua USB</b> — không cần cài gì thêm.
         Hỗ trợ: nhiệt độ/độ ẩm (DHT11/22, DS18B20), ánh sáng (BH1750, quang trở), chuyển động (PIR), khí gas/khói (MQ-2/MQ-135), lửa, âm thanh,
@@ -288,7 +349,7 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}
         <span class="small muted" id="vf-msg"></span>
       </div>
       <div class="bar2" id="vf-bar" hidden><i></i></div>
-      <p class="hint">Tối đa 500 MB/video, mỗi người tối đa 3 video chờ cùng lúc. AI phân tích 10 khung/giây: phát hiện người, té ngã, nằm bất động, ngồi gục, đánh nhau.
+      <p class="hint">Tối đa 500 MB/video, mỗi người tối đa 3 video chờ cùng lúc. AI phân tích 10 khung/giây: phát hiện người, té ngã, nằm bất động, ngồi gục, đánh nhau, cháy / khói, hút thuốc (nếu máy chủ đã cài model).
         Video nên quay <b>thấy toàn thân</b>, camera cao chếch xuống. Video chỉ dùng để phân tích, bạn xoá được bất cứ lúc nào.</p>
       <div id="vf-ai"></div>
     </div></div>
@@ -297,6 +358,113 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}
       <div class="empty" id="vjobs-empty">Chưa có video nào.</div>
     </div></div>
   </section>
+
+
+  <!-- ===================== NGƯỜI & MÔI TRƯỜNG: TỔNG QUAN ===================== -->
+  <section id="v-penv" hidden>
+    <div class="kpis">
+      <div class="kpi"><div class="l">Người đang có mặt</div><div class="v" id="pe-people">—</div><div class="muted small" id="pe-people-sub">YOLO nhận diện người</div></div>
+      <div class="kpi"><div class="l">Camera hoạt động</div><div class="v" id="pe-cams">—</div><div class="muted small">đang có hình cho AI</div></div>
+      <div class="kpi"><div class="l">Nhiệt độ / độ ẩm</div><div class="v" id="pe-temp">—</div><div class="muted small" id="pe-temp-sub">trung bình các mạch cảm biến</div></div>
+      <div class="kpi"><div class="l">Ánh sáng</div><div class="v" id="pe-lux">—</div><div class="muted small" id="pe-lux-sub">lux đo được</div></div>
+    </div>
+    <div class="card admin-only" style="margin-top:20px" id="pe-int-card" hidden><h2>Đèn &amp; điều hoà do ARES điều khiển</h2><div class="body" id="pe-int"></div></div>
+    <div class="card" style="margin-top:20px"><h2>Người và cảm biến theo địa điểm<span class="spacer"></span><button class="btn" data-goto="pvideos">Thử video chia vùng đèn</button></h2>
+      <div class="body" id="pe-places"></div></div>
+    <div class="card" style="margin-top:20px"><h2>Số người có mặt — 24 giờ qua</h2>
+      <div class="body"><svg class="chart" id="pe-chart" viewBox="0 0 1000 180" preserveAspectRatio="none"></svg></div></div>
+  </section>
+
+  <!-- ===================== NGƯỜI & MÔI TRƯỜNG: THỬ VIDEO (chia vùng, gán đèn) ===================== -->
+  <section id="v-pvideos" hidden>
+    <div class="card"><h2>Thử video — chia vùng, gán đèn theo người <span class="muted small">AI đếm người từng vùng, đèn vùng có người thì bật</span></h2><div class="body">
+      <div class="row">
+        <label class="btn" for="pf">Chọn video…</label><input type="file" id="pf" accept="video/*,.mp4,.avi,.mov,.mkv,.webm,.m4v" hidden>
+        <span class="small" id="pf-name">Chưa chọn file</span>
+        <button class="btn dark" id="pf-up">Tải lên và phân tích</button>
+        <span class="small muted" id="pf-msg"></span>
+      </div>
+      <div class="bar2" id="pf-bar" hidden><i></i></div>
+      <div id="pf-ai" style="margin-top:8px"></div>
+      <div class="warnbox small" id="pedit-box" hidden style="margin-top:10px"><b>Đang sửa vùng/đèn của video <span id="pedit-name"></span>.</b>
+        Sửa xong bấm <b>Lưu &amp; phân tích lại</b> (không phải tải lại video).
+        <div class="row" style="margin-top:6px"><button class="btn dark" id="pedit-apply">Lưu &amp; phân tích lại</button><button class="btn" id="pedit-cancel">Thôi sửa</button></div></div>
+      <div id="zv-host"><div class="zed" id="zed">
+        <div><div class="zcanvas"><canvas id="zc" width="960" height="540"></canvas><div class="zhint" id="zc-hint">Chọn video để hiện khung hình đầu, rồi bấm “+ Vẽ vùng”.</div></div>
+          <p class="hint">Vẽ vùng: bấm <b>+ Vẽ vùng</b> → bấm lần lượt các góc trên hình → bấm lại điểm đầu (hoặc <b>Xong vùng</b>) để đóng.
+            Kéo chấm trắng để chỉnh góc. Người được xếp vào vùng theo <b>điểm giữa chân</b> (chấm đỏ trên video kết quả).
+            Đánh dấu <b>Cửa ra vào</b> cho vùng có cửa ở giữa khung hình — người mới chỉ được nhận khi đi vào từ <b>rìa khung hình</b> hoặc qua vùng cửa.</p></div>
+        <div class="zside">
+          <div class="row"><button class="btn dark" id="z-draw">+ Vẽ vùng</button><button class="btn" id="z-done" hidden>Xong vùng</button><button class="btn" id="z-cancel" hidden>Huỷ vùng đang vẽ</button></div>
+          <b>Vùng</b><div id="z-list" style="display:grid;gap:6px"></div>
+          <b style="margin-top:6px">Mạch &amp; đèn</b>
+          <div class="row"><select id="l-fromdev" title="Chọn mạch — các đèn trên mạch hiện ra để gán vùng" style="flex:1"><option value="">+ Chọn mạch để gán đèn…</option></select><button class="btn" id="l-add" title="Đèn không gắn mạch, chỉ để xem mô phỏng">+ Đèn mô phỏng</button></div>
+          <div id="l-list" style="display:grid;gap:8px"></div>
+          <label class="small">Tắt đèn khi vùng vắng người <input type="number" id="l-delay" min="0" max="600" value="10" style="width:76px"> giây</label>
+          <label class="small">Bật khi vùng có từ <input type="number" id="l-min" min="1" max="50" value="1" style="width:60px"> người</label>
+          <div class="row"><button class="btn" id="lay-save">Lưu bố trí</button><button class="btn" id="lay-load">Dùng bố trí đã lưu</button><button class="btn warn" id="lay-clear">Xoá hết</button></div>
+          <p class="hint zv-only" style="margin:0">Chọn mạch đã thêm ở <b>Cảm biến</b> → các đèn của mạch hiện ra → bấm vào tên vùng để gán vùng cho từng đèn.
+            Khi xem kết quả, bật <b>Điều khiển mạch thật</b> để đèn thật bật/tắt đúng theo video.</p>
+        </div>
+      </div>
+    </div></div></div>
+    <div class="card" style="margin-top:20px"><h2>Video đã tải lên</h2><div class="body" style="overflow-x:auto">
+      <table><thead><tr><th>Video</th><th class="admin-only">Người tải</th><th>Trạng thái</th><th>Thời lượng</th><th>Kết quả</th><th>Tải lên lúc</th><th></th></tr></thead><tbody id="pjobs"></tbody></table>
+      <div class="empty" id="pjobs-empty">Chưa có video nào.</div>
+    </div></div>
+  </section>
+
+
+  <!-- ===================== NGƯỜI & MÔI TRƯỜNG: VÙNG & ĐÈN (camera thật) ===================== -->
+  <section id="v-pzones" hidden>
+    <div class="card"><h2>Vùng &amp; đèn — camera thật <span class="muted small">AI đếm người từng vùng, đèn của vùng có người tự bật</span></h2><div class="body">
+      <div class="row">
+        <select id="zl-cam" style="min-width:280px;max-width:100%"></select><span id="zl-cam-st"></span><span class="spacer"></span>
+        <button class="btn" id="zl-copy" title="Dùng vùng/đèn đã vẽ ở Thử video hoặc đã lưu trên máy này">Dùng bố trí đã lưu</button>
+        <button class="btn dark" id="zl-save">Lưu &amp; áp dụng</button>
+      </div>
+      <div class="warnbox small" id="zl-dirty" hidden style="margin-top:8px">Có thay đổi chưa áp dụng — bấm <b>Lưu &amp; áp dụng</b>.</div>
+      <div id="zl-host"></div>
+    </div></div>
+    <div class="card" style="margin-top:20px"><h2>Đèn đang thế nào <span class="muted small" id="zl-age"></span></h2><div class="body"><div id="zl-state"><span class="muted small">Chọn camera ở trên.</span></div></div></div>
+    <div class="card" style="margin-top:20px"><h2>Mạch điều khiển đèn<span class="spacer"></span><button class="btn dark usb-find">Tìm mạch USB</button><button class="btn" data-goto="sensors">Thêm mạch / tải code</button></h2><div class="body">
+      <div id="zl-devs"></div>
+      <ol class="steps" style="margin-top:12px">
+        <li><b>Thêm mạch</b> ở mục Cảm biến (chọn đúng địa điểm), bấm <b>Hướng dẫn &amp; tải code</b>, nạp code bằng Arduino IDE. Nối relay / LED vào chân ghi trong hướng dẫn.</li>
+        <li><b>ESP32 / ESP8266</b>: cắm nguồn ở đâu cũng được, mạch tự vào Wi-Fi và nhận lệnh từ máy chủ (≤ 2 giây).
+          <b>Arduino Uno/Nano/Mega</b>: cắm USB vào <b>máy tính đặt cạnh đèn</b> (máy khác máy chủ cũng được), mở dashboard trên máy đó bằng app <b>ARES Viewer</b> hoặc Chrome/Edge, bấm <b>Kết nối USB trên máy này</b> — giữ dashboard mở thì đèn nhận lệnh (≤ 1 giây).</li>
+        <li>Ở trên: chọn camera → vẽ vùng → <b>+ Chọn mạch để gán đèn</b> → các đèn trên mạch hiện ra, bấm vào vùng cho từng đèn → <b>Lưu &amp; áp dụng</b>.</li>
+      </ol>
+      <p class="hint">Camera mất hình quá 15 giây: đèn chế độ Tự động được <b>bật</b> để an toàn. Mỗi đèn có thể đặt Luôn bật / Luôn tắt.</p>
+    </div></div>
+  </section>
+  <!-- ===================== HÀNH VI: TRAIN LẠI AI TỪ ĐÁNH GIÁ ===================== -->
+  <section id="v-train" hidden>
+    <div class="card"><h2>Train lại AI từ đánh giá cảnh báo <span class="muted small">chạy trên máy chủ AI</span></h2><div class="body">
+      <div class="kpis" id="tr-kpis"></div>
+      <div class="row" style="margin-top:14px">
+        <select id="tr-target"><option value="behavior">Model hành vi (té ngã, nằm, gục, đánh nhau)</option><option value="hazards">Cháy / khói + hút thuốc (từ ảnh đã đánh giá)</option><option value="person">YOLO nhận diện người</option><option value="all">Tất cả</option></select>
+        <label class="small">Số vòng (epoch) <input type="number" id="tr-epochs" min="5" max="300" value="40" style="width:76px"></label>
+        <button class="btn dark" id="tr-go">Train lại ngay</button><span class="small muted" id="tr-msg"></span>
+      </div>
+      <div id="tr-state" style="margin-top:14px"></div>
+      <h3 style="font-size:15px;margin:18px 0 8px">Model đang chạy trên máy chủ AI</h3><div id="tr-models"></div>
+      <p class="hint">Mỗi lần người trực bấm <b>Đúng</b> / <b>Báo nhầm</b> ở mục Cảnh báo, máy chủ gửi đánh giá về máy AI kèm khung xương của sự kiện.
+        Train lại: <b>Đúng</b> → mẫu của đúng loại sự kiện, <b>Báo nhầm</b> → mẫu “bình thường” (để AI bớt báo nhầm kiểu đó), cộng dataset công khai nếu đã tải.
+        Cháy/khói và hút thuốc: mỗi cảnh báo lưu ảnh gốc; <b>Đúng</b> → ảnh có vật, <b>Báo nhầm</b> → ảnh không có vật; cần ≥ 2 ảnh mỗi loại. Model mới chỉ được dùng khi
+        báo nhầm ít hơn mà không bỏ sót nhiều hơn (so trên các ảnh đã đánh giá). Đồ bảo hộ bị Báo nhầm: ảnh được gom để gán nhãn, chưa tự train được.
+        Model mới được nạp ngay, camera không phải dừng. YOLO người dùng ảnh đã duyệt ở dashboard kỹ thuật (:8100) và chỉ được dùng nếu qua cổng kiểm định.
+        Train chiếm GPU vài phút — nên chạy lúc ít người.</p>
+    </div></div>
+    <div class="card" style="margin-top:20px"><h2>Lịch sử train</h2><div class="body" style="overflow-x:auto">
+      <table><thead><tr><th>Lúc</th><th>Người bấm</th><th>Train</th><th>Kết quả</th></tr></thead><tbody id="tr-hist"></tbody></table>
+      <div class="empty" id="tr-hist-empty">Chưa train lần nào từ dashboard.</div></div></div>
+  </section>
+
+  <!-- ===================== GIAO THÔNG (gói traffic_safety_ai gắn vào máy chủ) ===================== -->
+  <section id="v-tview" hidden><div class="tbox" data-tpath=""></div></section>
+  <section id="v-tstudio" hidden><div class="tbox" data-tpath="studio"></div></section>
+  <section id="v-tviol" hidden><div class="tbox" data-tpath="vi-pham"></div></section>
 
   <!-- ===================== TÀI KHOẢN (quản trị) ===================== -->
   <section id="v-users" hidden>
@@ -336,6 +504,8 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}
   <!-- ===================== THIẾT LẬP (quản trị) ===================== -->
   <section id="v-setup" hidden>
     <div class="card"><h2>Máy chủ AI</h2><div class="body" id="ai-box">—</div></div>
+    <div class="card" style="margin-top:20px"><h2>Train lại AI<span class="spacer"></span><button class="btn dark" data-goto="train">Mở Train lại AI</button></h2>
+      <div class="body hint" style="margin:0">Dùng các đánh giá Đúng / Báo nhầm của cảnh báo để train lại model hành vi (và YOLO người) ngay trên máy chủ.</div></div>
     <div class="card" style="margin-top:20px"><h2>App xem cho máy khác</h2><div class="body">
       <p>Địa chỉ IP máy chủ trong mạng nội bộ: <b id="srv-ips">—</b></p>
       <p>Trên máy khác (cùng mạng), mở trình duyệt vào địa chỉ dưới đây, tải <b>ARES Viewer</b>, mở lên và đăng nhập.</p>
@@ -388,15 +558,17 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}
 <dialog id="vdlg" style="width:min(1100px,97vw)"><div class="card" style="border:0">
   <h2><span id="vd-title">—</span><span class="spacer"></span><a class="btn" id="vd-mp4" href="#" download hidden>Tải video kết quả</a><button class="btn" id="vd-close">Đóng</button></h2>
   <div class="vgrid">
-    <div class="player"><img id="vd-img" alt="Kết quả AI">
+    <div class="player"><img id="vd-img" alt="Kết quả AI"><div class="vstage" id="vd-stage" hidden><video id="vd-vid" playsinline muted preload="auto"></video><canvas id="vd-ov"></canvas></div>
       <div class="vtl" id="vd-tl" title="Dải thời gian: xanh = an toàn · cam = chú ý · đỏ = báo động (bấm để tua)"><i id="vd-tlpos"></i></div>
       <div class="ctl"><button class="btn dark" id="vd-play">Phát</button><input type="range" id="vd-seek" min="1" max="1" value="1"><span class="muted small" id="vd-pos"></span>
         <select id="vd-speed" title="Tốc độ phát"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select></div>
       <div class="ctl small muted" id="vd-sum"></div></div>
     <div class="vside">
       <div class="vstat l0" id="vd-status"><b id="vd-st-h">—</b><span id="vd-st-t"></span></div>
-      <b>Tư thế trong video</b><div class="schips" id="vd-poses"></div>
-      <b>Sự kiện AI phát hiện</b><div id="vd-events" style="display:grid;gap:8px"></div></div>
+      <span class="small muted vmode" id="vd-mode"></span>
+      <div id="vd-hw-row" hidden class="hwbox"><label class="small"><input type="checkbox" id="vd-hw"> <b>Điều khiển mạch thật</b> theo video khi phát</label><div id="vd-hwdev"></div></div>
+      <b id="vd-poses-h">Tư thế trong video</b><div class="schips" id="vd-poses"></div>
+      <b id="vd-events-h">Sự kiện AI phát hiện</b><div id="vd-events" style="display:grid;gap:8px"></div></div>
   </div></div></dialog>
 <dialog id="ppedlg" style="width:min(620px,97vw)"><div class="card" style="border:0">
   <h2><span id="pp-title">Đồ bảo hộ</span><span class="spacer"></span><button class="btn" data-close="ppedlg">Đóng</button></h2>
@@ -443,7 +615,7 @@ if(REMOTE){ const q=new URLSearchParams(location.search).get("server");
 const U = p => { const u=API+p; return TOKEN ? u+(u.includes("?")?"&":"?")+"t="+encodeURIComponent(TOKEN) : u; };  // cho <img>/<a>
 const AH = () => TOKEN ? {"Authorization":"Bearer "+TOKEN} : {};
 function setToken(t){ TOKEN=REMOTE?(t||""):""; if(REMOTE) LS.set("ares_token",TOKEN); }
-const KIND = {PPE:"Vi phạm đồ bảo hộ", FALL:"Té ngã", LYING_DOWN:"Nằm xuống đột ngột / nằm dưới sàn", LYING_STILL:"Nằm bất động", SLUMPED:"Ngồi gục bất động", FIGHT:"Đánh nhau / xô đẩy"};
+const KIND = {PPE:"Vi phạm đồ bảo hộ", FALL:"Té ngã", LYING_DOWN:"Nằm xuống đột ngột / nằm dưới sàn", LYING_STILL:"Nằm bất động", SLUMPED:"Ngồi gục bất động", FIGHT:"Đánh nhau / xô đẩy", FIRE:"Cháy / khói", SMOKING:"Hút thuốc"};
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const tfmt = t => t ? new Date(t*1000).toLocaleString("vi-VN",{hour12:false}) : "—";
 function ago(t){ if(!t) return "chưa bao giờ"; const s=Math.max(0,Date.now()/1000-t); if(s<60) return `${Math.round(s)} giây trước`; if(s<3600) return `${Math.round(s/60)} phút trước`; if(s<86400) return `${Math.round(s/3600)} giờ trước`; return `${Math.round(s/86400)} ngày trước`; }
@@ -519,11 +691,25 @@ function paintMe(){
 }
 
 // ------------------------------------------------ điều hướng
-const VIEWS=["home","mycams","live","alerts","places","sensors","videos","users","setup"];
-let view="home";
-document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>go(b.dataset.view));
-function go(v){ view=v; document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.view===v));
-  for(const s of VIEWS) $("#v-"+s).hidden = s!==v; refresh(); }
+const VIEWS=["home","mycams","live","alerts","places","sensors","videos","users","setup","penv","pzones","pvideos","train","tview","tstudio","tviol"];
+const ADMIN_VIEWS=["setup","users","live","train","tview","tstudio","tviol"];
+let view="home", MOD=LS.get("ares_mod")||"beh";
+const navBtns=()=>[...document.querySelectorAll("#subnav button")];
+const btnOk=b=>!(ME && ((b.classList.contains("admin-only")&&ME.role!=="admin")||(b.classList.contains("viewer-only")&&ME.role==="admin")));
+function paintNav(){
+  document.querySelectorAll("#mods button").forEach(b=>b.classList.toggle("on",b.dataset.mod===MOD));
+  navBtns().forEach(b=>{ b.hidden=!b.dataset.mod.split(" ").includes(MOD); b.classList.toggle("on",b.dataset.view===view); });
+}
+navBtns().forEach(b=>b.onclick=()=>go(b.dataset.view));
+document.querySelectorAll("#mods button").forEach(b=>b.onclick=()=>{ MOD=b.dataset.mod; LS.set("ares_mod",MOD);
+  const first=navBtns().find(x=>x.dataset.mod.split(" ").includes(MOD) && btnOk(x)); go(first?first.dataset.view:"home"); });
+function go(v){
+  const b=navBtns().find(x=>x.dataset.view===v);
+  if(b && !b.dataset.mod.split(" ").includes(MOD)){ MOD=b.dataset.mod.split(" ")[0]; LS.set("ares_mod",MOD); }
+  view=v; LS.set("ares_view",v); paintNav();
+  for(const s of VIEWS) $("#v-"+s).hidden = s!==v;
+  zStopDraw(); zMode(v==="pzones"?"live":"video");
+  refresh(); if(v==="pvideos"||v==="pzones") zDraw(); }
 
 // ------------------------------------------------ biểu đồ
 function chart(svg, series){
@@ -610,7 +796,17 @@ async function refresh(){
     } else if(view==="sensors"){
       await renderSensors();
     } else if(view==="videos"){
-      await renderVideos();
+      await renderVideos("behavior");
+    } else if(view==="pvideos"){
+      await renderVideos("people"); await loadDevices();
+    } else if(view==="penv"){
+      await renderPenv();
+    } else if(view==="pzones"){
+      await renderZones();
+    } else if(view==="train"){
+      await renderTrain();
+    } else if(view==="tview"||view==="tstudio"||view==="tviol"){
+      renderTraffic();
     } else if(view==="users"){
       await renderUsers();
     } else if(view==="live"){
@@ -922,10 +1118,10 @@ setInterval(()=>{
 
 
 // ------------------------------------------------ cảm biến: ESP32/ESP8266 (Wi-Fi) · Arduino (USB qua Web Serial)
-const SKEY={temp:["Nhiệt độ","°C",1],temp2:["Nhiệt độ 2","°C",1],hum:["Độ ẩm","%",0],lux:["Ánh sáng","lux",0],light:["Độ sáng","%",0],
+const SKEY={temp:["Nhiệt độ","°C",1],temp2:["Nhiệt độ 2","°C",1],hum:["Độ ẩm","%",0],lux:["Ánh sáng","lux",0],light:["Độ sáng","%",0],light1:["Độ sáng vùng 1","%",0],light2:["Độ sáng vùng 2","%",0],light3:["Độ sáng vùng 3","%",0],light4:["Độ sáng vùng 4","%",0],light5:["Độ sáng vùng 5","%",0],light6:["Độ sáng vùng 6","%",0],
   motion:["Chuyển động","",0],gas:["Khí gas/khói","%",0],flame:["Lửa","",0],sound:["Âm thanh","%",0],door:["Cửa","",0],dist:["Khoảng cách","cm",0],
   co2:["CO₂","ppm",0],pm25:["Bụi PM2.5","µg/m³",0]};
-const SHIDE=new Set(["relay","led","buzzer","rssi","up"]);
+const SHIDE=new Set(["relay","led","buzzer","rssi","up","ch1","ch2","ch3","ch4","ch5","ch6","ch7","ch8"]);
 function sval(k,v){ if(k==="motion") return v?"Có người":"Không"; if(k==="flame") return v?"CÓ LỬA!":"Không"; if(k==="door") return v?"Mở":"Đóng";
   const d=(SKEY[k]||["","",1])[2]; return `${Number(v).toFixed(d)}${(SKEY[k]||["",""])[1]?" "+SKEY[k][1]:""}`; }
 const salarm=(k,v)=>(k==="flame"&&v)||(k==="gas"&&v>=40)||(k==="temp"&&v>=45)||(k==="co2"&&v>=2000);
@@ -940,6 +1136,7 @@ function spark(pts,key){ const v=pts.filter(p=>p[key]!=null); if(v.length<2) ret
 let DEVS=[], DEVPLACES=[], SERIES={}, SER={};
 async function renderSensors(){
   const r=await api("/api/devices"); DEVS=r.items; DEVPLACES=r.places;
+  if(!$("#nd-ch").read) chEditor($("#nd-ch"), [{name:"Đèn 1",type:"led",pin:-1}]);
   fillSel($("#nd-kind"), Object.entries(r.kinds), "—");
   fillSel($("#nd-place"), r.places.map(p=>[String(p.id), "Địa điểm: "+p.name+(isAdmin()&&p.user_id!==ME.id?` (${(DEVS.find(d=>d.user_id===p.user_id)||{}).owner||"người khác"})`:"")]), "—");
   $("#dev-title").textContent=isAdmin()?"Tất cả mạch cảm biến":"Mạch của tôi"; $("#devs-empty").hidden=DEVS.length>0||!!r.mqtt;
@@ -957,8 +1154,10 @@ async function renderSensors(){
     return `<div class="dev"><h3>${esc(d.name)} <span class="muted small" style="font-weight:500">· ${esc(d.place_name)}${isAdmin()&&d.user_id!==ME.id?" · "+esc(d.owner):""}</span></h3>
       <div class="row small">${st}<span class="muted">${esc(d.kind_label)}${data.rssi!=null?` · Wi-Fi ${data.rssi} dBm`:""}</span></div>
       ${keys.length?`<div class="tiles">${keys.map(k=>`<div class="tile ${salarm(k,data[k])?"alarm":""}"><div class="l">${esc(SKEY[k]?SKEY[k][0]:k)}</div><div class="v">${esc(sval(k,data[k]))}</div></div>`).join("")}</div>`:'<div class="muted small">Chưa có số đo.</div>'}
+      ${(d.channels||[]).length?`<div class="small"><b>${d.channels.length} đèn trên mạch</b></div>${chControls(d)}`:'<div class="small muted">Chưa khai báo đèn nào trên mạch — bấm <b>Số đèn / kênh</b>.</div>'}
       ${ctrl?`<div class="ctrl">${ctrl}</div>`:""}${sp}
       <div class="row">${d.kind==="usb"?(usb?`<button class="btn" data-dusboff="${d.id}">Ngắt USB</button>`:`<button class="btn dark" data-dusb="${d.id}">Kết nối mạch qua USB</button>`):""}
+        <button class="btn" data-dch="${d.id}">Số đèn / kênh</button>
         <button class="btn" data-dsetup="${d.id}">Hướng dẫn &amp; tải code</button>
         <select data-dplace="${d.id}" title="Chuyển sang địa điểm khác">${DEVPLACES.map(p=>`<option value="${p.id}" ${p.id===d.place_id?"selected":""}>${esc(p.name)}</option>`).join("")}</select>
         <button class="btn warn" data-ddel="${d.id}" data-name="${esc(d.name)}">Xoá</button></div></div>`; }).join("");
@@ -968,11 +1167,13 @@ async function renderSensors(){
   setHTML($("#devs"), html);
 }
 $("#nd-btn").onclick=async()=>{ const name=$("#nd-name").value.trim(); if(!name){ toast("Nhập tên mạch"); return; }
-  try{ const r=await api("/api/devices",{method:"POST",body:{name,kind:$("#nd-kind").value,place_id:+$("#nd-place").value||null}});
+  try{ const r=await api("/api/devices",{method:"POST",body:{name,kind:$("#nd-kind").value,place_id:+$("#nd-place").value||null,channels:$("#nd-ch").read?$("#nd-ch").read():[]}});
+    chEditor($("#nd-ch"), [{name:"Đèn 1",type:"led",pin:-1}]);
     $("#nd-name").value=""; toast("Đã thêm mạch — làm theo hướng dẫn để nạp code"); await renderSensors(); openSetup(r.id); }catch(e){ toast(e.message); } };
 async function deviceCmd(id, k, v){
+  if(SER[id]){ serHold(id,4000); serWrite(id,{[k]:v}); }
   const r=await api(`/api/devices/${id}/cmd`,{method:"POST",body:{[k]:v}});
-  if(SER[id]) serWrite(id, r.desired);
+  if(SER[id]){ serHold(id,2000); serWrite(id, r.desired); }
   toast(SER[id]?"Đã gửi lệnh qua USB":"Đã gửi lệnh — mạch Wi-Fi nhận trong vài giây"); refresh(); }
 document.addEventListener("click", async ev=>{ const t=ev.target.closest("[data-dcmd],[data-dusb],[data-dusboff],[data-dsetup],[data-ddel],[data-dl-ino]"); if(!t) return;
   try{
@@ -1042,30 +1243,49 @@ async function downloadIno(id){
   toast(`Đã tải ${name} — Arduino IDE sẽ hỏi tạo thư mục cùng tên, bấm OK`);
 }
 // ---- Web Serial: đọc mạch cắm USB ngay trong trình duyệt (Chrome/Edge/ARES Viewer)
-async function serConnect(id, ask){
+function usbMap(){ try{ return JSON.parse(LS.get("ares_usb_map")||"{}"); }catch(_){ return {}; } }
+const portSig=p=>{ const i=p.getInfo?p.getInfo():{}; return `${i.usbVendorId||0}:${i.usbProductId||0}`; };
+async function serConnect(id, ask, given){
   if(!("serial" in navigator)){ toast("Trình duyệt này không đọc được USB — dùng Chrome/Edge trên máy tính hoặc app ARES Viewer"); return; }
   if(SER[id]) return;
-  let port=null;
-  if(ask){ try{ port=await navigator.serial.requestPort(); }catch(_){ return; } }
-  else { const ports=await navigator.serial.getPorts(); port=ports[0]; if(!port) return; }
+  let port=given||null;
+  if(!port && ask){ try{ port=await navigator.serial.requestPort(); }catch(_){ return; } }
+  else if(!port){ const used=new Set(Object.values(SER).map(S=>S.port)), want=usbMap()[id];
+    const ports=(await navigator.serial.getPorts()).filter(p=>!used.has(p));
+    port=ports.find(p=>!want||portSig(p)===want)||null; if(!port) return; }
   try{ await port.open({baudRate:115200}); }catch(e){ toast("Không mở được cổng USB: "+(e.message||e)+" — đóng Arduino IDE/Serial Monitor rồi thử lại"); return; }
   const S={port, alive:true, latest:null, sentAt:0, lastCmd:"", writer:null}; SER[id]=S; LS.set("ares_usb_dev", String(id));
+  const m=usbMap(); m[id]=portSig(port); LS.set("ares_usb_map", JSON.stringify(m));
   const enc=new TextEncoderStream(); enc.readable.pipeTo(port.writable).catch(()=>{}); S.writer=enc.writable.getWriter();
   toast("Đã kết nối mạch qua USB — đang gửi số đo lên máy chủ"); refresh();
   (async()=>{ const dec=new TextDecoderStream(); port.readable.pipeTo(dec.writable).catch(()=>{}); const rd=dec.readable.getReader(); S.reader=rd; let buf="";
     try{ while(S.alive){ const {value,done}=await rd.read(); if(done) break; buf+=value; let i;
       while((i=buf.indexOf("\n"))>=0){ const line=buf.slice(0,i).trim(); buf=buf.slice(i+1);
-        if(line.startsWith("{")){ try{ S.latest=JSON.parse(line); }catch(_){} } }
+        if(line.startsWith("{")){ try{ S.latest=JSON.parse(line); S.last=S.latest; S.lastAt=Date.now(); serCheck(id, S, S.latest); }catch(_){} } }
       if(buf.length>2000) buf=""; } }catch(_){}
     if(SER[id]===S){ delete SER[id]; toast("Mạch USB đã ngắt"); refresh(); } })();
 }
-async function serClose(id){ const S=SER[id]; if(!S) return; S.alive=false; delete SER[id];
-  try{ await S.reader?.cancel(); }catch(_){} try{ await S.writer?.close(); }catch(_){} try{ await S.port.close(); }catch(_){} LS.set("ares_usb_dev",""); }
-function serWrite(id, cmd){ const S=SER[id]; if(!S||!S.writer||!cmd) return; const line=JSON.stringify(cmd);
+async function serClose(id, forget=true){ const S=SER[id]; if(!S) return; S.alive=false; delete SER[id];
+  try{ await S.reader?.cancel(); }catch(_){} try{ await S.writer?.close(); }catch(_){} try{ await S.port.close(); }catch(_){} LS.set("ares_usb_dev","");
+  if(forget){ const m=usbMap(); delete m[id]; LS.set("ares_usb_map", JSON.stringify(m)); } }
+function serWrite(id, cmd){ const S=SER[id]; if(!S||!S.writer||!cmd) return;
+  const c0={...cmd}; delete c0.pwm; S.want={...(S.want||{}),...c0}; S.wroteAt=Date.now();  // luôn gửi TOÀN BỘ trạng thái đèn: lỡ 1 dòng vẫn đúng
+  let out={...S.want};
+  if(Object.keys(out).some(k=>/^ch\d$/.test(k))){ const dv=devById(id), chs=(dv&&dv.channels)||[]; if(chs.length) out.pwm=chs.map(c=>{ const v=+(out[c.key]||0); return c.type==="relay"?(v>0?100:0):v; }); }  // code ARES cũ đọc {"pwm":[...]}
+  const line=JSON.stringify(out);
   if(line===S.lastCmd) return; S.lastCmd=line; S.writer.write(line+"\n").catch(()=>{}); }
+// Lệnh từ chính máy này (video đang điều khiển, kéo thanh đèn) được ưu tiên vài giây: không để kết quả hỏi máy chủ (có thể còn cũ do mạng chậm) ghi đè
+function serHold(id, ms){ const S=SER[id]; if(S) S.holdUntil=Math.max(S.holdUntil||0, Date.now()+ms); }
+function serFromServer(id, cmd){ const S=SER[id]; if(!S||!cmd||!Object.keys(cmd).length) return; if(Date.now()<(S.holdUntil||0)) return; serWrite(id, cmd); }
+// Mạch tự khởi động lại (nguồn chập chờn, cắm lại) hoặc lỡ mất 1 lệnh: thấy đèn mạch báo khác lệnh đang muốn -> gửi lại
+function serCheck(id, S, data){ if(!S.want) return; const up=+data.up;
+  if(S.lastUp!=null && up<S.lastUp){ S.lastCmd=""; serWrite(id, S.want); } S.lastUp=up;
+  if(Date.now()-(S.wroteAt||0)<1500) return;
+  const bad=Object.keys(S.want).some(k=>/^ch\d$/.test(k)&&data[k]!=null&&((+data[k]>0)!==(+S.want[k]>0)||Math.abs(+data[k]-+S.want[k])>2));
+  if(bad){ S.lastCmd=""; serWrite(id, S.want); } }
 setInterval(async()=>{ for(const [id,S] of Object.entries(SER)){ if(!S.latest||Date.now()-S.sentAt<1500) continue; const data=S.latest; S.latest=null; S.sentAt=Date.now();
-  try{ const r=await api(`/api/devices/${id}/data`,{method:"POST",body:data}); if(r.cmd&&Object.keys(r.cmd).length) serWrite(id, r.cmd); }catch(_){} } },500);
-if("serial" in navigator) navigator.serial.addEventListener("disconnect", e=>{ for(const [id,S] of Object.entries(SER)) if(S.port===e.target){ serClose(+id); refresh(); } });
+  try{ const r=await api(`/api/devices/${id}/data`,{method:"POST",body:data}); serFromServer(+id, r.cmd); }catch(_){} } },500);
+if("serial" in navigator) navigator.serial.addEventListener("disconnect", e=>{ for(const [id,S] of Object.entries(SER)) if(S.port===e.target){ serClose(+id, false); refresh(); } });  // rút cáp: nhớ cổng để cắm lại tự nối
 
 
 // ------------------------------------------------ đồ bảo hộ: mỗi địa điểm chọn món bắt buộc / cấm; AI trên máy chủ kiểm
@@ -1101,21 +1321,22 @@ $("#pp-off").onclick=()=>savePpe({required:[],forbidden:[]});
 const VST={uploading:["warn","Đang tải lên"],queued:["warn","Đang chờ"],running:["warn","Đang phân tích"],done:["ok","Xong"],error:["red","Lỗi"]};
 const mmss=t=>`${String(Math.floor(t/60)).padStart(2,"0")}:${String(Math.floor(t%60)).padStart(2,"0")}`;
 const mb=b=>b>=1048576?`${(b/1048576).toFixed(1)} MB`:`${Math.max(1,Math.round(b/1024))} KB`;
-async function renderVideos(){
-  loadPpe(false).catch(()=>{});
-  const r=await api("/api/videos"), ai=r.ai;
-  setHTML($("#vf-ai"), ai.online?(ai.fallback?'<span class="pill warn">Máy chủ AI đang chạy bằng CPU — video sẽ phân tích chậm</span>':`<span class="pill ok">Máy chủ AI sẵn sàng (${ai.device&&ai.device!=="cpu"?"GPU":"CPU"})</span>`)
+async function renderVideos(kind){
+  kind=kind||"behavior"; const P=kind==="people"?"p":"v";
+  if(kind==="behavior") loadPpe(false).catch(()=>{});
+  const r=await api("/api/videos?kind="+kind), ai=r.ai;
+  setHTML($(`#${P}f-ai`), ai.online?(ai.fallback?'<span class="pill warn">Máy chủ AI đang chạy bằng CPU — video sẽ phân tích chậm</span>':`<span class="pill ok">Máy chủ AI sẵn sàng (${ai.device&&ai.device!=="cpu"?"GPU":"CPU"})</span>`)
     :'<span class="pill red">Máy chủ AI chưa chạy — video sẽ chờ tới khi máy chủ mở ARES_MAY_CHU.bat</span>');
-  $("#vjobs-empty").hidden=r.items.length>0;
-  setHTML($("#vjobs"), r.items.map(j=>{ const empty=j.status==="done"&&!j.n_frames;  // bản cũ: "Xong" nhưng không đọc được khung nào
+  $(`#${P}jobs-empty`).hidden=r.items.length>0;
+  setHTML($(`#${P}jobs`), r.items.map(j=>{ const empty=j.status==="done"&&!j.n_frames;  // bản cũ: "Xong" nhưng không đọc được khung nào
     const [c,t]=empty?["red","Lỗi"]:(VST[j.status]||["",j.status]);
     const st=`<span class="pill ${c}">${t}</span>`+(j.status==="running"?`<span class="prog"><i style="width:${Math.round(j.progress*100)}%"></i></span> ${Math.round(j.progress*100)}%`:"")
       +(j.status==="queued"&&j.queue_pos>1?` <span class="muted small">thứ ${j.queue_pos} trong hàng</span>`:"")
       +(empty?`<div class="muted small">Máy AI nhận video khi chưa tải lên xong nên không đọc được khung nào — bấm <b>Phân tích lại</b>.</div>`
         :j.message&&j.status!=="done"?`<div class="muted small">${esc(j.message)}</div>`:"");
     return `<tr><td><b>${esc(j.name)}</b><div class="muted small">${mb(j.size)}</div></td><td class="admin-only">${esc(j.owner)}</td><td>${st}</td>
-      <td>${j.duration!=null?mmss(j.duration):"—"}</td><td>${j.status==="done"&&!empty?(j.n_events?`<b style="color:var(--red)">${j.n_events} sự kiện</b>`:"Không có sự kiện")+`<div class="muted small">tối đa ${j.people_max??0} người</div>`:"—"}</td><td class="small">${tfmt(j.created)}</td>
-      <td><div class="row">${j.status==="done"&&!empty?`<button class="btn dark" data-vopen="${j.id}">Xem kết quả</button>`:""}${j.status==="done"||j.status==="error"?`<button class="btn${empty||j.status==="error"?" dark":""}" data-vretry="${j.id}" title="Cho AI chạy lại trên video đã tải lên, không cần tải lại">Phân tích lại</button>`:""}<button class="btn warn" data-vdel="${j.id}" data-name="${esc(j.name)}">Xoá</button></div></td></tr>`; }).join(""));
+      <td>${j.duration!=null?mmss(j.duration):"—"}</td><td>${j.status==="done"&&!empty?(kind==="people"?`${j.n_events} lần bật/tắt đèn`+(j.energy_saved_pct!=null?`<div class="small" style="color:var(--ok)">tiết kiệm ~${j.energy_saved_pct}% so với bật cả buổi</div>`:""):(j.n_events?`<b style="color:var(--red)">${j.n_events} sự kiện</b>`:"Không có sự kiện"))+`<div class="muted small">tối đa ${j.people_max??0} người</div>`:"—"}</td><td class="small">${tfmt(j.created)}</td>
+      <td><div class="row">${j.status==="done"&&!empty?`<button class="btn dark" data-vopen="${j.id}">Xem kết quả</button>`:""}${kind==="people"&&(j.status==="done"||j.status==="error")?`<button class="btn" data-pedit="${j.id}" data-name="${esc(j.name)}">Sửa vùng/đèn</button>`:""}${j.status==="done"||j.status==="error"?`<button class="btn${empty||j.status==="error"?" dark":""}" data-vretry="${j.id}" title="Cho AI chạy lại trên video đã tải lên, không cần tải lại">Phân tích lại</button>`:""}<button class="btn warn" data-vdel="${j.id}" data-name="${esc(j.name)}">Xoá</button></div></td></tr>`; }).join(""));
 }
 $("#vf").onchange=()=>{ const f=$("#vf").files[0]; $("#vf-name").textContent=f?`${f.name} (${mb(f.size)})`:"Chưa chọn file"; $("#vf-msg").textContent=""; };
 $("#vf-up").onclick=()=>{
@@ -1135,13 +1356,23 @@ $("#vf-up").onclick=()=>{
 let V={id:null,n:0,i:1,timer:null,fps:10,ev:[]};
 async function openVideo(id){
   let j; try{ j=await api(`/api/videos/${id}`); }catch(e){ toast(e.message); return; }
-  vstop(); const R=j.result||{}; V={id,n:j.n_frames||0,i:1,timer:null,fps:R.fps||10,ev:R.events||[],runs:R.status_runs||[]};
+  vstop(); vUnload(); const R=j.result||{}; V={mode:"img",TR:null,imgs:new Map(),id,n:j.n_frames||0,i:1,timer:null,fps:R.fps||10,ev:R.events||[],runs:R.status_runs||[],
+    kind:R.kind||j.kind||"behavior",R,hw:{},hwState:{}};
+  const PEOPLE=V.kind==="people";
+  $("#vd-hw-row").hidden=!PEOPLE||!((R.layout||{}).lights||[]).some(l=>l.device_id); $("#vd-hw").checked=false;
+  if(PEOPLE&&!$("#vd-hw-row").hidden){ ZDEVS_T=0; loadDevices().then(()=>{ const ids=hwDevIds(); if(ids.some(id=>SER[id]||(devById(id)||{}).online)) { $("#vd-hw").checked=true; V.hw={}; } hwPanel(); }); }
+  $("#vd-poses-h").textContent=PEOPLE?"Đèn và vùng":"Tư thế trong video"; $("#vd-events-h").textContent=PEOPLE?"Bật / tắt đèn":"Sự kiện AI phát hiện";
   // dải thời gian tô màu theo mức an toàn của từng đoạn
   const LC=["var(--ok)","var(--warn)","var(--red)"], N=Math.max(1,V.n);
   $("#vd-tl").style.background=V.runs.length?`linear-gradient(to right,${V.runs.map((r,k)=>{ const a=((r[0]-1)/N*100).toFixed(2), b=(((V.runs[k+1]?V.runs[k+1][0]:N+1)-1)/N*100).toFixed(2); return `${LC[r[1]]} ${a}%,${LC[r[1]]} ${b}%`; }).join(",")})`:"";
   const PV={standing:"Đứng",walking:"Đang đi",sitting:"Ngồi",lying:"Nằm",slumped:"Ngồi gục",upper:"Thấy nửa người"}, ps=R.posture_s||{};
   const tot=Object.values(ps).reduce((a,b)=>a+b,0);
-  $("#vd-poses").innerHTML=tot?Object.entries(PV).filter(([k])=>ps[k]>=0.5).map(([k,v])=>`<span class="pill ${k==="lying"||k==="slumped"?"warn":""}">${v} ${ps[k]>=60?mmss(ps[k]):Math.round(ps[k])+" giây"} · ${Math.round(ps[k]/tot*100)}%</span>`).join("")
+  if(PEOPLE){ const LS_=R.lights_stat||{}, ZS=R.zones_stat||{};
+    $("#vd-poses").innerHTML=(Object.values(LS_).map(l=>`<span class="pill ${l.pct>0?"warn":""}" title="bật/tắt ${l.switches} lần">${esc(l.name)}: bật ${l.on_s>=60?mmss(l.on_s):Math.round(l.on_s)+" giây"} · ${l.pct}%</span>`).join("")||'<span class="muted small">Chưa gán đèn nào.</span>')
+      +Object.values(ZS).map(z=>`<span class="pill">${esc(z.name)}: tối đa ${z.max} người</span>`).join("")
+      +(R.energy_saved_pct!=null?`<span class="pill ok">Tiết kiệm ~${R.energy_saved_pct}% điện đèn so với bật cả buổi</span>`:"")
+      +(R.track_stats&&R.track_stats.dup_dropped?`<span class="pill" title="khung trùng / người mọc giữa khung bị loại">đã lọc ${R.track_stats.dup_dropped} khung trùng</span>`:""); }
+  else $("#vd-poses").innerHTML=tot?Object.entries(PV).filter(([k])=>ps[k]>=0.5).map(([k,v])=>`<span class="pill ${k==="lying"||k==="slumped"?"warn":""}">${v} ${ps[k]>=60?mmss(ps[k]):Math.round(ps[k])+" giây"} · ${Math.round(ps[k]/tot*100)}%</span>`).join("")
     :'<span class="muted small">Không thấy người trong video.</span>';
   $("#vd-title").textContent=`Kết quả AI — ${j.name}`;
   $("#vd-mp4").hidden=!j.has_mp4; $("#vd-mp4").href=U(`/api/videos/${id}/result.mp4`);
@@ -1149,38 +1380,579 @@ async function openVideo(id){
   $("#vd-sum").textContent=`Thời lượng ${mmss(R.duration||0)} · ${R.frames||V.n} khung phân tích · tối đa ${R.people_max??"?"} người cùng lúc · xử lý ${R.processing_s??"?"} giây trên ${String(R.device||"?").toUpperCase()}${R.mode?" · chế độ "+R.mode:""}`;
   const pr=(R.ppe||{}).rules||{}, pOn=(pr.required||[]).length||(pr.forbidden||[]).length;
   const pNote=R.ppe_note?`<div class="warnbox small"><b>Chưa kiểm được đồ bảo hộ:</b> ${esc(R.ppe_note)}</div>`:pOn?`<div class="small muted">Kiểm đồ bảo hộ: ${ppeChips(pr)}</div>`:"";
-  $("#vd-events").innerHTML=pNote+(V.ev.length?V.ev.map((e,k)=>`<div class="vev" data-vk="${k}"><b>${esc(KIND[e.kind]||e.label)}</b><span class="small muted">${esc(e.time)} · người ${esc((e.tracks||[]).join(", "))}${e.kind==="PPE"&&e.detail&&e.detail.text?" · "+esc(e.detail.text):e.source?" · "+esc(e.source):""}</span></div>`).join("")
+  $("#vd-events").innerHTML=pNote+(V.ev.length?V.ev.map((e,k)=>`<div class="vev" data-vk="${k}"><b>${esc(KIND[e.kind]||e.label)}</b><span class="small muted">${esc(e.time)} · ${/^LIGHT_/.test(e.kind)?esc((e.detail||{}).text||e.source||""):`người ${esc((e.tracks||[]).join(", "))}`}${/^LIGHT_/.test(e.kind)?"":e.kind==="PPE"&&e.detail&&e.detail.text?" · "+esc(e.detail.text):e.source?" · "+esc(e.source):""}</span></div>`).join("")
     :'<div class="muted small">Không phát hiện sự kiện nguy hiểm nào trong video.</div>');
-  if(V.n){ vshow(1); } else { $("#vd-img").removeAttribute("src"); $("#vd-pos").textContent="không có khung kết quả";
-    $("#vd-status").className="vstat l1"; $("#vd-st-h").textContent="KHÔNG CÓ KHUNG NÀO"; $("#vd-st-t").textContent="Máy AI không đọc được video ở lần này. Đóng lại rồi bấm “Phân tích lại” ở bảng video."; }
-  $("#vdlg").showModal(); if(V.n) vplay();
+  if(!V.n){ $("#vd-img").hidden=false; $("#vd-stage").hidden=true; $("#vd-img").removeAttribute("src"); $("#vd-pos").textContent="không có khung kết quả";
+    $("#vd-status").className="vstat l1"; $("#vd-st-h").textContent="KHÔNG CÓ KHUNG NÀO"; $("#vd-st-t").textContent="Máy AI không đọc được video ở lần này. Đóng lại rồi bấm “Phân tích lại” ở bảng video.";
+    $("#vdlg").showModal(); return; }
+  $("#vdlg").showModal(); await vSetup(j, id);
 }
-function vshow(i){ V.i=i; $("#vd-seek").value=i; $("#vd-img").src=U(`/api/videos/${V.id}/frames/${i}.jpg`);
-  const t=(i-1)/V.fps; $("#vd-pos").textContent=`${mmss(t)} / ${mmss((V.n-1)/V.fps)}`;
+// ---- trình phát: ưu tiên VIDEO GỐC (mượt, đúng tốc độ thật) + vẽ vùng/người/đèn đè lên; không được thì video kết quả MP4; cuối cùng mới phát từng ảnh
+const VV=$("#vd-vid"), VO=$("#vd-ov"), VOX=VO.getContext("2d");
+function vUnload(){ VV.pause(); VV.removeAttribute("src"); VV.load(); if(V&&V.raf){ cancelAnimationFrame(V.raf); V.raf=0; } }
+function vTryVideo(url){ return new Promise(res=>{ let done=false; const fin=ok=>{ if(done) return; done=true; clearTimeout(to); VV.onloadeddata=VV.onerror=null; res(ok); };
+  const to=setTimeout(()=>fin(VV.readyState>=2&&VV.videoWidth>0),8000);
+  VV.onloadeddata=()=>fin(VV.videoWidth>0); VV.onerror=()=>fin(false); VV.src=url; VV.load(); }); }
+async function vSetup(j,id){
+  const PEOPLE=V.kind==="people";
+  if(PEOPLE){ try{ const r=await fetch(U(`/api/videos/${id}/tracks.json`),{credentials:"include",headers:TOKEN?{Authorization:"Bearer "+TOKEN}:{}}); if(r.ok) V.TR=await r.json(); }catch(_){ } }
+  if(V.id!==id) return;
+  let mode="img";
+  $("#vd-mode").textContent="Đang mở video…";
+  if(PEOPLE && (V.TR||!j.has_mp4) && await vTryVideo(U(`/api/videos/${id}/source`))) mode="src";
+  else if(j.has_mp4 && await vTryVideo(U(`/api/videos/${id}/result.mp4`))) mode="mp4";
+  if(V.id!==id) return;
+  V.mode=mode; $("#vd-img").hidden=mode!=="img"; $("#vd-stage").hidden=mode==="img";
+  $("#vd-mode").textContent=mode==="src"?(V.TR?"Phát video gốc, AI vẽ đè vùng · người · đèn":"Phát video gốc (kết quả cũ chưa có khung người — bấm Phân tích lại để thấy)")
+    :mode==="mp4"?"Phát video kết quả AI":"Trình duyệt không mở được video — đang phát từng ảnh (chậm hơn)";
+  if(mode==="img"){ vshow(1); vplay(); return; }
+  VV.playbackRate=+$("#vd-speed").value||1; VV.currentTime=0; vplay(); }
+function vFrameAt(t){ const T=V.TR&&V.TR.t; if(V.mode==="src"&&T&&T.length){ let lo=0,hi=T.length-1; if(t<T[0]) return 1;
+    while(lo<hi){ const m=(lo+hi+1)>>1; if(T[m]<=t) lo=m; else hi=m-1; } return lo+1; }
+  return Math.max(1,Math.min(V.n,Math.floor(t*V.fps+1e-6)+1)); }
+function vTimeOf(i){ const T=V.TR&&V.TR.t; return V.mode==="src"&&T&&T[i-1]!=null?T[i-1]:(i-1)/V.fps; }
+function vUI(i,t){ V.i=i; $("#vd-seek").value=i; const dur=V.mode==="img"?(V.n-1)/V.fps:(VV.duration||(V.n-1)/V.fps);
+  $("#vd-pos").textContent=`${mmss(t)} / ${mmss(dur)}`;
   $("#vd-tlpos").style.left=`calc(${((i-1)/Math.max(1,V.n-1)*100).toFixed(2)}% - 1px)`;
+  if(V.lastUI===i) return; V.lastUI=i;
   let run=null; for(const r of V.runs){ if(r[0]<=i) run=r; else break; }
   if(run){ const lv=run[1], m=run[2].match(/^(BÁO ĐỘNG|CHÚ Ý|AN TOÀN)\s*[:·]\s*(.*)$/);
     $("#vd-status").className="vstat l"+lv;
-    $("#vd-st-h").textContent=lv===2?"BÁO ĐỘNG":lv===1?"CHÚ Ý — AI đang theo dõi":(m?"TRẠNG THÁI AN TOÀN":"KHÔNG CÓ NGƯỜI");
+    $("#vd-st-h").textContent=V.kind==="people"?(lv?"ĐÈN ĐANG BẬT":"TẤT CẢ ĐÈN TẮT"):lv===2?"BÁO ĐỘNG":lv===1?"CHÚ Ý — AI đang theo dõi":(m?"TRẠNG THÁI AN TOÀN":"KHÔNG CÓ NGƯỜI");
     $("#vd-st-t").textContent=m?m[2]:run[2]; }
   else { $("#vd-status").className="vstat l0"; $("#vd-st-h").textContent="—"; $("#vd-st-t").textContent="Kết quả này chưa có trạng thái từng khung — bấm “Phân tích lại” ở bảng video để có."; }
   let cur=-1; V.ev.forEach((e,k)=>{ if(e.t<=t+0.05 && t-e.t<4) cur=k; });
   document.querySelectorAll(".vev").forEach(el=>el.classList.toggle("on", +el.dataset.vk===cur)); }
+function vshow(i){ i=Math.max(1,Math.min(V.n,i));
+  if(V.mode!=="img"){ VV.currentTime=vTimeOf(i)+0.001; vTick(true); return; }
+  const url=U(`/api/videos/${V.id}/frames/${i}.jpg`); $("#vd-img").src=(V.imgs.get(i)||{}).src||url;
+  for(let k=i+1;k<=Math.min(V.n,i+15);k++) if(!V.imgs.has(k)){ const im=new Image(); im.src=U(`/api/videos/${V.id}/frames/${k}.jpg`); V.imgs.set(k,im); }
+  for(const k of V.imgs.keys()) if(k<i-5) V.imgs.delete(k);
+  vUI(i,(i-1)/V.fps); if(V.kind==="people" && $("#vd-hw").checked) hwSync(i); }
+function vDraw(t,i){ const cw=VO.clientWidth, ch=VO.clientHeight, dpr=window.devicePixelRatio||1;
+  if(VO.width!==Math.round(cw*dpr)||VO.height!==Math.round(ch*dpr)){ VO.width=Math.round(cw*dpr); VO.height=Math.round(ch*dpr); }
+  VOX.setTransform(dpr,0,0,dpr,0,0); VOX.clearRect(0,0,cw,ch);
+  if(V.mode!=="src"||!VV.videoWidth) return;
+  const sc=Math.min(cw/VV.videoWidth, ch/VV.videoHeight), W=VV.videoWidth*sc, H=VV.videoHeight*sc, ox=(cw-W)/2, oy=(ch-H)/2;
+  const L=(V.R||{}).layout||{}, Z=L.zones||[], LI=L.lights||[];
+  const lit=new Set(LI.filter(l=>lightAt(l.id,i)).flatMap(l=>l.zones));
+  Z.forEach((z,k)=>{ const c=ZCOL[k%ZCOL.length]; VOX.beginPath(); z.poly.forEach(([x,y],j)=>j?VOX.lineTo(ox+x*W,oy+y*H):VOX.moveTo(ox+x*W,oy+y*H)); VOX.closePath();
+    VOX.globalAlpha=lit.has(z.id)?.30:.12; VOX.fillStyle=lit.has(z.id)?"#ffd400":c; VOX.fill(); VOX.globalAlpha=1; VOX.lineWidth=1; VOX.strokeStyle=c; VOX.stroke();
+    const mx=ox+Math.min(...z.poly.map(p=>p[0]))*W, my=oy+Math.min(...z.poly.map(p=>p[1]))*H; VOX.font="600 12px system-ui";
+    const lab=z.name+(lit.has(z.id)?" · đèn bật":""), tw=VOX.measureText(lab).width; VOX.fillStyle="rgba(0,0,0,.55)"; VOX.fillRect(mx+2,my+2,tw+8,17); VOX.fillStyle=lit.has(z.id)?"#ffd400":"#fff"; VOX.fillText(lab,mx+6,my+15); });
+  const TR=V.TR; if(TR&&TR.t.length){ const k=i-1, A=TR.b[k]||[], B=TR.b[k+1], ta=TR.t[k], tb=TR.t[k+1];
+    const f=B&&tb>ta?Math.max(0,Math.min(1,(t-ta)/(tb-ta))):0, Bm=new Map((B||[]).map(b=>[b[0],b]));
+    for(const a of A){ const b=Bm.get(a[0])||a, q=n=>a[n]+(b[n]-a[n])*f;
+      const x1=ox+q(1)*W, y1=oy+q(2)*H, x2=ox+q(3)*W, y2=oy+q(4)*H, c=a[5]>=0?ZCOL[a[5]%ZCOL.length]:"#e6e6e6";
+      VOX.lineWidth=1.2; VOX.strokeStyle=c; VOX.strokeRect(x1,y1,x2-x1,y2-y1);
+      VOX.beginPath(); VOX.arc((x1+x2)/2,y2,3,0,7); VOX.fillStyle="#ff3b3b"; VOX.fill();
+      VOX.font="600 11px system-ui"; VOX.fillStyle=c; VOX.fillText("#"+a[0],x1+2,y1-3); } }
+  if(LI.length){ VOX.font="600 12px system-ui"; const rows=LI.map(l=>{ const on=lightAt(l.id,i); return [`${on?"●":"○"} ${l.name}: ${on?"BẬT":"tắt"}`,on]; });
+    const bw=Math.max(...rows.map(r=>VOX.measureText(r[0]).width))+14; const by=oy+H-rows.length*17-14; VOX.fillStyle="rgba(0,0,0,.6)"; VOX.fillRect(ox+6,by,bw,rows.length*17+8);
+    rows.forEach(([tx,on],r)=>{ VOX.fillStyle=on?"#ffd400":"#bbb"; VOX.fillText(tx,ox+13,by+15+r*17); }); } }
+function vTick(once){ if(V.mode==="img") return; const t=VV.currentTime||0, i=vFrameAt(t);
+  vUI(i,t); vDraw(t,i); if(V.kind==="people" && $("#vd-hw").checked) hwSyncT(t);
+  if(!once && !VV.paused && !VV.ended) V.raf=requestAnimationFrame(()=>vTick(false)); else if(VV.ended) vstop(); }
 function vplay(){ vstop(); $("#vd-play").textContent="Dừng"; const sp=+$("#vd-speed").value||1;
+  if(V.mode!=="img"){ VV.playbackRate=sp; VV.play().then(()=>{ V.raf=requestAnimationFrame(()=>vTick(false)); }).catch(()=>{ $("#vd-play").textContent="Phát"; }); return; }
   V.timer=setInterval(()=>{ if(V.i>=V.n){ vstop(); return; } vshow(V.i+1); }, 1000/(V.fps*sp)); }
-function vstop(){ if(V.timer){ clearInterval(V.timer); V.timer=null; } $("#vd-play").textContent="Phát"; }
-$("#vd-play").onclick=()=>{ if(V.timer) vstop(); else { if(V.i>=V.n) vshow(1); vplay(); } };
+function vstop(){ if(V.timer){ clearInterval(V.timer); V.timer=null; } if(V.raf){ cancelAnimationFrame(V.raf); V.raf=0; } if(V.mode&&V.mode!=="img"&&!VV.paused) VV.pause(); $("#vd-play").textContent="Phát"; }
+VV.addEventListener("seeked",()=>{ if(V.mode!=="img") vTick(true); });
+window.addEventListener("resize",()=>{ if(V.mode==="src"&&$("#vdlg").open) vTick(true); });
+$("#vd-play").onclick=()=>{ if(V.timer||V.raf||(V.mode!=="img"&&!VV.paused)) vstop(); else { if(V.mode==="img"?V.i>=V.n:VV.ended) vshow(1); vplay(); } };
 $("#vd-seek").oninput=e=>{ vstop(); vshow(+e.target.value); };
-$("#vd-speed").onchange=()=>{ if(V.timer) vplay(); };
+$("#vd-speed").onchange=()=>{ if(V.mode!=="img") VV.playbackRate=+$("#vd-speed").value||1; else if(V.timer) vplay(); };
 $("#vd-tl").onclick=e=>{ const r=e.currentTarget.getBoundingClientRect(); vstop(); vshow(Math.max(1,Math.min(V.n,Math.round((e.clientX-r.left)/r.width*(V.n-1))+1))); };
-$("#vd-close").onclick=()=>{ vstop(); $("#vdlg").close(); }; $("#vdlg").addEventListener("close",vstop);
+$("#vd-close").onclick=()=>{ vstop(); $("#vdlg").close(); }; $("#vdlg").addEventListener("close",()=>{ vstop(); hwOff(); vUnload(); });
+// điều khiển mạch thật đúng nhịp video: trạng thái đèn ở khung i lấy từ light_runs.
+// Mạch cắm USB ngay máy đang xem: ghi thẳng xuống cổng USB (gần như tức thì). Mạch ở xa: gửi sớm hơn để bù trễ (USB qua máy khác ~1 giây, Wi-Fi ~2 giây).
+function hwDevIds(){ return [...new Set((((V.R||{}).layout||{}).lights||[]).map(l=>l.device_id).filter(Boolean))]; }
+function hwDevData(id){ const S=SER[id]; if(S&&S.last) return S.last; const d=devById(id); return (d&&d.data)||{}; }
+function hwPanel(){ if(!$("#vdlg").open||$("#vd-hw-row").hidden) return; const LI=((V.R||{}).layout||{}).lights||[];
+  $("#vd-hwdev").innerHTML=hwDevIds().map(id=>{ const d=devById(id), S=SER[id], data=hwDevData(id), keys=Object.keys(data);
+    const isNew=keys.some(k=>/^ch\d$/.test(k)), chs=(d&&d.channels)||[];
+    const conn=S?'<span class="pill ok">USB trên máy này</span>':d&&d.online?`<span class="pill ok">${d.kind==="usb"?"USB qua máy khác":"Wi-Fi"} · đang kết nối</span>`:'<span class="pill red">mất kết nối</span>';
+    const usbBtn=!S&&d&&d.kind==="usb"&&("serial" in navigator)?`<button class="btn" style="padding:3px 9px;font-size:12px" data-dusb="${id}">Kết nối USB trên máy này</button>`:"";
+    const bad=chs.filter(c=>d.kind==="usb"&&(c.pin===0||c.pin===1));
+    const warn=[];
+    if(bad.length) warn.push(`<b>${bad.map(c=>esc(c.name)).join(", ")}</b> đang khai báo chân ${bad.map(c=>c.pin).join(", ")} — chân 0 và 1 là đường USB của Arduino, cắm đèn vào đó mạch sẽ mất kết nối. Chuyển dây sang chân khác rồi sửa ở <b>Số đèn / kênh</b>.`);
+    if((S||d&&d.online)&&keys.length&&!isNew) warn.push(`Mạch đang chạy <b>code cũ</b> (chỉ gửi: ${esc(keys.slice(0,4).join(", "))}) nên <b>chưa hiểu lệnh bật đèn</b>. Bấm <b>Tải code</b>, nạp bằng Arduino IDE, đóng IDE rồi kết nối USB lại.`);
+    const rows=LI.filter(l=>l.device_id===id).map(l=>{ const want=V.hw[l.id], rep=data[l.output];
+      const ok=rep==null?"":(+rep>0)===!!want?' <span style="color:var(--ok)">✓ mạch đã nhận</span>':' <span style="color:var(--red)">✗ mạch chưa đổi</span>';
+      return `<div class="hwl"><span>${esc(l.name)} <span class="muted">${esc(l.output)}</span></span><span>${want==null?'<span class="muted">—</span>':`<b class="${want?"on":""}">${want?"BẬT":"tắt"}</b>`}${$("#vd-hw").checked?ok:""}</span></div>`; }).join("");
+    return `<div class="hwdev"><div class="row" style="gap:5px">🔌 <b>${esc(d?d.name:"Mạch #"+id)}</b> ${conn}</div>
+      ${warn.map(w=>`<div class="warnbox small" style="margin:0">${w}</div>`).join("")}
+      <div class="row" style="gap:5px">${usbBtn}${d?`<button class="btn" style="padding:3px 9px;font-size:12px" data-dl-ino="${id}">Tải code</button><button class="btn" style="padding:3px 9px;font-size:12px" data-dch="${id}">Số đèn / kênh</button><button class="btn" style="padding:3px 9px;font-size:12px" data-hwtest="${id}">Thử nháy đèn</button>`:""}</div>${rows}</div>`; }).join(""); }
+setInterval(()=>{ if($("#vdlg").open) hwPanel(); },700);
+document.addEventListener("click", async ev=>{ const t=ev.target.closest("[data-hwtest]"); if(!t) return; const id=+t.dataset.hwtest, d=devById(id), chs=(d&&d.channels)||[];
+  if(!chs.length){ toast("Mạch chưa khai báo đèn"); return; } vstop(); const was=$("#vd-hw").checked; $("#vd-hw").checked=false;
+  const send=async on=>{ const body={}; chs.forEach(c=>body[c.key]=on?(c.type==="led"?100:1):0); if(SER[id]){ serHold(id,4500); serWrite(id,body); } try{ await api(`/api/devices/${id}/cmd`,{method:"POST",body}); }catch(e){ toast(e.message); } };
+  toast("Đang bật thử tất cả đèn của mạch 3 giây…"); await send(1); setTimeout(async()=>{ await send(0); $("#vd-hw").checked=was; V.hw={}; toast("Đã tắt lại. Đèn có sáng không? Không sáng: xem cảnh báo phía trên."); },3000); });
+function lightAt(lid,i){ let on=0; for(const r of ((V.R||{}).light_runs||{})[lid]||[]){ if(r[0]<=i) on=r[1]; else break; } return on; }
+function hwLead(li){ if(SER[li.device_id]) return 0.08; const d=devById(li.device_id); return d&&d.kind==="usb"?1.1:2.0; }
+function hwSend(li,on){ if(!li.device_id) return; const key=li.output||"relay", val=on?(lightIsLed(li)?(li.level||100):1):0;
+  const st=(V.hwState[li.device_id]=V.hwState[li.device_id]||{}); st[key]=val;
+  if(SER[li.device_id]){ serHold(li.device_id,5000); serWrite(li.device_id, {...st}); }
+  api(`/api/devices/${li.device_id}/cmd`,{method:"POST",body:{...st}}).catch(()=>{ V.netErr=(V.netErr||0)+1; }); }
+function hwSyncT(t){ const rate=VV.playbackRate||1; for(const li of ((V.R||{}).layout||{}).lights||[]){ if(!li.device_id) continue; serHold(li.device_id,3000);
+  const on=lightAt(li.id, vFrameAt(t+hwLead(li)*rate)); if(V.hw[li.id]!==on){ V.hw[li.id]=on; hwSend(li,on); } } }
+function hwSync(i){ V.hwState=V.hwState||{}; for(const li of ((V.R||{}).layout||{}).lights||[]){ const on=lightAt(li.id,i); if(V.hw[li.id]!==on){ V.hw[li.id]=on; hwSend(li,on); } } }
+function hwOff(){ if(!V||!V.hw) return; V.hwState=V.hwState||{}; for(const li of ((V.R||{}).layout||{}).lights||[]) if(V.hw[li.id]){ hwSend(li,0); } V.hw={}; }
+$("#vd-hw").onchange=e=>{ if(e.target.checked){ V.hw={}; V.hwState={}; if(V.mode==="img") hwSync(V.i); else hwSyncT(VV.currentTime||0); toast("Đèn thật sẽ bật/tắt theo video"); } else hwOff(); };
 $("#vd-events").addEventListener("click",e=>{ const el=e.target.closest("[data-vk]"); if(!el) return; const ev=V.ev[+el.dataset.vk];
   vstop(); vshow(Math.max(1,Math.min(V.n, ev.frame||Math.round(ev.t*V.fps)+1))); });
-document.addEventListener("click", async ev=>{ const t=ev.target.closest("[data-vopen],[data-vdel],[data-vretry]"); if(!t) return;
+document.addEventListener("click", async ev=>{ const t=ev.target.closest("[data-vopen],[data-vdel],[data-vretry],[data-pedit]"); if(!t) return;
   if(t.dataset.vopen) openVideo(+t.dataset.vopen);
+  else if(t.dataset.pedit) peditStart(+t.dataset.pedit, t.dataset.name);
   else if(t.dataset.vretry){ t.disabled=true; try{ await api(`/api/videos/${t.dataset.vretry}/retry`,{method:"POST"}); toast("Đã đưa vào hàng chờ — AI trên máy chủ sẽ phân tích lại"); refresh(); }catch(e){ toast(e.message); t.disabled=false; } }
   else { if(!confirm(`Xoá video "${t.dataset.name}" và kết quả? Nếu đang phân tích, máy chủ sẽ dừng.`)) return;
     try{ await api(`/api/videos/${t.dataset.vdel}/delete`,{method:"POST"}); toast("Đã xoá video"); refresh(); }catch(e){ toast(e.message); } } });
+
+// ------------------------------------------------ NGƯỜI & MÔI TRƯỜNG: tổng quan
+const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
+async function renderPenv(){
+  const o=await api("/api/overview"), T=o.totals; PLACES=o.places;
+  $("#pe-people").textContent=T.people; $("#pe-people-sub").textContent=`ở ${T.places} địa điểm`; $("#pe-cams").textContent=T.cams_online;
+  const ds=o.places.flatMap(p=>(p.sensors||[]).filter(d=>d.online).map(d=>d.data||{}));
+  for(const it of (o.integrations||[])){ const s=it.sensors||{}; if(it.online&&s) ds.push({temp:s.temp_in,hum:s.humidity,lux:s.lux_window}); }
+  const pick=k=>ds.map(d=>d[k]).filter(v=>typeof v==="number");
+  const tp=avg(pick("temp")), hm=avg(pick("hum")), lx=avg(pick("lux"));
+  $("#pe-temp").textContent=tp!=null?`${tp.toFixed(1)}°C`:"—"; $("#pe-temp-sub").textContent=hm!=null?`độ ẩm ${Math.round(hm)}% · ${pick("temp").length} cảm biến`:(tp!=null?`${pick("temp").length} cảm biến`:"chưa có cảm biến nhiệt độ");
+  $("#pe-lux").textContent=lx!=null?Math.round(lx):"—"; $("#pe-lux-sub").textContent=lx!=null?`lux · ${pick("lux").length} cảm biến`:"chưa có cảm biến ánh sáng";
+  const ints=(o.integrations||[]).filter(i=>(i.lighting&&i.lighting.enabled)||(i.ac&&i.ac.enabled));
+  $("#pe-int-card").hidden=!isAdmin()||!ints.length;
+  setHTML($("#pe-int"), ints.map(i=>`<div class="row" style="margin-bottom:8px"><b>${esc(i.name)}</b>${i.online?"":'<span class="pill red">mất kết nối</span>'}
+    ${i.lighting&&i.lighting.enabled?`<span class="pill warn">Đèn: ${i.lighting.pwm.map((v,k)=>`vùng ${k+1} ${Math.round(v)}%`).join(" · ")}</span>`:""}
+    ${i.ac&&i.ac.enabled?`<span class="pill ${i.ac.power?"ok":""}">Điều hoà: ${i.ac.power?`bật ${i.ac.temp??""}°C`:"tắt"}</span>`:""}</div>`).join(""));
+  setHTML($("#pe-places"), o.places.length?`<div class="places big">${o.places.map(p=>placeCard(p,true)).join("")}</div>`:'<div class="empty">Chưa có địa điểm.</div>');
+  chart($("#pe-chart"), o.series);
+}
+
+// ------------------------------------------------ GIAO THÔNG: nhúng trang của gói traffic_safety_ai (chỉ quản trị viên)
+function renderTraffic(){
+  const box=$(`#v-${view} .tbox`); if(!box || box.dataset.ready) return; box.dataset.ready="1";
+  const path="/traffic/"+box.dataset.tpath;
+  if(REMOTE){ box.innerHTML=`<div class="card"><div class="body"><p>Trang Giao thông mở trong tab riêng (dashboard đang chạy trên GitHub Pages).</p>
+    <a class="btn dark" target="_blank" rel="noopener" href="${API}${path}?t=${encodeURIComponent(TOKEN)}">Mở trang Giao thông</a></div></div>`; return; }
+  box.innerHTML=`<iframe class="tframe" src="${path}" title="Giao thông"></iframe>
+    <p class="hint">Thử video: kéo-thả video, vẽ vỉa hè / vạch / làn / đèn tín hiệu ngay trên hình, bấm chạy. Hồ sơ vi phạm ở mục <b>Xử lý vi phạm</b>.
+    <a href="${path}" target="_blank" rel="noopener">Mở toàn màn hình</a></p>`;
+}
+
+// ------------------------------------------------ HÀNH VI: train lại AI từ đánh giá cảnh báo
+const TRG={behavior:"Model hành vi",hazards:"Cháy/khói + hút thuốc",person:"YOLO người",all:"Tất cả model"};
+async function renderTrain(){
+  const r=await api("/api/admin/retrain"), v=r.verdicts||{true:0,false:0,by_kind:{}}, st=r.state||{};
+  setHTML($("#tr-kpis"), `<div class="kpi"><div class="l">Đánh giá “Đúng”</div><div class="v" style="color:var(--ok)">${v.true}</div><div class="muted small">mẫu sự kiện thật</div></div>
+    <div class="kpi"><div class="l">Đánh giá “Báo nhầm”</div><div class="v" style="color:var(--warn)">${v.false}</div><div class="muted small">mẫu để AI bớt báo nhầm</div></div>
+    <div class="kpi"><div class="l">Theo loại</div><div class="small" style="margin-top:6px">${Object.entries(v.by_kind).map(([k,x])=>`${esc(KIND[k]||k)}: <b>${x.true}</b> đúng · <b>${x.false}</b> nhầm`).join("<br>")||'<span class="muted">chưa có đánh giá</span>'}</div></div>
+    <div class="kpi"><div class="l">Máy chủ AI</div><div class="v" style="font-size:22px;color:${r.ai_online?"var(--ok)":"var(--red)"}">${r.ai_online?"Đang chạy":"Chưa chạy"}</div><div class="muted small">${r.ai_online?esc(r.edge):"mở ARES_MAY_CHU.bat"}${r.classifier?" · đã có model hành vi":r.ai_online?" · chưa có model hành vi (đang dùng luật)":""}</div></div>`);
+  let html="";
+  if(st.running) html=`<div class="warnbox"><b>Đang train ${esc(TRG[st.target]||"")}</b> — ${esc(st.message||"")} · bắt đầu ${ago(st.started)}
+      <pre class="logbox">${esc((st.log||[]).join("\n"))||"…"}</pre></div>`;
+  else if(st.finished) html=`<div class="${st.ok?"vstat":"warnbox"}" style="display:block"><b>Lần train gần nhất (${tfmt(st.finished)}): ${st.ok?"xong":"chưa thành công"}</b>
+      <div class="small" style="margin-top:4px">${esc(st.message||"")}</div>${(st.log||[]).length?`<details><summary class="small">Nhật ký</summary><pre class="logbox">${esc(st.log.join("\n"))}</pre></details>`:""}</div>`;
+  setHTML($("#tr-state"), html);
+  $("#tr-go").disabled=!r.ai_online||!!st.running;
+  const B=r.behavior||{}, P=B.ppe||{}, HZ=B.hazards||{}, M=(r.classifier_info||{}).metrics||{};
+  const mrow=(name,ok,detail)=>`<tr><td><b>${name}</b></td><td>${ok?'<span class="pill ok">đang chạy</span>':'<span class="pill">chưa có</span>'}</td><td class="small">${detail}</td></tr>`;
+  setHTML($("#tr-models"), r.ai_online?`<table><tbody>
+    ${mrow("YOLO-pose (khung xương)",true,"té ngã, nằm, ngồi gục, đánh nhau theo luật")}
+    ${mrow("Model hành vi ST-GCN",!!r.classifier,r.classifier?`train lúc ${esc(r.classifier_info&&r.classifier_info.trained_at||"?")}${M.macro_f1!=null?` · macro-F1 ${(+M.macro_f1).toFixed(2)}`:""}`:"chưa train — đang dùng luật")}
+    ${mrow("Đồ bảo hộ",!!P.ready,P.ready?`${esc((P.models||[P.weights]).join(" + "))} · nhận: ${esc((P.items||[]).join(", "))}`:esc(P.error||P.hint||""))}
+    ${Object.entries(HZ).map(([k,h])=>mrow(esc(h.name||k),!!h.ready,h.ready?`${esc(h.weights)} · giấy phép ${esc(h.license||"?")}`:esc(h.error||h.hint||""))).join("")}
+  </tbody></table>`:'<span class="muted small">Máy chủ AI chưa chạy.</span>');
+  const h=r.history||[]; $("#tr-hist-empty").hidden=h.length>0;
+  setHTML($("#tr-hist"), h.map(x=>`<tr><td>${tfmt(x.created)}</td><td>${esc(x.by||"")}</td><td>${esc(TRG[x.target]||x.target)}</td>
+    <td>${x.done?`<span class="pill ${x.ok?"ok":"red"}">${x.ok?"đã nhận":"lỗi"}</span> <span class="small">${esc(x.message||"")}</span>`:'<span class="pill warn">chờ máy AI nhận</span>'}</td></tr>`).join(""));
+}
+$("#tr-go").onclick=async()=>{ const target=$("#tr-target").value, epochs=+$("#tr-epochs").value||40;
+  if(!confirm(`Train lại ${TRG[target]} trên máy chủ AI? GPU sẽ bận vài phút.`)) return;
+  try{ const r=await api("/api/admin/retrain",{method:"POST",body:{target,epochs}}); $("#tr-msg").textContent=r.message; refresh(); }catch(e){ toast(e.message); } };
+
+// ------------------------------------------------ NGƯỜI & MÔI TRƯỜNG: thử video — vẽ vùng, gán đèn vào vùng
+const ZCOL=["#3ca0e6","#5ac85a","#dc6ec8","#f0aa3c","#3cb4b4","#f0788c","#9b78f0","#b4b43c"];
+let LAY={zones:[],lights:[],off_delay_s:10,min_people:1}, ZBG=null, ZDRAW=null, ZSEL=-1, ZDRAG=null, ZDEVS=[], PEDIT=null;
+const zc=$("#zc"), zx=zc.getContext("2d");
+const zid=()=>"z"+Math.random().toString(36).slice(2,7), lid=()=>"l"+Math.random().toString(36).slice(2,7);
+let ZDEVS_T=0;
+let ZDEVS_SIG="";
+async function loadDevices(){ if(Date.now()-ZDEVS_T<30000) return; ZDEVS_T=Date.now(); try{ const r=await api("/api/devices"); ZDEVS=r.items;
+  const sig=JSON.stringify(ZDEVS.map(d=>[d.id,d.name,d.online,d.place_name,(d.channels||[]).map(c=>c.key+c.name+c.type)]));  // chỉ vẽ lại danh sách đèn khi danh sách mạch đổi
+  if(sig!==ZDEVS_SIG && (!document.activeElement||!document.activeElement.closest(".zside"))){ ZDEVS_SIG=sig; zLists(); } }catch(_){ } }
+function zSetBg(src, w, h){ ZBG=src; zc.width=w; zc.height=h; $("#zc-hint").textContent="Bấm “+ Vẽ vùng” rồi bấm các góc của vùng trên hình."; zDraw(); }
+function zPt(e){ const r=zc.getBoundingClientRect(); return [Math.min(1,Math.max(0,(e.clientX-r.left)/r.width)), Math.min(1,Math.max(0,(e.clientY-r.top)/r.height))]; }
+function zDraw(){
+  const W=zc.width,H=zc.height; zx.clearRect(0,0,W,H);
+  if(ZBG) zx.drawImage(ZBG,0,0,W,H); else { zx.fillStyle="#111"; zx.fillRect(0,0,W,H); }
+  const lit=new Set(LAY.lights.flatMap(l=>l.zones));
+  const live=ZMODE==="live"&&ZSTATE&&ZSTATE.active, litNow=new Set(live?LAY.lights.filter(l=>(ZSTATE.lights[l.id]||{}).on).flatMap(l=>l.zones):[]);
+  LAY.zones.forEach((z,k)=>{ const c=ZCOL[k%ZCOL.length]; zx.beginPath(); z.poly.forEach(([x,y],i)=>i?zx.lineTo(x*W,y*H):zx.moveTo(x*W,y*H)); zx.closePath();
+    const cc=litNow.has(z.id)?"#ffd400":c;
+    zx.globalAlpha=litNow.has(z.id)?.38:k===ZSEL?.32:.2; zx.fillStyle=cc; zx.fill(); zx.globalAlpha=1; zx.lineWidth=k===ZSEL?2:1.2; zx.strokeStyle=c; zx.stroke();
+    if(z.entry){ zx.setLineDash([6,4]); zx.strokeStyle="#fff"; zx.stroke(); zx.setLineDash([]); }
+    z.poly.forEach(([x,y])=>{ zx.beginPath(); zx.arc(x*W,y*H,4,0,7); zx.fillStyle="#fff"; zx.fill(); });
+    const mx=Math.min(...z.poly.map(p=>p[0]))*W, my=Math.min(...z.poly.map(p=>p[1]))*H, fs=Math.max(12,W/60);
+    zx.font=`bold ${fs}px system-ui`; const lab=z.name+(live?` · ${ZSTATE.counts[z.id]??0} người`:"")+(live?(litNow.has(z.id)?" · ĐÈN BẬT":""):(lit.has(z.id)?" · có đèn":""))+(z.entry?" · cửa":""), tw=zx.measureText(lab).width;
+    zx.fillStyle="rgba(0,0,0,.6)"; zx.fillRect(mx+3,my+3,tw+10,fs+8); zx.fillStyle="#fff"; zx.fillText(lab,mx+8,my+fs+5); });
+  if(ZDRAW){ zx.strokeStyle="#ffd400"; zx.lineWidth=2; zx.beginPath(); ZDRAW.forEach(([x,y],i)=>i?zx.lineTo(x*W,y*H):zx.moveTo(x*W,y*H)); zx.stroke();
+    ZDRAW.forEach(([x,y],i)=>{ zx.beginPath(); zx.arc(x*W,y*H,i?4:7,0,7); zx.fillStyle=i?"#ffd400":"#ff3b3b"; zx.fill(); }); }
+}
+function zStopDraw(){ ZDRAW=null; $("#z-done").hidden=$("#z-cancel").hidden=true; $("#z-draw").hidden=false; }
+function zFinish(){ if(!ZDRAW||ZDRAW.length<3){ toast("Vùng cần ít nhất 3 góc"); return; }
+  LAY.zones.push({id:zid(),name:`Vùng ${LAY.zones.length+1}`,poly:ZDRAW.map(p=>[+p[0].toFixed(4),+p[1].toFixed(4)]),entry:false});
+  ZSEL=LAY.zones.length-1; zStopDraw(); zDirty();
+  if(!LAY.lights.length && !ZDEVS.length) LAY.lights.push({id:lid(),name:"Đèn 1",zones:[LAY.zones[ZSEL].id],device_id:null,output:"relay",level:100});
+  zLists(); zDraw(); }
+$("#z-draw").onclick=()=>{ if(!ZBG){ toast(ZMODE==="live"?"Camera chưa có hình — đợi hình hiện ra rồi vẽ":"Chọn video trước để có khung hình"); return; } ZDRAW=[]; $("#z-draw").hidden=true; $("#z-done").hidden=$("#z-cancel").hidden=false;
+  $("#zc-hint").textContent="Bấm các góc của vùng. Bấm lại điểm đỏ (điểm đầu) hoặc “Xong vùng” để đóng."; zDraw(); };
+$("#z-done").onclick=zFinish; $("#z-cancel").onclick=()=>{ zStopDraw(); zDraw(); };
+zc.addEventListener("pointerdown",e=>{ const p=zPt(e), W=zc.getBoundingClientRect().width, H=zc.getBoundingClientRect().height;
+  if(ZDRAW){ if(ZDRAW.length>=3 && Math.hypot((ZDRAW[0][0]-p[0])*W,(ZDRAW[0][1]-p[1])*H)<12){ zFinish(); return; } ZDRAW.push(p); zDraw(); return; }
+  for(let k=LAY.zones.length-1;k>=0;k--) for(let i=0;i<LAY.zones[k].poly.length;i++){ const q=LAY.zones[k].poly[i];
+    if(Math.hypot((q[0]-p[0])*W,(q[1]-p[1])*H)<10){ ZDRAG=[k,i]; ZSEL=k; zc.setPointerCapture(e.pointerId); zLists(); zDraw(); return; } }
+  ZSEL=LAY.zones.findIndex(z=>{ let ins=false; const P=z.poly; for(let i=0,j=P.length-1;i<P.length;j=i++){ if((P[i][1]>p[1])!==(P[j][1]>p[1]) && p[0]<(P[j][0]-P[i][0])*(p[1]-P[i][1])/((P[j][1]-P[i][1])||1e-9)+P[i][0]) ins=!ins; } return ins; });
+  zLists(); zDraw(); });
+zc.addEventListener("pointermove",e=>{ if(!ZDRAG) return; zDirty(); const p=zPt(e); LAY.zones[ZDRAG[0]].poly[ZDRAG[1]]=[+p[0].toFixed(4),+p[1].toFixed(4)]; zDraw(); });
+zc.addEventListener("pointerup",()=>{ ZDRAG=null; });
+zc.addEventListener("dblclick",()=>{ if(ZDRAW) zFinish(); });
+function devById(id){ return ZDEVS.find(d=>d.id===+id)||(typeof DEVS!=="undefined"?DEVS.find(d=>d.id===+id):null); }
+function outOpts(l){ const d=l.device_id?devById(l.device_id):null, chs=(d&&d.channels)||[];
+  if(chs.length) return chs.map(c=>`<option value="${c.key}" ${l.output===c.key?"selected":""}>${esc(c.name)} (${c.key} · ${c.type==="led"?"LED %":"relay"})</option>`).join("")
+    +(["relay","led"].includes(l.output)?`<option value="${l.output}" selected>${l.output==="led"?"LED đơn (code cũ)":"Relay đơn (code cũ)"}</option>`:"");
+  return `<option value="relay" ${l.output==="relay"?"selected":""}>Relay (bật/tắt)</option><option value="led" ${l.output==="led"?"selected":""}>LED (độ sáng)</option>`; }
+function lightIsLed(l){ if(l.output==="led") return true; const d=l.device_id?devById(l.device_id):null; const c=d&&(d.channels||[]).find(x=>x.key===l.output); return !!(c&&c.type==="led"); }
+function devOpts(sel){ return `<option value="">Không gắn mạch (chỉ mô phỏng)</option>`+ZDEVS.map(d=>`<option value="${d.id}" ${+sel===d.id?"selected":""}>${esc(d.name)} · ${esc(d.place_name)}${d.online?"":" (mất kết nối)"}</option>`).join(""); }
+function zChips(l,k){ return LAY.zones.length?`<div class="zchips">`+LAY.zones.map((z,j)=>{ const on=l.zones.includes(z.id);
+    return `<label class="zchip ${on?"on":""}"><input type="checkbox" data-lzone="${k}" value="${z.id}" ${on?"checked":""}><span class="sw" style="background:${ZCOL[j%ZCOL.length]};width:10px;height:10px"></span>${esc(z.name)}</label>`; }).join("")+`</div>`
+  :'<span class="muted small">Vẽ vùng trên hình trước rồi gán.</span>'; }
+function zLamp(l,k,ch,legacyChs){
+  const tag=ch?`<span class="chtag">${esc(ch.key)} · ${ch.type==="led"?"LED %":"relay"}${ch.pin>=100?` · PCA CH${ch.pin-100}`:ch.pin>=0?` · chân ${ch.pin}`:""}</span>`
+    :l.device_id?(legacyChs.length?`<select data-lout="${k}" title="Đèn này đang dùng cổng kiểu cũ — chọn đèn tương ứng trên mạch">${outOpts(l)}</select>`
+                 :`<select data-lout="${k}">${outOpts(l)}</select>`)
+    :`<span class="chtag">mô phỏng</span>`;
+  const warnZ=!l.zones.length&&LAY.zones.length?'<span class="small" style="color:var(--red)">chưa gán vùng</span>':"";
+  return `<div class="zlamp"><div class="row"><span>💡</span><input type="text" value="${esc(l.name)}" data-lname="${k}" maxlength="40">${tag}<button class="xbtn" data-ldel="${k}" title="Bỏ đèn này">×</button></div>
+    ${zChips(l,k)}
+    <div class="row small">${warnZ}${lightIsLed(l)?`Độ sáng khi bật <input type="number" min="1" max="100" value="${l.level||100}" data-llevel="${k}" style="width:60px">%`:""}
+    ${ZMODE==="live"?`<select data-lmode="${k}"><option value="auto" ${(l.mode||"auto")==="auto"?"selected":""}>Tự động theo người</option><option value="on" ${l.mode==="on"?"selected":""}>Luôn bật</option><option value="off" ${l.mode==="off"?"selected":""}>Luôn tắt</option></select> ${zLightPill(l)}`:""}</div></div>`; }
+function zLightGroups(){
+  if(!LAY.lights.length) return `<span class="muted small">${ZDEVS.length?"Chưa gắn mạch nào. Bấm <b>+ Chọn mạch để gán đèn</b> ở trên.":"Chưa có mạch nào — thêm mạch ở mục <b>Cảm biến</b>, hoặc dùng <b>+ Đèn mô phỏng</b> để thử."}</span>`;
+  const ids=[...new Set(LAY.lights.map(l=>l.device_id||0))];
+  return ids.map(id=>{
+    const lamps=LAY.lights.map((l,k)=>[l,k]).filter(([l])=>(l.device_id||0)===id);
+    if(!id) return `<div class="zdev"><div class="zdev-h"><b>Đèn mô phỏng</b><span class="small muted">không gắn mạch — chỉ hiện trên video</span></div>${lamps.map(([l,k])=>zLamp(l,k,null,[])).join("")}</div>`;
+    const d=devById(id), chs=(d&&d.channels)||[];
+    const have=new Set(lamps.map(([l])=>l.output)), missing=chs.filter(c=>!have.has(c.key));
+    const head=`<div class="zdev-h"><span>🔌</span><b>${esc(d?d.name:"Mạch #"+id)}</b>
+      ${d?`<span class="pill ${d.online?"ok":"red"}">${d.online?"đang kết nối":"mất kết nối"}</span>`:'<span class="pill red">mạch đã bị xoá</span>'}
+      <span class="small muted">${chs.length?`${chs.length} đèn trên mạch`:""}</span><span class="spacer" style="flex:1"></span>
+      ${d?`<button class="btn" style="padding:3px 9px;font-size:12px" data-dch="${id}">Sửa số đèn</button>`:""}<button class="xbtn" data-ldevdel="${id}" title="Bỏ mạch này khỏi bố trí">×</button></div>`;
+    const need=d&&!chs.length?`<div class="warnbox small" style="margin:0">Mạch chưa khai báo có mấy đèn. <button class="btn dark" style="padding:3px 9px;font-size:12px" data-dch="${id}">Khai báo số đèn</button></div>`:"";
+    const miss=missing.length?`<div class="row small">Đèn chưa dùng: ${missing.map(c=>`<button class="btn" style="padding:2px 8px;font-size:12px" data-lreadd="${id}" data-k="${c.key}">+ ${esc(c.name)}</button>`).join("")}</div>`:"";
+    return `<div class="zdev">${head}${need}${lamps.map(([l,k])=>zLamp(l,k,chs.find(c=>c.key===l.output),chs)).join("")}${miss}</div>`; }).join(""); }
+function zAttachDev(d){ const chs=d.channels||[]; let n=0;
+  for(const c of chs){ if(LAY.lights.some(l=>l.device_id===d.id&&l.output===c.key)) continue;
+    LAY.lights.push({id:lid(),name:c.name,zones:[],device_id:d.id,output:c.key,level:100,mode:"auto"}); n++; }
+  zDirty(); zLists(); zDraw(); if(n) toast(`Mạch "${d.name}" có ${chs.length} đèn — bấm vùng cho từng đèn`); }
+let CH_AFTER=null;
+$("#sdlg").addEventListener("close",()=>{ CH_AFTER=null; });
+function zLists(){
+  $("#z-list").innerHTML=LAY.zones.map((z,k)=>`<div class="zrow ${k===ZSEL?"on":""}" data-zk="${k}"><span class="sw" style="background:${ZCOL[k%ZCOL.length]}"></span>
+    <input type="text" value="${esc(z.name)}" data-zname="${k}" maxlength="40"><label class="small"><input type="checkbox" data-zentry="${k}" ${z.entry?"checked":""}> Cửa ra vào</label>
+    <button class="xbtn" data-zdel="${k}" title="Xoá vùng">×</button></div>`).join("")||'<span class="muted small">Chưa có vùng. Không vẽ vùng thì AI chỉ đếm người cả khung hình.</span>';
+  $("#l-list").innerHTML=zLightGroups();
+  $("#l-delay").value=LAY.off_delay_s; $("#l-min").value=LAY.min_people||1;
+}
+$("#zed").addEventListener("input",e=>{ zDirty(); const d=e.target.dataset;
+  if(d.zname!=null){ LAY.zones[+d.zname].name=e.target.value; zDraw(); }
+  else if(d.lname!=null) LAY.lights[+d.lname].name=e.target.value;
+  else if(d.llevel!=null) LAY.lights[+d.llevel].level=Math.max(1,Math.min(100,+e.target.value||100)); });
+$("#zed").addEventListener("change",e=>{ zDirty(); const d=e.target.dataset;
+  if(d.zentry!=null){ LAY.zones[+d.zentry].entry=e.target.checked; zDraw(); }
+  else if(d.lzone!=null){ const l=LAY.lights[+d.lzone]; l.zones=e.target.checked?[...new Set([...l.zones,e.target.value])]:l.zones.filter(x=>x!==e.target.value); zLists(); zDraw(); }
+  else if(d.ldev!=null){ const l=LAY.lights[+d.ldev]; l.device_id=e.target.value?+e.target.value:null;
+    const dv=l.device_id?devById(l.device_id):null, chs=(dv&&dv.channels)||[];
+    if(chs.length){ const used=new Set(LAY.lights.filter(x=>x!==l&&x.device_id===l.device_id).map(x=>x.output)); l.output=(chs.find(c=>!used.has(c.key))||chs[0]).key; }
+    else if(!["relay","led"].includes(l.output)) l.output="relay";
+    zLists(); }
+  else if(d.lout!=null){ LAY.lights[+d.lout].output=e.target.value; zLists(); }
+  else if(d.lmode!=null) LAY.lights[+d.lmode].mode=e.target.value;
+  else if(e.target.id==="l-delay") LAY.off_delay_s=Math.max(0,Math.min(600,+e.target.value||0));
+  else if(e.target.id==="l-min") LAY.min_people=Math.max(1,Math.min(50,+e.target.value||1)); });
+$("#zed").addEventListener("click",e=>{ if(e.target.dataset.zdel!=null||e.target.dataset.ldel!=null) zDirty(); if(e.target.dataset.dch!=null) return; const d=e.target.dataset;
+  if(d.zdel!=null){ const z=LAY.zones.splice(+d.zdel,1)[0]; LAY.lights.forEach(l=>l.zones=l.zones.filter(x=>x!==z.id)); ZSEL=-1; zLists(); zDraw(); }
+  else if(d.ldel!=null){ LAY.lights.splice(+d.ldel,1); zLists(); zDraw(); }
+  else if(d.ldevdel!=null){ const id=+d.ldevdel, n=LAY.lights.filter(l=>(l.device_id||0)===id).length;
+    if(n>1&&!confirm(`Bỏ mạch này và ${n} đèn của nó khỏi bố trí? (Không xoá mạch.)`)) return;
+    zDirty(); LAY.lights=LAY.lights.filter(l=>(l.device_id||0)!==id); zLists(); zDraw(); }
+  else if(d.lreadd!=null){ const dv=devById(d.lreadd), c=dv&&(dv.channels||[]).find(x=>x.key===d.k); if(!c) return;
+    zDirty(); LAY.lights.push({id:lid(),name:c.name,zones:[],device_id:dv.id,output:c.key,level:100,mode:"auto"}); zLists(); }
+  else if(e.target.closest("[data-zk]") && !e.target.matches("input,button,label")){ ZSEL=+e.target.closest("[data-zk]").dataset.zk; zLists(); zDraw(); } });
+function zFillDevSel(){ const used=new Set(LAY.lights.map(l=>l.device_id).filter(Boolean));
+  $("#l-fromdev").innerHTML='<option value="">+ Chọn mạch để gán đèn…</option>'+ZDEVS.map(d=>`<option value="${d.id}" ${used.has(d.id)&&(d.channels||[]).every(c=>LAY.lights.some(l=>l.device_id===d.id&&l.output===c.key))?"disabled":""}>${esc(d.name)} — ${(d.channels||[]).length?d.channels.length+" đèn":"chưa khai báo đèn"}${d.online?"":" (mất kết nối)"}</option>`).join("")
+    +(ZDEVS.length?"":'<option value="" disabled>(chưa có mạch — thêm ở mục Cảm biến)</option>'); }
+$("#l-fromdev").onfocus=$("#l-fromdev").onmousedown=zFillDevSel;
+$("#l-fromdev").onchange=e=>{ const d=devById(e.target.value); e.target.value=""; if(!d) return;
+  if((d.channels||[]).length){ zAttachDev(d); return; }
+  CH_AFTER=dv=>{ if((dv.channels||[]).length) zAttachDev(dv); };
+  openChannels(d.id); };
+$("#l-add").onclick=()=>{ LAY.lights.push({id:lid(),name:`Đèn mô phỏng ${LAY.lights.filter(l=>!l.device_id).length+1}`,zones:ZSEL>=0&&LAY.zones[ZSEL]?[LAY.zones[ZSEL].id]:[],device_id:null,output:"relay",level:100,mode:"auto"}); zDirty(); zLists(); zDraw(); };
+$("#lay-save").onclick=()=>{ LS.set("ares_layout",JSON.stringify(LAY)); toast("Đã lưu bố trí trên máy này"); };
+$("#lay-load").onclick=()=>{ try{ const L=JSON.parse(LS.get("ares_layout")||"null"); if(!L){ toast("Chưa lưu bố trí nào"); return; } LAY=L; ZSEL=-1; zLists(); zDraw(); toast("Đã dùng bố trí đã lưu"); }catch(_){ toast("Bố trí đã lưu bị hỏng"); } };
+$("#lay-clear").onclick=()=>{ if(!confirm("Xoá hết vùng và đèn?")) return; LAY={zones:[],lights:[],off_delay_s:LAY.off_delay_s,min_people:LAY.min_people}; ZSEL=-1; zLists(); zDraw(); };
+$("#pf").onchange=()=>{ const f=$("#pf").files[0]; $("#pf-name").textContent=f?`${f.name} (${mb(f.size)})`:"Chưa chọn file"; $("#pf-msg").textContent=""; if(!f) return;
+  peditStop(); const v=document.createElement("video"); v.muted=true; v.preload="auto"; const url=URL.createObjectURL(f); v.src=url;
+  v.onloadeddata=()=>{ v.currentTime=Math.min(0.5,(v.duration||1)/2); };
+  v.onseeked=()=>{ const c=document.createElement("canvas"); c.width=v.videoWidth; c.height=v.videoHeight; c.getContext("2d").drawImage(v,0,0);
+    const sc=Math.min(1,960/c.width); zSetBg(c, Math.round(c.width*sc), Math.round(c.height*sc)); URL.revokeObjectURL(url); };
+  v.onerror=()=>{ $("#zc-hint").textContent="Trình duyệt không xem trước được định dạng này (vd .avi/.mkv). Vẫn tải lên được — sau đó bấm “Sửa vùng/đèn” ở bảng dưới để vẽ trên khung hình máy chủ trích ra."; }; };
+function layoutBody(){ return {zones:LAY.zones,lights:LAY.lights,off_delay_s:LAY.off_delay_s,min_people:LAY.min_people||1}; }
+$("#pf-up").onclick=()=>{
+  const f=$("#pf").files[0]; if(!f){ toast("Chọn file video trước"); return; }
+  if(f.size>500*1048576){ toast("Video tối đa 500 MB"); return; }
+  if(LAY.lights.some(l=>!l.zones.length) && !confirm("Có đèn chưa gán vùng nào (đèn đó sẽ luôn tắt). Vẫn tải lên?")) return;
+  const xhr=new XMLHttpRequest(); xhr.open("POST",`${API}/api/videos?kind=people&name=${encodeURIComponent(f.name)}&opts=${encodeURIComponent(JSON.stringify(layoutBody()))}`);
+  xhr.setRequestHeader("X-ARES","1"); if(TOKEN) xhr.setRequestHeader("Authorization","Bearer "+TOKEN); xhr.setRequestHeader("Content-Type", f.type||"application/octet-stream");
+  $("#pf-bar").hidden=false; $("#pf-up").disabled=true;
+  xhr.upload.onprogress=e=>{ if(e.lengthComputable){ const p=e.loaded/e.total; $("#pf-bar i").style.width=`${p*100}%`; $("#pf-msg").textContent=`Đang tải lên ${Math.round(p*100)}%`; } };
+  xhr.onload=()=>{ $("#pf-up").disabled=false; $("#pf-bar").hidden=true; $("#pf-bar i").style.width="0"; let d={}; try{ d=JSON.parse(xhr.responseText); }catch(_){}
+    if(xhr.status===200){ $("#pf-msg").textContent="Đã tải lên — AI trên máy chủ đang đếm người theo vùng, kết quả ở bảng dưới."; LS.set("ares_layout",JSON.stringify(LAY)); refresh(); }
+    else if(xhr.status===401) start(); else $("#pf-msg").textContent=(d.detail||`Lỗi ${xhr.status}`); };
+  xhr.onerror=()=>{ $("#pf-up").disabled=false; $("#pf-bar").hidden=true; $("#pf-msg").textContent="Mất kết nối khi tải lên"; };
+  xhr.send(f);
+};
+async function peditStart(id, name){
+  let j; try{ j=await api(`/api/videos/${id}`); }catch(e){ toast(e.message); return; }
+  PEDIT=id; LAY=Object.assign({zones:[],lights:[],off_delay_s:10,min_people:1}, j.opts||{}); ZSEL=-1; zStopDraw();
+  $("#pedit-box").hidden=false; $("#pedit-name").textContent=name||j.name; $("#pf-up").disabled=true;
+  const im=new Image(); im.onload=()=>{ const sc=Math.min(1,960/im.naturalWidth); zSetBg(im, Math.round(im.naturalWidth*sc), Math.round(im.naturalHeight*sc)); };
+  im.src=U(`/api/videos/${id}/thumb.jpg`); zLists(); window.scrollTo({top:0,behavior:"smooth"}); }
+function peditStop(){ PEDIT=null; $("#pedit-box").hidden=true; $("#pf-up").disabled=false; }
+$("#pedit-cancel").onclick=peditStop;
+$("#pedit-apply").onclick=async()=>{ if(!PEDIT) return;
+  try{ await api(`/api/videos/${PEDIT}/opts`,{method:"POST",body:layoutBody()}); await api(`/api/videos/${PEDIT}/retry`,{method:"POST"});
+    toast("Đã lưu vùng/đèn — AI đang phân tích lại"); LS.set("ares_layout",JSON.stringify(LAY)); peditStop(); refresh(); }catch(e){ toast(e.message); } };
+zLists();
+
+// ------------------------------------------------ NGƯỜI & MÔI TRƯỜNG: VÙNG & ĐÈN cho camera thật (dùng chung trình vẽ với Thử video)
+let ZMODE="video", ZCAM="", ZSTATE=null, ZDIRTY=false, ZCAMS=[], ZSAVED={video:null, live:null};
+function zDirty(){ if(ZMODE!=="live") return; ZDIRTY=true; $("#zl-dirty").hidden=false; }
+function zMode(m){
+  if(m===ZMODE) return;
+  ZSAVED[ZMODE]={lay:LAY, bg:ZBG, w:zc.width, h:zc.height, hint:$("#zc-hint").textContent};
+  ZMODE=m; $(m==="live"?"#zl-host":"#zv-host").appendChild($("#zed"));
+  document.querySelectorAll(".zv-only").forEach(el=>el.hidden=m==="live");
+  const S=ZSAVED[m];
+  if(S){ LAY=S.lay; ZBG=S.bg; zc.width=S.w; zc.height=S.h; $("#zc-hint").textContent=S.hint; }
+  else if(m==="live"){ LAY={zones:[],lights:[],off_delay_s:10,min_people:1}; ZBG=null; $("#zc-hint").textContent="Chọn camera ở trên — hình trực tiếp sẽ hiện ra để vẽ vùng."; }
+  ZSEL=-1; zLists(); zDraw();
+}
+function zLightPill(l){ const st=ZSTATE&&ZSTATE.active&&ZSTATE.lights[l.id]; return `<span class="pill ${st&&st.on?"warn":""}" data-lpill="${esc(l.id)}">${st?(st.on?"đang BẬT":"đang tắt"):"chưa áp dụng"}</span>`; }
+const camKey=c=>`${c.site_id}/${encodeURIComponent(c.edge_id)}/${encodeURIComponent(c.cam_id)}`;
+async function zLoadCam(key){
+  ZCAM=key; LS.set("ares_zcam",key);
+  let r; try{ r=await api(`/api/zones/${key}`); }catch(e){ toast(e.message); return; }
+  LAY=Object.assign({zones:[],lights:[],off_delay_s:10,min_people:1}, r.layout||{}); LAY.lights.forEach(l=>l.mode=l.mode||"auto");
+  ZSTATE=r.state; ZDIRTY=false; $("#zl-dirty").hidden=true; ZSEL=-1; ZBG=null; zc.width=960; zc.height=540;
+  $("#zc-hint").textContent="Đang tải hình trực tiếp…"; zLists(); zDraw(); zBgTick(true); zPaintState();
+}
+let zBgBusy=false;
+function zBgTick(force){
+  if(view!=="pzones"||!ZCAM||zBgBusy) return;
+  const c=ZCAMS.find(x=>camKey(x)===ZCAM); if(!c) return;
+  if(!c.live){ if(force||!ZBG) $("#zc-hint").textContent=c.online?"Camera chưa gửi hình trực tiếp — kiểm tra ARES_MAY_CHU.bat (--live).":"Camera đang mất hình / chưa bật. Vẫn vẽ được nếu đã có hình trước đó."; return; }
+  zBgBusy=true; const im=new Image(); let u=U(liveSrc(c.site_id,c.edge_id,c.cam_id)); u+=(u.includes("?")?"&":"?")+"_="+Date.now();
+  im.onload=()=>{ zBgBusy=false; if(camKey(c)!==ZCAM||view!=="pzones") return;
+    const sc=Math.min(1,960/im.naturalWidth), w=Math.round(im.naturalWidth*sc), h=Math.round(im.naturalHeight*sc);
+    if(zc.width!==w||zc.height!==h){ zc.width=w; zc.height=h; }
+    if(!ZBG) $("#zc-hint").textContent="Hình trực tiếp (AI đã vẽ khung người). Bấm “+ Vẽ vùng” rồi bấm các góc vùng.";
+    ZBG=im; zDraw(); };
+  im.onerror=()=>{ zBgBusy=false; }; im.src=u;
+}
+setInterval(()=>zBgTick(false), 1000);
+function zPaintState(){
+  const st=ZSTATE||{active:false}, devs=Object.fromEntries(ZDEVS.map(d=>[d.id,d]));
+  $("#zl-age").textContent=!st.active?"":st.age_s==null?"· máy AI chưa gửi số người":st.stale?`· mất số liệu ${Math.round(st.age_s)} giây`:`· cập nhật ${st.age_s} giây trước`;
+  document.querySelectorAll("[data-lpill]").forEach(el=>{ const x=st.active&&st.lights[el.dataset.lpill]; el.className="pill "+(x&&x.on?"warn":""); el.textContent=x?(x.on?"đang BẬT":"đang tắt"):"chưa áp dụng"; });
+  if(!ZCAM){ setHTML($("#zl-state"),'<span class="muted small">Chọn camera ở trên.</span>'); return; }
+  if(!st.active){ setHTML($("#zl-state"),'<span class="muted small">Camera này chưa có bố trí vùng/đèn đang chạy — vẽ vùng, thêm đèn rồi bấm <b>Lưu &amp; áp dụng</b>.</span>'); return; }
+  const zn=Object.fromEntries((LAY.zones||[]).map(z=>[z.id,z.name]));
+  const warn=st.stale?`<div class="warnbox small" style="margin-bottom:10px"><b>Không có số liệu từ AI${st.age_s!=null?` ${Math.round(st.age_s)} giây`:""}.</b> Đèn chế độ Tự động đang được bật để an toàn. Kiểm tra camera và máy chủ AI.</div>`:"";
+  const zc_=Object.entries(st.counts||{}).map(([z,n])=>`<span class="pill ${n?"ok":""}">${esc(zn[z]||z)}: ${n} người</span>`).join("")||'<span class="muted small">chưa có vùng</span>';
+  const rows=(LAY.lights||[]).map(l=>{ const x=st.lights[l.id]||{}, d=l.device_id?devs[l.device_id]:null;
+    const ch=d&&(d.channels||[]).find(c=>c.key===l.output);
+    const dev=!l.device_id?'<span class="muted">không gắn mạch (chỉ mô phỏng)</span>':d?`${esc(d.name)} · ${ch?esc(ch.name)+" ("+ch.key+(ch.type==="led"?` · ${l.level||100}%`:" · relay")+")":l.output==="led"?`LED ${l.level||100}%`:"relay"} · ${d.online?'<span class="pill ok">mạch đang kết nối</span>':'<span class="pill red">mạch mất kết nối</span>'}${d.kind==="usb"?(SER[d.id]?' <span class="pill ok">USB ở máy này</span>':' <span class="small muted">(USB: cần dashboard mở ở máy cắm mạch)</span>'):""}`:`mạch #${l.device_id}`;
+    return `<tr><td><b>${esc(l.name)}</b></td><td>${x.on?'<span class="pill warn">BẬT</span>':'<span class="pill">tắt</span>'}</td><td class="small">${esc(x.reason||"")}</td><td class="small">${dev}</td></tr>`; }).join("");
+  setHTML($("#zl-state"), warn+`<div class="schips" style="margin-bottom:10px">${zc_}<span class="pill">tổng ${st.n} người trong khung</span></div>`
+    +(rows?`<div style="overflow-x:auto"><table><thead><tr><th>Đèn</th><th>Trạng thái</th><th>Vì sao</th><th>Mạch</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<span class="muted small">Chưa có đèn.</span>'));
+  zDraw();
+}
+function zPaintDevs(){
+  const used={}; (LAY.lights||[]).forEach(l=>{ if(l.device_id) (used[l.device_id]=used[l.device_id]||[]).push(l.name); });
+  setHTML($("#zl-devs"), ZDEVS.length?`<div class="devgrid">${ZDEVS.map(d=>`<div class="dev"><h3>${esc(d.name)}<span class="pill ${d.online?"ok":"red"}">${d.online?"đang kết nối":"mất kết nối"}</span></h3>
+      <div class="small muted">${esc(d.kind_label)} · ${esc(d.place_name)}${isAdmin()&&d.owner?" · "+esc(d.owner):""}</div>
+      <div class="small">Lệnh hiện tại: relay ${d.desired&&d.desired.relay!=null?(d.desired.relay?"BẬT":"tắt"):"—"} · LED ${d.desired&&d.desired.led!=null?d.desired.led+"%":"—"}</div>
+      <div class="small">${used[d.id]?"Điều khiển: "+used[d.id].map(esc).join(", "):'<span class="muted">chưa gán cho đèn nào ở camera này</span>'}</div>
+      ${d.kind==="usb"?`<div class="row">${SER[d.id]?`<span class="pill ok">Đang nối USB ở máy này</span><button class="btn" data-dusboff="${d.id}">Ngắt</button>`:`<button class="btn dark" data-dusb="${d.id}">Kết nối USB trên máy này</button>`}</div>`:""}</div>`).join("")}</div>`
+    :'<div class="empty">Chưa có mạch nào. Vào <b>Cảm biến</b> → Thêm mạch.</div>');
+}
+async function renderZones(){
+  const r=await api("/api/zones"); ZCAMS=r.cams;
+  const sel=$("#zl-cam"), html=ZCAMS.map(c=>`<option value="${camKey(c)}">${esc(c.name)} · ${esc(c.place_name)}${isAdmin()&&c.owner?" — "+esc(c.owner):""}${c.n_lights?` · ${c.lights_on}/${c.n_lights} đèn bật`:""}${c.online?"":" (mất hình)"}</option>`).join("");
+  if(sel.dataset.h!==html){ const cur=sel.value; sel.dataset.h=html; sel.innerHTML=html||'<option value="">Chưa có camera — bật camera ở “Camera của tôi” hoặc thêm camera IP</option>'; if([...sel.options].some(o=>o.value===cur)) sel.value=cur; }
+  if(!ZCAM && ZCAMS.length){ const want=LS.get("ares_zcam"); const k=ZCAMS.some(c=>camKey(c)===want)?want:camKey(ZCAMS.find(c=>c.n_zones)||ZCAMS.find(c=>c.live)||ZCAMS[0]); sel.value=k; await zLoadCam(k); }
+  const c=ZCAMS.find(x=>camKey(x)===ZCAM);
+  setHTML($("#zl-cam-st"), c?`<span class="pill ${c.live?"ok":c.online?"warn":"red"}">${c.live?"đang có hình":c.online?"chưa có hình trực tiếp":"mất hình"}</span> <span class="pill">${c.n_people} người</span>`:"");
+  ZDEVS_T=0; await loadDevices(); zPaintDevs();
+  try{ ZSTATE=(await api("/api/zones-state")).cams[ZCAM]||{active:false}; }catch(_){}
+  zPaintState();
+}
+$("#zl-cam").onchange=async e=>{ if(ZDIRTY && !confirm("Bỏ các thay đổi chưa áp dụng của camera này?")){ e.target.value=ZCAM; return; } await zLoadCam(e.target.value); };
+$("#zl-save").onclick=async()=>{ if(!ZCAM){ toast("Chọn camera trước"); return; }
+  if(LAY.lights.some(l=>!l.zones.length && (l.mode||"auto")==="auto") && !confirm("Có đèn Tự động chưa gán vùng nào (sẽ luôn tắt). Vẫn lưu?")) return;
+  try{ const r=await api(`/api/zones/${ZCAM}`,{method:"POST",body:layoutBody()}); ZSTATE=r.state; ZDIRTY=false; $("#zl-dirty").hidden=true;
+    LS.set("ares_layout",JSON.stringify(LAY)); toast("Đã áp dụng — máy AI nhận vùng mới trong ≤ 30 giây, đèn đổi theo người ngay sau đó"); refresh(); }catch(e){ toast(e.message); } };
+$("#zl-copy").onclick=()=>{ try{ const L=JSON.parse(LS.get("ares_layout")||"null"); if(!L){ toast("Máy này chưa lưu bố trí nào (vẽ ở Thử video hoặc bấm Lưu bố trí)"); return; }
+  LAY=Object.assign({zones:[],lights:[],off_delay_s:10,min_people:1},L); LAY.lights.forEach(l=>l.mode=l.mode||"auto"); ZSEL=-1; zDirty(); zLists(); zDraw(); toast("Đã chép bố trí — kiểm tra vùng khớp hình camera rồi bấm Lưu & áp dụng"); }catch(_){ toast("Bố trí đã lưu bị hỏng"); } };
+// mạch USB đang nối ở máy này: hỏi lệnh mới mỗi giây (đèn theo vùng phản hồi nhanh, không phải chờ mạch gửi số đo)
+setInterval(async()=>{ for(const id of Object.keys(SER)){ try{ const r=await api(`/api/devices/${id}/cmd`); serFromServer(+id, r.desired); }catch(_){} } },1000);
+
+// ------------------------------------------------ TÌM MẠCH USB: nghe mạch vài giây -> có code ARES thì tự thêm + nối; chưa có thì đưa code đúng chân
+const USB_CHIP={0x2341:"Arduino chính hãng",0x2a03:"Arduino chính hãng",0x1a86:"chip CH340 (Arduino Uno/Nano bản phổ thông)",0x10c4:"chip CP2102 (thường là ESP32 / ESP8266 NodeMCU)",
+  0x0403:"chip FTDI",0x303a:"ESP32-S3/C3 (cổng USB trực tiếp)",0x239a:"Adafruit"};
+const SENSOR_VI={temp:"nhiệt độ",hum:"độ ẩm",lux:"ánh sáng (lux)",light:"ánh sáng",motion:"chuyển động",gas:"khí gas",flame:"lửa",sound:"âm thanh",door:"cửa",dist:"khoảng cách",relay:"relay",led:"đèn LED",buzzer:"còi"};
+const USB_OPTS=[["DHT","Nhiệt độ + độ ẩm DHT11/22 (chân 2) — cần thư viện DHT"],["LDR","Cảm biến ánh sáng / quang trở (A0)"],["PIR","Cảm biến chuyển động PIR (chân 3)"],
+  ["GAS","Khí gas / khói MQ (A1)"],["BUZZER","Còi (chân 12)"],["RELAY",""],["LED",""]];  // RELAY/LED đơn: thay bằng kênh đèn
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function serProbe(port, ms){
+  await port.open({baudRate:115200});
+  const rd=port.readable.getReader(), dec=new TextDecoder(); let buf="", bytes=0, raw="", objs=[]; const end=Date.now()+ms;
+  try{ while(Date.now()<end && objs.length<2){
+      const r=await Promise.race([rd.read(), sleep(Math.max(50,end-Date.now())).then(()=>({timeout:true}))]);
+      if(r.timeout||r.done) break; bytes+=r.value.length; const txt=dec.decode(r.value,{stream:true}); buf+=txt; if(raw.length<200) raw+=txt;
+      let i; while((i=buf.indexOf("\n"))>=0){ const line=buf.slice(0,i).trim(); buf=buf.slice(i+1);
+        if(line.startsWith("{")){ try{ const o=JSON.parse(line); if(o&&typeof o==="object"&&Object.values(o).some(v=>typeof v==="number")) objs.push(o); }catch(_){} } }
+      if(buf.length>4000) buf=""; } }
+  finally{ try{ await rd.cancel(); }catch(_){} try{ rd.releaseLock(); }catch(_){} try{ await port.close(); }catch(_){} }
+  return {objs, bytes, raw:raw.replace(/[^\x20-\x7e\n]/g,"·").trim().slice(0,120)};
+}
+function placeOpts(){ return (PLACES.length?PLACES:[]).map(p=>`<option value="${p.id}">${esc(p.name)}${isAdmin()&&p.user_id!==ME.id?" — "+esc(p.owner):""}</option>`).join(""); }
+async function usbFind(){
+  if(!("serial" in navigator)){ toast("Trình duyệt này không đọc được USB — dùng Chrome/Edge (địa chỉ https hoặc trên chính máy) hoặc app ARES Viewer"); return; }
+  let port; try{ port=await navigator.serial.requestPort(); }catch(_){ return; }
+  for(const [id,S] of Object.entries(SER)) if(S.port===port){ toast("Cổng này đang nối với mạch đã có — không cần thêm lại"); return; }
+  const info=port.getInfo?port.getInfo():{}, chip=USB_CHIP[info.usbVendorId]||(info.usbVendorId?`mạch USB (mã hãng ${info.usbVendorId.toString(16)})`:"mạch USB");
+  $("#sd-title").textContent="Tìm mạch USB"; $("#sd-body").innerHTML=`<p>Đang nghe <b>${esc(chip)}</b>… (khoảng 7 giây — mạch Arduino tự khởi động lại khi mở cổng)</p><div class="bar2"><i style="width:100%;transition:width 7s linear"></i></div>`;
+  $("#sdlg").showModal();
+  let res; try{ res=await serProbe(port, 7000); }catch(e){ $("#sd-body").innerHTML=`<div class="warnbox"><b>Không mở được cổng USB.</b> ${esc(e.message||e)}<br>Đóng Arduino IDE / Serial Monitor (chỉ 1 chương trình mở được 1 cổng) rồi bấm lại.</div>`; return; }
+  if(!PLACES.length){ try{ PLACES=(await api("/api/places")).items; }catch(_){} }
+  try{ DEVS=(await api("/api/devices")).items; }catch(_){}
+  const free=DEVS.filter(d=>d.kind==="usb" && !SER[d.id]);
+  if(res.objs.length){  // ---- mạch đã chạy code ARES
+    const keys=[...new Set(res.objs.flatMap(o=>Object.keys(o)))], last=res.objs[res.objs.length-1];
+    const what=keys.map(k=>`${SENSOR_VI[k]||k}: <b>${esc(last[k])}</b>`).join(" · ");
+    const guess="Mạch "+(keys.includes("led")||keys.includes("relay")?"đèn":keys.map(k=>SENSOR_VI[k]||k).slice(0,2).join(", "));
+    $("#sd-body").innerHTML=`<div class="vstat" style="display:block"><b>Tìm thấy mạch đã nạp code ARES</b><div class="small" style="margin-top:4px">${esc(chip)} · đang gửi: ${what}</div></div>
+      ${free.length?`<p style="margin:14px 0 6px"><b>Nối vào mạch đã thêm</b> (nếu đây là mạch bạn đã tạo trước đó):</p>
+        <div class="row"><select id="uf-exist">${free.map(d=>`<option value="${d.id}">${esc(d.name)} · ${esc(d.place_name)}</option>`).join("")}</select><button class="btn dark" id="uf-use">Nối vào mạch này</button></div>
+        <p style="margin:14px 0 6px"><b>Hoặc thêm mạch mới:</b></p>`:`<p style="margin:14px 0 6px"><b>Thêm mạch này vào ARES:</b></p>`}
+      <div id="uf-ch" style="margin:8px 0"></div>
+      <div class="row"><input id="uf-name" value="${esc(guess)}" maxlength="60" style="flex:1;min-width:180px"><select id="uf-place">${placeOpts()}</select><button class="btn ${free.length?"":"dark"}" id="uf-add">Thêm &amp; kết nối</button></div>
+      <p class="hint">Mạch nối qua USB của máy này: giữ dashboard mở để mạch gửi số đo và nhận lệnh bật/tắt đèn. Lần sau mở lại, dashboard tự nối lại.</p>`;
+    const nCh=chCountGuess(res.objs);
+    const ufc=chEditor($("#uf-ch"), Array.from({length:nCh||1},(_,i)=>({name:`Đèn ${i+1}`,type:"led",pin:-1})));
+    const link=async id=>{ await serConnect(id,false,port); $("#sdlg").close(); ZDEVS_T=0; refresh(); };
+    if($("#uf-use")) $("#uf-use").onclick=()=>link(+$("#uf-exist").value);
+    $("#uf-add").onclick=async()=>{ const name=$("#uf-name").value.trim(); if(!name){ toast("Nhập tên mạch"); return; }
+      try{ const r=await api("/api/devices",{method:"POST",body:{name,kind:"usb",place_id:+$("#uf-place").value||null,channels:ufc.read()}}); toast("Đã thêm mạch "+name); await link(r.id); }catch(e){ toast(e.message); } };
+    return;
+  }
+  // ---- mạch chưa có code ARES
+  const esp=info.usbVendorId===0x10c4||info.usbVendorId===0x303a;
+  $("#sd-body").innerHTML=`<div class="warnbox"><b>Mạch chưa nạp code ARES.</b><div class="small" style="margin-top:4px">${esc(chip)} · ${res.bytes?`đang gửi dữ liệu khác: <code>${esc(res.raw)}</code>`:"không gửi gì trong 7 giây"}</div></div>
+    ${esp?'<p class="small">Đây có vẻ là <b>ESP32/ESP8266</b>: nên dùng bản <b>Wi-Fi</b> (thêm mạch ở mục Cảm biến, loại ESP32) — cắm nguồn ở đâu cũng chạy, không cần giữ dashboard mở. Vẫn muốn dùng qua USB thì tiếp tục bên dưới.</p>':""}
+    <p style="margin:12px 0 6px"><b>1. Chọn những thứ đã gắn vào mạch</b> (chân theo Arduino Uno/Nano):</p>
+    <div style="display:grid;gap:4px">${USB_OPTS.filter(([k,l])=>l).map(([k,l])=>`<label class="small"><input type="checkbox" data-ufs="${k}" ${["LDR"].includes(k)?"checked":""}> ${l}</label>`).join("")}</div>
+    <p style="margin:12px 0 6px"><b>Đèn gắn trên mạch</b> (mỗi đèn 1 kênh):</p><div id="uf-ch"></div>
+    <p style="margin:12px 0 6px"><b>2. Đặt tên, chọn địa điểm</b></p>
+    <div class="row"><input id="uf-name" value="Mạch đèn" maxlength="60" style="flex:1;min-width:180px"><select id="uf-place">${placeOpts()}</select>
+      <button class="btn dark" id="uf-mk">Thêm mạch &amp; tải code</button></div>
+    <ol class="steps" style="margin-top:12px"><li>Mở file vừa tải bằng <b>Arduino IDE</b> (IDE hỏi tạo thư mục thì bấm OK) → Tools → Board <b>Arduino Uno</b> → Tools → Port: cổng của mạch → <b>Upload</b>.
+        Không thấy cổng: cài driver <b>CH340</b> rồi cắm lại.</li>
+      <li><b>Đóng Arduino IDE</b>, quay lại đây bấm <b>Tìm mạch USB</b> lần nữa → chọn <b>Nối vào mạch này</b>.</li></ol>`;
+  const nCh=chCountGuess(res.objs);
+  const ufc=chEditor($("#uf-ch"), Array.from({length:nCh||1},(_,i)=>({name:`Đèn ${i+1}`,type:"led",pin:-1})));
+  $("#uf-mk").onclick=async()=>{ const name=$("#uf-name").value.trim(); if(!name){ toast("Nhập tên mạch"); return; }
+    const on=new Set([...document.querySelectorAll("[data-ufs]:checked")].map(x=>x.dataset.ufs));
+    try{ const r=await api("/api/devices",{method:"POST",body:{name,kind:"usb",place_id:+$("#uf-place").value||null,channels:ufc.read()}});
+      let code=await fetch(U(`/api/devices/${r.id}/firmware.ino`),{headers:AH()}).then(x=>x.text());
+      for(const [k] of USB_OPTS) code=code.replace(new RegExp(`(#define USE_${k}\\s+)[01]`),`$1${on.has(k)?1:0}`);
+      const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([code],{type:"text/plain"})); a.download=`ares_usb_${r.id}.ino`; a.click();
+      $("#uf-mk").disabled=true; $("#uf-mk").textContent="Đã thêm mạch, đã tải code"; toast("Nạp code xong thì bấm Tìm mạch USB lại"); ZDEVS_T=0; refresh(); }catch(e){ toast(e.message); } };
+}
+document.addEventListener("click", e=>{ if(e.target.closest(".usb-find")) usbFind(); });
+
+// ------------------------------------------------ KÊNH ĐÈN của mạch (mỗi kênh = 1 đèn): khai báo khi thêm mạch, sửa ở thẻ mạch
+const CH_TYPE_VI={led:"LED chỉnh độ sáng",relay:"Relay bật/tắt"};
+function chEditor(el, chs, kind){
+  el._chs=(chs||[]).map(c=>({name:c.name,type:c.type||"led",pin:c.pin??-1,_pca:(c.pin??-1)>=100})); el._kind=kind||"usb";
+  const paint=()=>{ const C=el._chs;
+    el.innerHTML=`<div class="row small"><b>Số đèn / kênh trên mạch:</b> <select data-chn>${[0,1,2,3,4,5,6,7,8].map(n=>`<option ${n===C.length?"selected":""}>${n}</option>`).join("")}</select>
+      <span class="muted">mỗi kênh = 1 đèn (1 chân điều khiển)</span></div>
+      ${C.map((c,i)=>`<div class="row small" style="margin-top:6px"><span class="pill">ch${i+1}</span>
+        <input type="text" value="${esc(c.name)}" data-chname="${i}" maxlength="40" style="flex:1;min-width:120px;padding:4px 8px">
+        <select data-chtype="${i}"><option value="led" ${c.type==="led"?"selected":""}>LED chỉnh độ sáng</option><option value="relay" ${c.type==="relay"?"selected":""}>Relay bật/tắt</option></select>
+        ${el._kind==="usb"?`<select data-chvia="${i}" title="Đèn nối thẳng chân Arduino hay qua mạch PCA9685"><option value="ard" ${c.pin<100?"selected":""}>chân Arduino</option><option value="pca" ${c.pin>=100?"selected":""}>PCA9685 kênh</option></select>`:"chân"}
+        <input type="number" min="0" max="${c.pin>=100?15:60}" value="${c.pin>=100?c.pin-100:c.pin>=0?c.pin:""}" placeholder="tự chọn" data-chpin="${i}" style="width:84px;padding:4px 6px"></div>`).join("")}
+      ${el._kind==="usb"&&C.length?`<div class="row small" style="margin-top:6px"><button class="btn" type="button" data-challpca style="padding:3px 9px;font-size:12px">Tất cả đèn nối qua PCA9685 (CH0, CH1, CH2…)</button>
+        <span class="muted">PCA9685: SDA → A4, SCL → A5, VCC → 5V, GND → GND</span></div>`:""}
+      ${C.some(c=>el._kind==="usb"&&(c.pin===0||c.pin===1))?`<div class="warnbox small" style="margin:6px 0 0">Chân <b>0 và 1</b> là đường USB của Arduino — không cắm đèn vào đó. Chọn chân khác (2–13).</div>`:""}
+      ${C.some(c=>el._kind==="usb"&&c.type==="led"&&c.pin>=0&&c.pin<100&&![3,5,6,9,10,11].includes(c.pin))?`<div class="small muted" style="margin-top:4px">Chân không có dấu ~ (vd 2, 4, 7, 8) chỉ bật/tắt được, không chỉnh độ sáng. Muốn chỉnh độ sáng trên Uno dùng chân 3, 5, 6, 9, 10, 11.</div>`:""}
+      ${C.length?`<p class="hint" style="margin:6px 0 0">Để trống chân = tự chọn (Arduino Uno: LED dùng chân ~ 9, 10, 11, 6, 5, 3 · relay dùng 7, 8, 4, 12…). Cắm dây khác thì ghi đúng số chân.</p>`:""}`; };
+  el.oninput=el.onchange=e=>{ const d=e.target.dataset;
+    if(d.chn!=null){ const n=+e.target.value; const pca=el._chs.some(c=>c._pca); while(el._chs.length<n) el._chs.push({name:`Đèn ${el._chs.length+1}`,type:"led",pin:-1,_pca:pca}); el._chs.length=n; paint(); }
+    else if(d.chname!=null) el._chs[+d.chname].name=e.target.value;
+    else if(d.chtype!=null) el._chs[+d.chtype].type=e.target.value;
+    else if(d.chpin!=null){ const c=el._chs[+d.chpin], pca=c.pin>=100||c._pca; c.pin=e.target.value===""?(pca?-1:-1):(pca?100+Math.max(0,Math.min(15,+e.target.value)):+e.target.value); c._pca=pca; if(e.type==="change") paint(); }
+    else if(d.chvia!=null&&e.type==="change"){ const c=el._chs[+d.chvia]; c._pca=e.target.value==="pca"; c.pin=c._pca?(c.pin>=100?c.pin:-1):(c.pin>=100?-1:c.pin); paint(); } };
+  el.onclick=e=>{ if(e.target.dataset.challpca==null) return; el._chs.forEach((c,i)=>{ c._pca=true; c.pin=100+i; }); paint(); };
+  el.read=()=>{ const used=new Set(el._chs.filter(c=>c.pin>=100).map(c=>c.pin));
+    return el._chs.map(c=>{ let pin=c.pin; if(c._pca&&pin<0){ pin=100; while(used.has(pin)) pin++; used.add(pin); } return {name:c.name.trim()||"Đèn",type:c.type,pin}; }); };
+  paint(); return el;
+}
+function chCountGuess(objs){  // số kênh đọc được từ dữ liệu mạch gửi: ch1..chN, hoặc mảng pwm / lux_zones (code ARES cũ)
+  let n=0; for(const o of objs||[]){ for(const k of Object.keys(o)){ const m=k.match(/^ch(\d)$/); if(m) n=Math.max(n,+m[1]); }
+    for(const k of ["pwm","lux_zones","lux_ceiling","zones"]) if(Array.isArray(o[k])) n=Math.max(n,o[k].length); }
+  return Math.min(8,n);
+}
+async function openChannels(id){
+  const d=DEVS.find(x=>x.id===id)||ZDEVS.find(x=>x.id===id); if(!d) return;
+  $("#sd-title").textContent=`Số đèn / kênh — ${d.name}`;
+  $("#sd-body").innerHTML=`<div id="chx"></div><div class="row" style="margin-top:12px"><button class="btn dark" id="chx-save">Lưu</button><span class="small muted" id="chx-msg"></span></div>
+    <p class="hint">Sau khi đổi số đèn hoặc chân: bấm <b>Hướng dẫn &amp; tải code</b> ở thẻ mạch, nạp lại code để mạch biết có bao nhiêu đèn.</p>`;
+  let pre=d.channels||[], guess=0;
+  if(!pre.length){ guess=chCountGuess([d.data||{},d.desired||{}]); pre=Array.from({length:guess},(_,i)=>({name:`Đèn ${i+1}`,type:"led",pin:-1})); }
+  const ed=chEditor($("#chx"), pre, d.kind==="usb"?"usb":d.kind);
+  if(guess) $("#sd-body").insertAdjacentHTML("afterbegin",`<div class="warnbox small" style="margin:0 0 10px">Mạch đang gửi dữ liệu của <b>${guess} đèn</b> — đã điền sẵn ${guess} kênh. Đặt tên, loại và chân cho đúng rồi bấm Lưu.</div>`);
+  $("#sdlg").showModal();
+  $("#chx-save").onclick=async()=>{ if(d.kind==="usb"&&ed.read().some(c=>c.pin===0||c.pin===1)){ toast("Chân 0 và 1 là đường USB — chọn chân khác"); return; } try{ const r=await api(`/api/devices/${id}`,{method:"POST",body:{channels:ed.read()}}); d.channels=r.channels;
+    $("#chx-msg").textContent=`Đã lưu ${r.channels.length} kênh — nhớ tải code mới và nạp lại.`;
+    const zd=ZDEVS.find(x=>x.id===id); if(zd) zd.channels=r.channels;
+    if(CH_AFTER){ const f=CH_AFTER; CH_AFTER=null; f(zd||d); setTimeout(()=>$("#sdlg").close(),700); } else if(document.querySelector("#zed")) zLists();
+    ZDEVS_T=0; refresh(); }catch(e){ toast(e.message); } };
+}
+function chControls(d){
+  const des=d.desired||{}, data=d.data||{};
+  return `<div class="chgrid">`+(d.channels||[]).map(c=>{ const v=des[c.key]??data[c.key]??0;
+    const lab=`<span class="small"><span class="pill">${esc(c.key)}</span> <b>${esc(c.name)}</b> <span class="muted">${c.pin>=100?"PCA9685 CH"+(c.pin-100):"chân "+(c.pin>=0?c.pin:"mặc định")}</span></span>`;
+    return c.type==="relay"?`${lab}<span><button class="btn ${v?"dark":""}" data-dcmd="${d.id}" data-k="${c.key}" data-val="${v?0:1}">${v?"BẬT":"TẮT"}</button></span><span class="small muted">relay</span>`
+      :`${lab}<input type="range" min="0" max="100" step="5" value="${v}" data-dchl="${d.id}" data-k="${c.key}"><b class="small">${v}%</b>`; }).join("")+`</div>`;
+}
+document.addEventListener("change", async ev=>{ const t=ev.target; if(!t.dataset.dchl) return;
+  try{ await deviceCmd(+t.dataset.dchl, t.dataset.k, +t.value); }catch(e){ toast(e.message); } });
+document.addEventListener("input", ev=>{ if(ev.target.dataset.dchl) ev.target.nextElementSibling.textContent=ev.target.value+"%"; });
+document.addEventListener("click", ev=>{ const t=ev.target.closest("[data-dch]"); if(t) openChannels(+t.dataset.dch); });
 
 // ------------------------------------------------ trình phát sự kiện
 let P={id:null,n:0,i:1,timer:null,fps:8};
@@ -1219,14 +1991,17 @@ async function start(){
   paintMe();
   if(ME.role!=="admin"){ $("#cam-auto").checked=LS.get("ares_cam_auto")==="1";
     if(LS.get("ares_cam_auto")==="1" && camSecure() && !Object.keys(CAMS).length) autoStartCams(); }
-  $("#b-pend").hidden=!m.pending; $("#b-pend").textContent=m.pending;
+  for(const b of ["#b-pend","#b-pend2"]){ $(b).hidden=!m.pending; $(b).textContent=m.pending; }
   $("#login").hidden=true; $("#app").hidden=false;
-  if(+LS.get("ares_usb_dev") && "serial" in navigator) serConnect(+LS.get("ares_usb_dev"), false);  // cổng đã cho phép trước đó: tự nối lại
-  if(["setup","users","live"].includes(view) && ME.role!=="admin") go("home");
-  else if(view==="mycams" && ME.role==="admin") go("home"); else refresh();
+  if("serial" in navigator){ const ids=Object.keys(usbMap()); if(!ids.length && +LS.get("ares_usb_dev")) ids.push(LS.get("ares_usb_dev"));
+    (async()=>{ for(const id of ids) await serConnect(+id, false); })(); }  // cổng đã cho phép trước đó: tự nối lại  // cổng đã cho phép trước đó: tự nối lại
+  const want=LS.get("ares_view");
+  if(want && VIEWS.includes(want) && view==="home" && want!=="home") view=want;
+  if(ADMIN_VIEWS.includes(view) && ME.role!=="admin") go("home");
+  else if(view==="mycams" && ME.role==="admin") go("home"); else go(view);
   if(!timer) timer=setInterval(refresh,2500);
 }
-setInterval(()=>{ if(ME) fetch(API+"/api/me",{headers:AH()}).then(r=>r.json()).then(m=>{ if(!m.user){ start(); return; } $("#b-pend").hidden=!m.pending; $("#b-pend").textContent=m.pending; }).catch(()=>{}); },10000);
+setInterval(()=>{ if(ME) fetch(API+"/api/me",{headers:AH()}).then(r=>r.json()).then(m=>{ if(!m.user){ start(); return; } for(const b of ["#b-pend","#b-pend2"]){ $(b).hidden=!m.pending; $(b).textContent=m.pending; } }).catch(()=>{}); },10000);
 start();
 </script>
 </body>

@@ -15,7 +15,7 @@
 #define WIFI_PASS     "{{WIFI_PASS}}"
 #define ARES_SERVER   "{{SERVER}}"      // địa chỉ máy chủ ARES (http://IP:8200 trong mạng nội bộ, hoặc https://...ts.net)
 #define DEVICE_TOKEN  "{{TOKEN}}"       // khoá riêng của mạch này — không chia sẻ
-#define SEND_EVERY_MS 5000              // gửi số đo mỗi 5 giây
+#define SEND_EVERY_MS 2000              // gửi số đo + nhận lệnh đèn mỗi 2 giây (đèn theo vùng phản hồi nhanh)
 
 {{SENSORS}}
 
@@ -55,6 +55,12 @@
   #error "File này cho ESP32/ESP8266. Arduino Uno/Nano/Mega: dùng code USB tải từ dashboard."
 #endif
 
+// ======================= KÊNH ĐÈN (dashboard tạo theo số đèn của mạch: mỗi kênh = 1 đèn) =======================
+{{CHANNELS}}
+#if N_CH > 0
+int chVal[N_CH];  // 0..100: LED = % độ sáng, relay: > 0 là bật
+#endif
+
 #if defined(ESP32)
   #include <WiFi.h>
   #include <HTTPClient.h>
@@ -84,6 +90,12 @@ int relayOn = 0, ledPct = 0, buzzerOn = 0;
 unsigned long lastSend = 0;
 
 void applyOutputs() {
+#if N_CH > 0
+  for (int i = 0; i < N_CH; i++) {
+    if (CH_PWM[i]) analogWrite(CH_PIN[i], map(constrain(chVal[i], 0, 100), 0, 100, 0, 255));
+    else digitalWrite(CH_PIN[i], ((chVal[i] > 0) ^ RELAY_ACTIVE_LOW) ? HIGH : LOW);
+  }
+#endif
 #if USE_RELAY
   digitalWrite(RELAY_PIN, (relayOn ^ RELAY_ACTIVE_LOW) ? HIGH : LOW);
 #endif
@@ -154,6 +166,9 @@ String readSensors() {
 #if USE_BUZZER
   addNum(b, "buzzer", buzzerOn, 0);
 #endif
+#if N_CH > 0
+  for (int i = 0; i < N_CH; i++) { char k[6]; sprintf(k, "ch%d", i + 1); addNum(b, k, chVal[i], 0); }
+#endif
   addNum(b, "rssi", WiFi.RSSI(), 0);
   b += "}";
   return b;
@@ -182,7 +197,12 @@ bool sendToServer(const String& body) {
     return false;
   }
   int r = findInt(resp, "relay", relayOn), l = findInt(resp, "led", ledPct), z = findInt(resp, "buzzer", buzzerOn);
-  if (r != relayOn || l != ledPct || z != buzzerOn) { relayOn = r; ledPct = constrain(l, 0, 100); buzzerOn = z; applyOutputs(); }
+  bool chg = (r != relayOn || l != ledPct || z != buzzerOn);
+  relayOn = r; ledPct = constrain(l, 0, 100); buzzerOn = z;
+#if N_CH > 0
+  for (int i = 0; i < N_CH; i++) { char k[6]; sprintf(k, "ch%d", i + 1); int v = constrain(findInt(resp, k, chVal[i]), 0, 100); if (v != chVal[i]) { chVal[i] = v; chg = true; } }
+#endif
+  if (chg) applyOutputs();
   return true;
 }
 
@@ -228,6 +248,9 @@ void setup() {
 #endif
 #if USE_BUZZER
   pinMode(BUZZER_PIN, OUTPUT);
+#endif
+#if N_CH > 0
+  for (int i = 0; i < N_CH; i++) { pinMode(CH_PIN[i], OUTPUT); chVal[i] = 0; }
 #endif
   applyOutputs();
   connectWifi();

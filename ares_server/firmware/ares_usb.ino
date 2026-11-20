@@ -17,6 +17,10 @@
 #define DHT_PIN 2
 #define DS18B20_PIN 10
 #define LDR_PIN A0
+#define LDR_COUNT {{LDR_COUNT}}   // số quang trở (mỗi vùng 1 cái): 1 = chỉ A0; 4 = A0, A1, A2, A3
+#if LDR_COUNT > 1
+const uint8_t LDR_PINS[] = {A0, A1, A2, A3, A4, A5};   // quang trở vùng 1, 2, 3...
+#endif
 #define PIR_PIN 3
 #define GAS_PIN A1
 #define FLAME_PIN 4
@@ -27,6 +31,38 @@
 #define RELAY_PIN 7
 #define LED_PIN 9      // chân có dấu ~ (PWM): 3, 5, 6, 9, 10, 11
 #define BUZZER_PIN 12
+
+// ======================= KÊNH ĐÈN (dashboard tạo theo số đèn của mạch: mỗi kênh = 1 đèn) =======================
+{{CHANNELS}}
+#if N_CH > 0
+int chVal[N_CH];  // 0..100: LED = % độ sáng, relay: > 0 là bật
+#endif
+#ifndef USE_PCA9685
+  #define USE_PCA9685 0
+#endif
+#if USE_PCA9685
+  // PCA9685 (16 kênh PWM, I2C địa chỉ 0x40): dùng thư viện Wire có sẵn, không cần cài thêm
+  #include <Wire.h>
+  #define PCA_ADDR 0x40
+  void pcaReg(uint8_t reg, uint8_t v) { Wire.beginTransmission(PCA_ADDR); Wire.write(reg); Wire.write(v); Wire.endTransmission(); }
+  void pcaBegin() {
+    Wire.begin();
+    pcaReg(0x00, 0x10);  // ngủ để đặt tần số
+    pcaReg(0xFE, 5);     // ~1000 Hz: đèn không nhấp nháy
+    pcaReg(0x00, 0x20);  // thức + tự tăng địa chỉ
+    delay(2);
+    pcaReg(0x00, 0xA0);
+    pcaReg(0x01, 0x04);  // ngõ ra đẩy-kéo (totem pole)
+  }
+  void pcaSet(uint8_t ch, int pct) {  // pct 0..100
+    uint8_t onH = 0, offL = 0, offH = 0;
+    if (pct <= 0) offH = 0x10;            // tắt hẳn
+    else if (pct >= 100) onH = 0x10;      // sáng hẳn
+    else { uint16_t off = (uint32_t)pct * 4095 / 100; offL = off & 0xFF; offH = off >> 8; }
+    Wire.beginTransmission(PCA_ADDR); Wire.write(0x06 + 4 * ch); Wire.write(0); Wire.write(onH); Wire.write(offL); Wire.write(offH); Wire.endTransmission();
+  }
+#endif
+
 #if defined(ESP32)
   #define ADC_MAX 4095.0
 #else
@@ -55,6 +91,18 @@ String line;
 bool first = true;
 
 void applyOutputs() {
+#if N_CH > 0
+  for (int i = 0; i < N_CH; i++) {
+    if (CH_PIN[i] >= 100) {  // kênh của PCA9685
+#if USE_PCA9685
+      pcaSet(CH_PIN[i] - 100, CH_PWM[i] ? constrain(chVal[i], 0, 100) : (((chVal[i] > 0) ^ RELAY_ACTIVE_LOW) ? 100 : 0));
+#endif
+      continue;
+    }
+    if (CH_PWM[i]) analogWrite(CH_PIN[i], map(constrain(chVal[i], 0, 100), 0, 100, 0, 255));
+    else digitalWrite(CH_PIN[i], ((chVal[i] > 0) ^ RELAY_ACTIVE_LOW) ? HIGH : LOW);
+  }
+#endif
 #if USE_RELAY
   digitalWrite(RELAY_PIN, (relayOn ^ RELAY_ACTIVE_LOW) ? HIGH : LOW);
 #endif
@@ -93,7 +141,18 @@ void sendLine() {
   { float lx = lightMeter.readLightLevel(); if (lx >= 0) put("lux", lx, 0); }
 #endif
 #if USE_LDR
+#if LDR_COUNT <= 1
   put("light", analogRead(LDR_PIN) * 100.0 / ADC_MAX, 0);
+#else
+  {
+    float sum = 0;
+    for (int i = 0; i < LDR_COUNT && i < 6; i++) {
+      float v = analogRead(LDR_PINS[i]) * 100.0 / ADC_MAX; sum += v;
+      char k[8]; snprintf(k, sizeof(k), "light%d", i + 1); put(k, v, 0);
+    }
+    put("light", sum / LDR_COUNT, 0);
+  }
+#endif
 #endif
 #if USE_PIR
   put("motion", digitalRead(PIR_PIN) == HIGH ? 1 : 0, 0);
@@ -123,6 +182,9 @@ void sendLine() {
 #endif
 #if USE_BUZZER
   put("buzzer", buzzerOn, 0);
+#endif
+#if N_CH > 0
+  for (int i = 0; i < N_CH; i++) { char k[6]; sprintf(k, "ch%d", i + 1); put(k, chVal[i], 0); }
 #endif
   put("up", millis() / 1000, 0);
   Serial.println("}");
@@ -160,21 +222,30 @@ void setup() {
 #if USE_BUZZER
   pinMode(BUZZER_PIN, OUTPUT);
 #endif
+#if N_CH > 0
+  for (int i = 0; i < N_CH; i++) { if (CH_PIN[i] < 100) pinMode(CH_PIN[i], OUTPUT); chVal[i] = 0; }
+#if USE_PCA9685
+  pcaBegin();
+#endif
+#endif
   applyOutputs();
 }
 
 void loop() {
-  while (Serial.available()) {  // lệnh từ dashboard: {"relay":1,"led":50}
+  while (Serial.available()) {  // lệnh từ dashboard: {"relay":1,"led":50,"ch1":80,"ch2":0}
     char c = Serial.read();
     if (c == '\n') {
       if (line.indexOf('{') >= 0) {
         relayOn = findInt(line, "relay", relayOn);
         ledPct = constrain(findInt(line, "led", ledPct), 0, 100);
         buzzerOn = findInt(line, "buzzer", buzzerOn);
+#if N_CH > 0
+        for (int i = 0; i < N_CH; i++) { char k[6]; sprintf(k, "ch%d", i + 1); chVal[i] = constrain(findInt(line, k, chVal[i]), 0, 100); }
+#endif
         applyOutputs();
       }
       line = "";
-    } else if (line.length() < 120) line += c;
+    } else if (line.length() < 400) line += c;
   }
   if (millis() - lastSend >= SEND_EVERY_MS) { lastSend = millis(); sendLine(); }
 }

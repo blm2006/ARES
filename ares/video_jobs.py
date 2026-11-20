@@ -80,6 +80,17 @@ class VideoJobWorker:
                 self._ppe = load_detector(self.cfg)
         return self._ppe
 
+    def hazard_detectors(self) -> dict:
+        """AI bổ sung (cháy/khói, hút thuốc) cho thử video — nạp 1 lần, train lại xong thì đặt _hazards = None để nạp lại."""
+        if getattr(self, "_hazards", None) is None:
+            if self._models_factory is not None:  # test
+                self._hazards = getattr(self, "_hazard_factory", dict)()
+            else:
+                from ares.hazards.detector import load_hazards
+
+                self._hazards = load_hazards(self.cfg)[0]
+        return self._hazards
+
     def run_once(self) -> bool:
         """Nhận + xử lý 1 job. True nếu có job."""
         if self._stop.is_set():  # đang tắt: không nhận việc mới
@@ -117,20 +128,32 @@ class VideoJobWorker:
                     self._progress(jid, p, f"Đang phân tích ({round(p * 100)}%, {n} khung)")
 
             fps = float(self.cfg.uplink_video_fps)
+            kind = r.get("kind") or "behavior"
+            if kind == "people":  # phần Người & môi trường: vùng + đèn theo người
+                from ares.people_video import analyze_people
+
+                res = analyze_people(self.cfg, pose, src, r.get("opts") or {}, d / "result.mp4", fps, frames_zip=d / "frames.zip",
+                                     max_w=int(self.cfg.uplink_video_width), progress=prog, should_stop=self._stop.is_set)
+                analyze = None
             kw = {}
             rules = r.get("ppe") or {}
-            if any((rules.get(k) for k in ("required", "forbidden"))):  # người dùng chọn kiểm đồ bảo hộ cho video này
+            if kind != "people" and any((rules.get(k) for k in ("required", "forbidden"))):  # người dùng chọn kiểm đồ bảo hộ cho video này
                 det, info = self.ppe_detector()
                 kw = {"ppe": det, "ppe_rules": rules}
-            res = analyze(self.cfg, pose, clf, src, d / "result.mp4", fps, frames_zip=d / "frames.zip",
-                          max_w=int(self.cfg.uplink_video_width), progress=prog, should_stop=self._stop.is_set, **kw)
+            if kind != "people":
+                hz = self.hazard_detectors()
+                if hz:
+                    kw["hazards"] = hz
+                res = analyze(self.cfg, pose, clf, src, d / "result.mp4", fps, frames_zip=d / "frames.zip",
+                              max_w=int(self.cfg.uplink_video_width), progress=prog, should_stop=self._stop.is_set, **kw)
             if not res.get("frames"):  # không giải mã được khung nào: báo LỖI rõ ràng, không trả "Xong" rỗng
                 raise RuntimeError("không đọc được khung hình nào từ video (file hỏng, tải dở hoặc định dạng lạ) — "
                                    "thử đổi sang MP4 (H.264) rồi tải lại")
             if kw and kw["ppe"] is None:
                 res["ppe_note"] = info.get("error") or info.get("hint") or "Chưa cài model đồ bảo hộ."
             res["device"] = str(getattr(pose, "device", ""))
-            res["mode"] = self.cfg.behavior_mode if clf is not None or self.cfg.behavior_mode == "rules" else "rules"
+            res["mode"] = "vùng + đèn" if kind == "people" else (
+                self.cfg.behavior_mode if clf is not None or self.cfg.behavior_mode == "rules" else "rules")
             self._progress(jid, 0.99, "Đang gửi kết quả")
             files = {}
             fz = d / "frames.zip"

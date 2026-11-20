@@ -177,3 +177,28 @@ Sửa nhỏ (bản gốc ở `Claude outputs\backup_truoc_behavior_2026-11-14\`)
 2. Thử `video` trên vài clip URFD và video quay tại phòng; chỉnh `STILL_MOTION`, `FALL_DROP` theo góc camera thật.
 3. Quay clip `custom/slumped` (ngồi gục) và `custom/normal` (cúi nhặt đồ, ngồi xuống nhanh, nằm nghỉ có cử động) để giảm báo nhầm.
 4. Sau đó: Telegram bot (nhắn kèm ảnh), âm thanh trên dashboard, có thể thay ST-GCN-lite bằng model pretrained NTU qua MMAction2.
+
+
+## AI bổ sung: cháy / khói, hút thuốc (18/11/2026)
+
+Mã: `ares/hazards/`. Cài cùng `CAI_AI_BAO_HO.bat` (`python -m ares.hazards setup`, có kiểm SHA-256). Chạy 1 lần/giây/camera
+(`ARES_HAZARD_FPS`), cả camera trực tiếp và Thử video. Tắt: `ARES_HAZARDS=off`; chỉ 1 mục: `ARES_HAZARDS=fire`.
+
+| Mục | Model | Khi nào báo | Giấy phép |
+|---|---|---|---|
+| Cháy / khói (`FIRE`, khẩn cấp) | huggingface.co/rabahdev/fire-smoke-yolov8n — YOLOv8n trên D-Fire | lửa thấy ≥ 3/5 lần kiểm gần nhất; khói (dễ nhầm bụi gỗ) ≥ 4/5. Cùng camera không báo lại trong 120 giây | AGPL-3.0 |
+| Hút thuốc (`SMOKING`) | huggingface.co/Beehzod/smoking-detection-finetuned — YOLO11m, lớp cigarette, ảnh 960 px | điếu thuốc cách mũi / cổ tay của người < 0,45 × chiều cao người, ≥ 3/6 lần kiểm | MIT |
+
+Đã kiểm: video xưởng gỗ 102 giây không báo nhầm cháy/khói hay hút thuốc (model cháy chỉ có 1 khung lẻ "khói", bị bộ lọc 4/5 loại);
+ảnh cháy công khai: nhận lửa + khói; ảnh người hút thuốc: thấy điếu thuốc ở 8/16 ảnh -> cần **train dần** tại chỗ.
+
+Đã tìm nhưng KHÔNG thêm: model đánh nhau dạng ảnh đơn (file cần thư viện `dill` để mở, có thể chạy mã lạ khi nạp; ARES đã có
+phát hiện đánh nhau bằng khung xương + ST-GCN); model cháy "home fire" (báo khói nhầm ở mọi khung video xưởng gỗ); dao/súng
+(model COCO nhận nhầm nhiều, chưa có model mở đủ tin cậy).
+
+**Train dần.** Mỗi cảnh báo cháy/khói, hút thuốc, đồ bảo hộ lưu thêm `raw.jpg` (ảnh gốc) + `dets.json` (hộp model thấy).
+Dashboard → Hành vi → Train lại AI → "Cháy / khói + hút thuốc": Đúng = ảnh có vật (hộp của model), Báo nhầm = ảnh nhãn rỗng;
+fine-tune từ model đang dùng (đóng băng backbone, lr nhỏ), rồi **cổng kiểm định**: chỉ dùng model mới nếu số ảnh Báo nhầm còn bị báo
+giảm mà không sót thêm ảnh Đúng. Model dùng nằm ở `behavior/hazards/<mục>/current.pt` (bản trước: `prev_<giờ>.pt`), nạp ngay.
+Cần ≥ 2 ảnh Đúng và ≥ 2 ảnh Báo nhầm; thêm ảnh tự gán nhãn ở `behavior/hazards/<mục>/extra/images|labels`.
+Đồ bảo hộ Báo nhầm = model SÓT món đồ, không tự biết hộp ở đâu -> ảnh gom vào `behavior/hazards/ppe/can_gan_nhan/` để gán nhãn.

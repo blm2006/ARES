@@ -1,7 +1,8 @@
 @echo off
 rem File viet KHONG DAU (console Windows de loi font).
-rem Cai "AI bao ho": tai model YOLO nhan dien do bao ho (kinh, chup tai, khau trang, non, ao phan quang, gang tay, giay)
-rem roi kiem tra. Chay 1 lan tren MAY CHU. Sau do mo lai ARES_MAY_CHU.bat va vao dashboard - Dia diem - Chon do bao ho.
+rem Cai "AI bao ho" + "AI bo sung": tai model YOLO do bao ho (SH17 + Construction-PPE: kinh, chup tai, khau trang, non,
+rem ao phan quang, gang tay, giay) va model chay/khoi + hut thuoc, roi kiem tra. Chay 1 lan tren MAY CHU.
+rem Sau do mo lai ARES_MAY_CHU.bat va vao dashboard - Dia diem - Chon do bao ho.
 setlocal
 cd /d "%~dp0"
 set "PY="
@@ -16,5 +17,9 @@ echo phi thuong mai: dung cho xuong cua truong / nghien cuu / thu nghiem. Ban th
 echo.
 %PY% -m ares.ppe setup
 if errorlevel 1 (echo. & echo CHUA XONG - xem thong bao o tren. & pause & exit /b 1)
+echo.
+echo AI bo sung: chay/khoi (rabahdev/fire-smoke-yolov8n, AGPL-3.0) + hut thuoc (Beehzod/smoking-detection-finetuned, MIT)
+%PY% -m ares.hazards setup
+if errorlevel 1 (echo. & echo AI bo sung CHUA XONG - xem thong bao o tren. & pause & exit /b 1)
 echo.
 pause

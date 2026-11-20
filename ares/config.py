@@ -258,6 +258,9 @@ class AresSettings(BaseSettings):
     behavior_clip_width: int = Field(640, ge=160, le=1920)
     # ---- AI bảo hộ lao động (ares/ppe): thiếu kính / chụp tai / khẩu trang / nón / áo..., hoặc đeo đồ bị cấm (găng tay gần máy)
     ppe_weights: str = "ppe_sh17_yolo8s.pt"  # model YOLO đồ bảo hộ; cài bằng CAI_AI_BAO_HO.bat (python -m ares.ppe setup)
+    # model đồ bảo hộ THÊM, chạy cùng lúc rồi gộp kết quả (cách nhau dấu phẩy; file nào chưa có thì bỏ qua).
+    # Mặc định: Construction-PPE (Apache-2.0) — nón, kính, áo phản quang, chụp tai, khẩu trang, găng, giày + lớp "không có ..."
+    ppe_extra_weights: str = "ppe_construction_y8.pt"
     ppe_required: str = ""  # món bắt buộc cho MỌI camera của máy này, vd "goggles,ear,mask" hoặc tên mẫu "woodshop" (rỗng = theo từng địa điểm trên server)
     ppe_forbidden: str = ""  # món bị cấm, vd "gloves"
     ppe_fps: float = Field(2.0, ge=0.2, le=10.0)  # số lần kiểm đồ bảo hộ / giây / camera (không cần nhanh như té ngã)
@@ -266,6 +269,23 @@ class AresSettings(BaseSettings):
     ppe_missing_s: float = Field(5.0, ge=1.0, le=600.0)  # thiếu (hoặc đeo đồ cấm) liên tục chừng này giây thì cảnh báo
     ppe_remind_s: float = Field(300.0, ge=10.0, le=86400.0)  # vẫn vi phạm thì nhắc lại sau chừng này giây
     ppe_draw: bool = True  # vẽ hộp các món đồ bảo hộ AI nhìn thấy lên hình
+    # bám vết: người mới chỉ được "sinh" ở rìa khung / vùng cửa; khung mọc giữa hình = khung trùng hoặc ứng viên
+    behavior_track_gate: bool = True
+    behavior_track_warmup_s: float = Field(2.0, ge=0.0, le=60.0)  # giây đầu: ai có sẵn trong khung đều được nhận
+    behavior_track_edge: float = Field(0.06, ge=0.0, le=0.4)  # "rìa" = cách mép < chừng này × cạnh khung
+    behavior_track_confirm_s: float = Field(4.0, ge=0.0, le=120.0)  # người mọc giữa khung phải thấy liên tục chừng này giây (0 = không nhận)
+    behavior_track_recover_s: float = Field(6.0, ge=0.0, le=60.0)  # người bị che/mất dấu: trong chừng này giây hiện lại gần đó thì giữ mã cũ
+    # AI bổ sung (ares/hazards): cháy/khói, hút thuốc — "auto" = nạp mọi mục đã cài model; "off" = tắt; hoặc "fire,smoking"
+    hazards: str = "auto"
+    hazard_fps: float = Field(1.0, ge=0.2, le=10.0)  # số lần kiểm / giây / camera
+    hazard_conf: float = Field(0.35, ge=0.05, le=0.95)
+    hazard_imgsz: int = Field(640, ge=320, le=1920)
+    hazard_fire_window: int = Field(5, ge=1, le=12)  # xét chừng này lần kiểm gần nhất
+    hazard_fire_hits: int = Field(3, ge=1, le=12)  # ... thấy lửa ít nhất chừng này lần -> báo cháy
+    hazard_smoke_hits: int = Field(4, ge=1, le=12)  # ... khói (dễ nhầm bụi gỗ, hơi nước) cần nhiều lần hơn
+    hazard_smoke_person_hits: int = Field(3, ge=1, le=6)  # điếu thuốc ở miệng/tay 1 người: ≥ chừng này / 6 lần kiểm
+    hazard_cooldown_s: float = Field(120.0, ge=0.0, le=3600.0)  # cháy/khói cùng camera không báo lại trong chừng này giây
+    behavior_max_det: int = Field(1000, ge=1, le=3000)  # số người tối đa YOLO trả về / khung (không giới hạn thực tế)
     behavior_overlay_status: bool = True  # vẽ thanh trạng thái (AN TOÀN / CHÚ Ý / BÁO ĐỘNG) phía trên hình kết quả AI
     behavior_keep_days: int = Field(30, ge=0)  # 0 = giữ mãi; >0 = tự xoá sự kiện cũ hơn chừng này ngày
 
@@ -284,6 +304,7 @@ class AresSettings(BaseSettings):
     uplink_live_s: float = Field(0.0, ge=0.0, le=60.0)
     uplink_live_width: int = Field(640, ge=160, le=1280)  # ảnh đã <= chừng này thì gửi nguyên, không nén lại (nhanh hơn)
     uplink_remote_cameras: bool = True  # cho phép quản trị viên server thêm/xoá camera RTSP của máy này từ dashboard
+    uplink_zone_s: float = Field(1.0, ge=0.2, le=30.0)  # gửi số người từng vùng (đèn theo vùng trên server) mỗi chừng này giây
     uplink_video_jobs: bool = True  # nhận video người dùng tải lên dashboard (mục "Thử video") để chạy AI
     uplink_video_fps: float = Field(10.0, ge=1.0, le=30.0)  # số khung/giây phân tích trên video tải lên
     uplink_video_width: int = Field(640, ge=320, le=1920)  # thu nhỏ video tải lên về chiều rộng này trước khi chạy AI

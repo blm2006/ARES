@@ -227,7 +227,7 @@ def test_server_place_rules_reach_edge_and_video_jobs(tmp_path):
     assert r["ppe_rules"]["main"] == {"required": [], "forbidden": []}  # camera ở địa điểm khác: không kiểm
 
     # máy AI nhận luật, lưu ra file (mất mạng / khởi động lại vẫn còn), camera không có luật dùng mặc định của máy
-    cfg = cfg_for(tmp_path / "edge", ppe_required="helmet")
+    cfg = cfg_for(tmp_path / "edge", ppe_required="helmet", ppe_weights="khong-co.pt", ppe_extra_weights="")
     mon = BehaviorMonitor(cfg, ManualClock(__import__("datetime").datetime(2026, 11, 17, 8, 0)), analyzer=Analyzer(cfg))
     assert mon.set_ppe_rules(r["ppe_rules"]) is True and mon.set_ppe_rules(r["ppe_rules"]) is False
     assert mon.analyzer.rules_for(cam["cam_id"])["forbidden"] == ["gloves"]

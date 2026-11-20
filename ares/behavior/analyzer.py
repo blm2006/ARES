@@ -104,6 +104,7 @@ class CamResult:
     tracks: list[TrackView]
     events: list[BehaviorEvent]
     image: np.ndarray | None  # ảnh đã vẽ (thu nhỏ về clip_width) — None nếu không yêu cầu vẽ
+    alert: tuple | None = None  # (mức, câu) của AI bổ sung cả camera (cháy/khói) đang hiệu lực
 
 
 class CameraAnalyzer:
@@ -111,13 +112,20 @@ class CameraAnalyzer:
 
     def __init__(self, cam_id: str, cfg):
         self.cam_id, self.cfg = cam_id, cfg
-        self.tracker = Tracker()
+        self.tracker = Tracker(gate=bool(getattr(cfg, "behavior_track_gate", True)),
+                               warmup_s=float(getattr(cfg, "behavior_track_warmup_s", 2.0)),
+                               edge=float(getattr(cfg, "behavior_track_edge", 0.06)),
+                               confirm_s=float(getattr(cfg, "behavior_track_confirm_s", 4.0)),
+                               recover_s=float(getattr(cfg, "behavior_track_recover_s", 6.0)))
         self.pairs: dict[tuple[int, int], dict] = {}
         self.fired: deque = deque(maxlen=200)  # (kind, t, center, ref_h, track_id)
         self.last_t = 0.0
         self.ppe_t = -1e18  # lần gần nhất chạy AI bảo hộ cho camera này
         self.ppe_dets: list = []  # các món đồ bảo hộ thấy ở lần đó (để vẽ)
         self.ppe_on = False
+        from ares.hazards.rules import CamHazards
+
+        self.hz = CamHazards(cfg)  # AI bổ sung: cháy/khói, hút thuốc
 
     # -------------------------------------------------------------- đồ bảo hộ
     def ppe_step(self, t: float, live: list[Track], dets: list, rules: dict, scale: float, out: list) -> None:
@@ -136,6 +144,21 @@ class CameraAnalyzer:
                 # các lần sau do bộ đếm đồ bảo hộ tự quyết (đeo lại rồi tháo, hoặc nhắc lại sau ppe_remind_s)
                 self._fire(out, "PPE", t, [tr], 0.8, "ppe", force=v["again"], missing=v["missing"], forbidden=v["forbidden"],
                            text=describe(v["missing"], v["forbidden"]))
+
+    # -------------------------------------------------------------- AI bổ sung (cháy/khói, hút thuốc)
+    def hazard_step(self, t: float, live: list[Track], found: dict, out: list) -> None:
+        def fire_cb(what, best, dets):
+            box = best.box if best is not None else (0, 0, 0, 0)
+            out.append(BehaviorEvent("FIRE", self.cam_id, t, [], round(float(best.conf if best else 0.5), 3),
+                                     ((box[0] + box[2]) / 2, (box[1] + box[3]) / 2), "model",
+                                     {"what": what, "text": "Thấy lửa" if what == "lửa" else "Thấy khói",
+                                      "boxes": [[d.cls, *[round(v, 1) for v in d.box], round(d.conf, 3)] for d in dets][:20]}))
+
+        def person_cb(tr, box, cig):
+            self._fire(out, "SMOKING", t, [tr], round(float(box.conf if box else 0.5), 3), "model", text="Đang hút thuốc",
+                       boxes=[[d.cls, *[round(v, 1) for v in d.box], round(d.conf, 3)] for d in cig][:20])
+
+        self.hz.step(t, found, live, fire_cb, person_cb)
 
     # -------------------------------------------------------------- tiện ích
     def _cooldown_ok(self, kind: str, t: float, tr_ids: list[int], center, ref_h: float) -> bool:
@@ -346,9 +369,10 @@ class CameraAnalyzer:
             del self.pairs[k]
 
     # -------------------------------------------------------------- một khung
-    def step(self, t: float, kps: np.ndarray, boxes: np.ndarray, confs: np.ndarray, mode: str) -> tuple[list[Track], list[BehaviorEvent]]:
+    def step(self, t: float, kps: np.ndarray, boxes: np.ndarray, confs: np.ndarray, mode: str,
+             frame_wh: tuple[int, int] | None = None) -> tuple[list[Track], list[BehaviorEvent]]:
         self.last_t = t
-        self.tracker.update(t, kps, boxes, confs)
+        self.tracker.update(t, kps, boxes, confs, frame_wh)
         live = [tr for tr in self.tracker.tracks.values() if tr.last_t == t]
         out: list[BehaviorEvent] = []
         for tr in live:
@@ -395,6 +419,8 @@ class CameraAnalyzer:
             if any(f[0] == "FIGHT" and t - f[1] <= 10 and f[4] == tr.id for f in self.fired):
                 text, level = "ĐÁNH NHAU!", 2
             pr = st.get("probs") if t - st.get("probs_t", -1e9) <= PROB_FRESH_S else None
+            if t - st.get("smoking_t", -1e9) <= 5.0:  # AI bổ sung: đang hút thuốc
+                text, level = (text if level else "Hút thuốc"), max(level, 1)
             ppe, ppe_text, note = None, "", (text if level else "")
             if self.ppe_on and t - st.get("ppe_t", -1e9) <= 5.0:
                 from ares.ppe.rules import short_text
@@ -415,10 +441,11 @@ class CameraAnalyzer:
 
 # ============================================================================ nhiều camera + model
 class Analyzer:
-    def __init__(self, cfg, pose=None, classifier=None, ppe=None):
+    def __init__(self, cfg, pose=None, classifier=None, ppe=None, hazards=None):
         from ares.ppe import clean_rules
 
         self.cfg = cfg
+        self.hazards = hazards or {}  # {mục: HazardDetector} — AI bổ sung (ares/hazards)
         self.pose = pose  # PoseEstimator (pose.py) hoặc None khi test luật bằng keypoint có sẵn
         self.classifier = classifier  # (net, meta, device) hoặc None
         self.ppe = ppe  # PPEDetector (ares/ppe/detector.py) hoặc None = chưa cài model đồ bảo hộ
@@ -461,21 +488,34 @@ class Analyzer:
                    if len(p[1]) and any(self.rules_for(c).values()) and t - self.cam(c).ppe_t >= 1.0 / self.cfg.ppe_fps - 1e-3]
             if due:
                 ppe = dict(zip([c for c, _ in due], self.ppe.infer([img for _, img in due])))
-        return self.process_poses([(c, img, t, *p) for (c, img, t), p in zip(batch, poses)], draw=draw, ppe=ppe)
+        hz = None
+        if self.hazards:  # AI bổ sung: mỗi camera ~hazard_fps lần/giây
+            due = [(c, img) for c, img, t in batch if t - self.cam(c).hz.t >= 1.0 / self.cfg.hazard_fps - 1e-3]
+            if due:
+                hz = {c: {} for c, _ in due}
+                for name, det in self.hazards.items():
+                    if det.name == "smoking" and not any(len(p[1]) for (c, _, _), p in zip(batch, poses) if c in hz):
+                        continue  # không có người thì khỏi tìm điếu thuốc
+                    for (c, _), dets in zip(due, det.infer([img for _, img in due])):
+                        hz[c][name] = dets
+        return self.process_poses([(c, img, t, *p) for (c, img, t), p in zip(batch, poses)], draw=draw, ppe=ppe, hz=hz)
 
-    def process_poses(self, items, draw: bool = True, ppe: dict | None = None) -> list[CamResult]:
+    def process_poses(self, items, draw: bool = True, ppe: dict | None = None, hz: dict | None = None) -> list[CamResult]:
         """items: [(cam_id, ảnh|None, t, kps(n,17,3), boxes(n,4), confs(n,))]. ppe: {cam_id: [PPEDet]} nếu khung này có
         chạy AI bảo hộ (test có thể bơm thẳng)."""
         mode = self.mode
         results = []
         for cam_id, img, t, kps, boxes, confs in items:
             ca = self.cam(cam_id)
-            live, events = ca.step(t, kps, boxes, confs, mode)
+            live, events = ca.step(t, kps, boxes, confs, mode,
+                                   None if img is None else (img.shape[1], img.shape[0]))
             rules = self.rules_for(cam_id)
             if ppe is not None and cam_id in ppe and any(rules.values()):
                 ca.ppe_step(t, live, ppe[cam_id], rules, 1.0 if img is None else self._ppe_scale(img), events)
             elif not any(rules.values()):
                 ca.ppe_on = False
+            if hz is not None and cam_id in hz:
+                ca.hazard_step(t, live, hz[cam_id], events)
             results.append([ca, img, t, live, events])
         if self.classifier is not None and mode in ("hybrid", "model"):
             self._classify([(r[0], r[2], r[3]) for r in results])
@@ -483,7 +523,8 @@ class Analyzer:
         for ca, img, t, live, events in results:
             views = ca.views(t)
             image = render(img, ca, views, self.cfg) if (draw and img is not None) else None
-            out.append(CamResult(ca.cam_id, t, views, events, image))
+            al = ca.hz.alert
+            out.append(CamResult(ca.cam_id, t, views, events, image, (al[1], al[2]) if al and t <= al[0] else None))
         return out
 
     def _classify(self, groups) -> None:
@@ -609,23 +650,23 @@ def render(img: np.ndarray, ca: CameraAnalyzer, views: list[TrackView], cfg) -> 
     scale = cfg.behavior_clip_width / w if w > cfg.behavior_clip_width else 1.0
     out = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA) if scale != 1.0 else img.copy()
     H, W = out.shape[:2]
-    fs = max(12, min(18, W // 44))  # cỡ chữ theo chiều rộng hình
+    fs = max(11, min(15, W // 54))  # cỡ chữ theo chiều rộng hình (nhỏ gọn để nhiều người không che nhau)
     banner = bool(getattr(cfg, "behavior_overlay_status", True))
     top = (fs + 12) if banner else 0
     for v in sorted(views, key=lambda v: v.level):  # người đang báo động vẽ sau cùng (nằm trên)
         tr = ca.tracker.tracks.get(v.id)
         col = _COL[v.level]
         x1, y1, x2, y2 = (int(c * scale) for c in v.box)
-        cv2.rectangle(out, (x1, y1), (x2, y2), col, 2 if v.level < 2 else 3)
+        cv2.rectangle(out, (x1, y1), (x2, y2), col, 1 if v.level < 2 else 2)
         if tr is not None:
             kp = tr.last.kp
             for i, j in EDGES:
                 if kp[i, 2] >= KP_CONF and kp[j, 2] >= KP_CONF:
                     cv2.line(out, (int(kp[i, 0] * scale), int(kp[i, 1] * scale)),
-                             (int(kp[j, 0] * scale), int(kp[j, 1] * scale)), _PART_COL[_edge_part(i, j)], 2, cv2.LINE_AA)
+                             (int(kp[j, 0] * scale), int(kp[j, 1] * scale)), _PART_COL[_edge_part(i, j)], 1, cv2.LINE_AA)
             for k in range(5, 17):
                 if kp[k, 2] >= KP_CONF:
-                    cv2.circle(out, (int(kp[k, 0] * scale), int(kp[k, 1] * scale)), 3, (255, 255, 255), -1, cv2.LINE_AA)
+                    cv2.circle(out, (int(kp[k, 0] * scale), int(kp[k, 1] * scale)), 2, (255, 255, 255), -1, cv2.LINE_AA)
         txt = f"ID {v.id} · {(v.text or POSE_VI.get(v.pose, '')).upper()}"
         if v.level == 0 and v.conf > 0:
             txt += f" {round(v.conf * 100)}%"
@@ -648,12 +689,23 @@ def render(img: np.ndarray, ca: CameraAnalyzer, views: list[TrackView], cfg) -> 
             if d.worn:
                 bx1, by1, bx2, by2 = (int(c * scale) for c in d.box)
                 cv2.rectangle(out, (bx1, by1), (bx2, by2), (220, 220, 60), 1)
+    if ca.hz.dets and ca.last_t - ca.hz.t <= 1.5:  # AI bổ sung: hộp mảnh đỏ (lửa/khói) / cam (điếu thuốc)
+        for dets in ca.hz.dets.values():
+            for d in dets:
+                bx1, by1, bx2, by2 = (int(c * scale) for c in d.box)
+                col = (40, 40, 230) if d.cls in ("fire", "smoke") else (0, 140, 255)
+                cv2.rectangle(out, (bx1, by1), (bx2, by2), col, 1)
+                p = text_patch(f"{d.label} {round(d.conf * 100)}%", max(10, fs - 3), (255, 255, 255), col, pad=2)
+                _blit(out, p, bx1, max(top, by1 - p.shape[0]))
     if banner:
         level, text = summarize(views)
+        al = ca.hz.alert
+        if al and ca.last_t <= al[0] and al[1] >= level:
+            level, text = al[1], al[2]
         strip = out[:top]
         strip[:] = (strip * 0.35).astype(np.uint8)  # dải tối mờ phía trên
         head = ("TRẠNG THÁI: " if level == 0 else "") + text
         _blit(out, text_patch(head, fs, _COL[level] if level else (140, 235, 140), (0, 0, 0), pad=6), 4, 2, alpha=0.999)
         if level == 2:
-            cv2.rectangle(out, (1, 1), (W - 2, H - 2), _COL[2], 4)
+            cv2.rectangle(out, (1, 1), (W - 2, H - 2), _COL[2], 3)
     return out

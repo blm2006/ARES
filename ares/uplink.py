@@ -83,6 +83,10 @@ class Uplink:
         self._last_live = 0.0
         self.live_sent = 0
         self.video = None
+        self.zone_layouts: dict = {}  # cam_id -> {"zones": [...]} do server gửi (Vùng & đèn trên dashboard)
+        self.zone_sent = 0
+        from ares.remote_train import RemoteTrainer
+        self.trainer = RemoteTrainer(cfg, rt, emit=self.emit)  # train lại AI theo lệnh từ dashboard server
         if getattr(cfg, "uplink_video_jobs", False):
             from ares.video_jobs import VideoJobWorker
             self.video = VideoJobWorker(cfg, self, emit=self.emit)
@@ -134,7 +138,10 @@ class Uplink:
             bstat = {"running": not beh.loading and not beh.error, "loading": beh.loading, "error": beh.error,
                      "mode": cfg.behavior_mode, "classifier": beh.classifier_info is not None,
                      "loop_fps": beh.stats.get("loop_fps"), "new_events": beh.store.counts().get("new", 0),
-                     "ppe": {k: v for k, v in (getattr(beh, "ppe_info", None) or {}).items() if k in ("ready", "error", "weights", "items", "hint")}}
+                     "ppe": {k: v for k, v in (getattr(beh, "ppe_info", None) or {}).items() if k in ("ready", "error", "weights", "items", "hint", "models")},
+                     "hazards": {k: {x: y for x, y in v.items() if x in ("ready", "name", "weights", "tuned", "classes", "license", "error", "hint")}
+                                 for k, v in (getattr(beh, "hazard_info", None) or {}).items()},
+                     "classifier_info": {k: v for k, v in (beh.classifier_info or {}).items() if k in ("metrics", "trained_at")} or None}
         lighting = rt.state.get_lighting()
         ac = rt.state.get_ac()
         sens = rt.state.get_sensors()
@@ -156,6 +163,7 @@ class Uplink:
             "uplink": {"pending_events": self.pending(), "media": cfg.uplink_media, "live_s": cfg.uplink_live_s,
                        "remote_cameras": cfg.uplink_remote_cameras},
             "command_results": list(self._results),
+            "retrain": self.trainer.status(),
         }
 
     def pending(self) -> int:
@@ -177,6 +185,8 @@ class Uplink:
         if hasattr(beh, "set_ppe_rules") and isinstance(r.get("ppe_rules"), dict) and beh.set_ppe_rules(r["ppe_rules"]):
             self.emit(Event(time.time(), "PPE_RULES", "info", "Đã nhận luật đồ bảo hộ mới từ server cho "
                             f"{sum(1 for v in r['ppe_rules'].values() if any((v or {}).values()))} camera."))
+        if isinstance(r.get("zone_layouts"), dict):
+            self.zone_layouts = r["zone_layouts"]
         for cmd in r.get("commands") or []:
             self._results.append(self.run_command(cmd))
 
@@ -185,6 +195,10 @@ class Uplink:
         from ares.cameras import CameraSpec, guess_kind, mask_source, sanitize_id
 
         cid = cmd.get("id")
+        if cmd.get("type") == "retrain":  # Hành vi > Train lại AI trên dashboard server
+            ok, msg = self.trainer.start(str(cmd.get("target") or "behavior"), int(cmd.get("epochs") or 40))
+            self.emit(Event(time.time(), "REMOTE_TRAIN", "info" if ok else "warn", msg + " (từ dashboard server)"))
+            return {"id": cid, "ok": ok, "message": msg}
         if not self.cfg.uplink_remote_cameras:
             return {"id": cid, "ok": False, "message": "Máy Edge đã tắt quản lý camera từ xa (ARES_UPLINK_REMOTE_CAMERAS=false)."}
         path = Path(self.cfg.cameras_file)
@@ -290,6 +304,62 @@ class Uplink:
                 except Exception as e:  # noqa: BLE001
                     log.debug("Gửi hình trực tiếp lỗi: %s", e)
             self._stop.wait(max(0.05, self.cfg.uplink_live_s - (time.monotonic() - t0)))
+
+    # ------------------------------------------------------------------ đèn theo vùng: đếm người từng vùng
+    def zone_counts(self) -> dict:
+        """{cam_id: {"counts": {vùng: số người}, "n": tổng}} cho các camera có bố trí vùng. Camera chưa có số liệu mới
+        thì không gửi -> server coi là mất hình (đèn Tự động bật để an toàn)."""
+        from ares.behavior.tracker import _in_poly
+
+        beh = getattr(self.rt, "behavior", None)
+        an = getattr(beh, "analyzer", None)
+        if an is None or not self.zone_layouts:
+            return {}
+        now = self.rt.clock.time()
+        out = {}
+        for cam, L in list(self.zone_layouts.items()):
+            ca = an.cams.get(cam)
+            if ca is None or now - ca.last_t > 3.0 or ca.tracker.frame_wh is None:
+                continue
+            W, H = ca.tracker.frame_wh
+            zs = [z for z in (L.get("zones") or []) if len(z.get("poly") or []) >= 3]
+            ca.tracker.entry_zones = [[(x * W, y * H) for x, y in z["poly"]] for z in zs if z.get("entry")]
+            trs = [tr for tr in list(ca.tracker.tracks.values()) if ca.last_t - tr.last_t <= 1.0]
+            counts = {z["id"]: 0 for z in zs}
+            for tr in trs:
+                b = tr.last.box
+                fx, fy = float(b[0] + b[2]) / 2 / W, float(b[3]) / H
+                for z in zs:
+                    if _in_poly(fx, fy, z["poly"]):
+                        counts[z["id"]] += 1
+            out[cam] = {"counts": counts, "n": len(trs)}
+        return out
+
+    def send_zones(self, poll: bool = False) -> int:
+        """Gửi số người từng vùng. poll=True: gửi cả khi chưa có gì để hỏi bố trí mới (vẽ vùng xong áp dụng ≤ 5 giây)."""
+        c = self.zone_counts()
+        if not c and not poll:
+            return 0
+        r = self._req("/api/v1/zones", json.dumps({"t": time.time(), "cams": c}).encode())
+        if isinstance(r.get("layouts"), dict):
+            self.zone_layouts = r["layouts"]
+        self.zone_sent += 1
+        return len(c)
+
+    def _zone_loop(self) -> None:
+        last_poll, enabled = 0.0, True
+        while not self._stop.is_set() and enabled:
+            poll = time.monotonic() - last_poll >= 5.0
+            if self.last_error == "" and (self.zone_layouts or poll):
+                try:
+                    if self.send_zones(poll=poll) or poll:
+                        last_poll = time.monotonic() if poll else last_poll
+                except HttpError as e:
+                    if e.code == 404:  # server cũ chưa có tính năng này
+                        self.zone_layouts, enabled = {}, False
+                except Exception as e:  # noqa: BLE001
+                    log.debug("Gửi số người theo vùng lỗi: %s", e)
+            self._stop.wait(self.cfg.uplink_zone_s)
 
     def apply_updates(self, updates: list[dict]) -> int:
         """Người trực bấm Đã xử lý / Đúng / Báo nhầm trên server -> ghi về DB của Edge (dữ liệu train lại)."""
@@ -414,6 +484,7 @@ class Uplink:
         self._th.start()
         if self.cfg.uplink_live_s > 0:
             threading.Thread(target=self._live_loop, name="ares-uplink-live", daemon=True).start()
+        threading.Thread(target=self._zone_loop, name="ares-uplink-zones", daemon=True).start()
         if self.video is not None:
             self.video.start()
 

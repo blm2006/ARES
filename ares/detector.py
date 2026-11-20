@@ -77,7 +77,7 @@ class YoloDetector:
     def _predict(self, image: np.ndarray):
         return self.model.predict(
             image, device=self.device, imgsz=self.cfg.imgsz, conf=self.cfg.detect_conf, iou=self.cfg.iou,
-            classes=[self.cfg.person_class_id], verbose=False, **self._precision,
+            classes=[self.cfg.person_class_id], max_det=1000, verbose=False, **self._precision,
         )[0]
 
     def _warmup(self) -> None:

@@ -90,7 +90,7 @@ class BehaviorMonitor:
         cfg = self.cfg
         device = resolve_device(cfg.behavior_device or cfg.device)
         pose = PoseEstimator(resolve_path(cfg.behavior_weights, REPO_ROOT), device, cfg.behavior_imgsz,
-                             cfg.behavior_conf, cfg.half)
+                             cfg.behavior_conf, cfg.half, max_det=cfg.behavior_max_det)
         clf = None
         cpath = resolve_path(cfg.behavior_classifier, REPO_ROOT) if cfg.behavior_classifier else self.root / "models" / "current.pt"
         if cfg.behavior_mode != "rules" and cpath.exists():
@@ -111,7 +111,13 @@ class BehaviorMonitor:
         from ares.ppe.load import load_detector, load_rules
 
         ppe, self.ppe_info = load_detector(cfg)
-        self.analyzer = Analyzer(cfg, pose, clf, ppe)
+        from ares.hazards.detector import load_hazards
+
+        hz, self.hazard_info = load_hazards(cfg)
+        self.analyzer = Analyzer(cfg, pose, clf, ppe, hz)
+        if hz:
+            self.emit(Event(self.clock.time(), "HAZARDS_READY", "info", "AI bổ sung sẵn sàng: "
+                            + ", ".join(i["name"] for i in self.hazard_info.values() if i.get("ready")) + "."))
         self.analyzer.ppe_rules = load_rules(cfg)  # luật theo camera lần trước server gửi (dùng được cả khi mất mạng)
         if ppe is not None:
             self.emit(Event(self.clock.time(), "PPE_READY", "info",
@@ -120,6 +126,38 @@ class BehaviorMonitor:
         mode = cfg.behavior_mode if clf is not None or cfg.behavior_mode == "rules" else "rules (chưa có model)"
         self.emit(Event(self.clock.time(), "BEHAVIOR_READY", "info",
                         f"Nhận diện hành vi sẵn sàng: pose {Path(pose.weights).name} trên {device}, chế độ {mode}."))
+
+    def reload_hazards(self) -> bool:
+        """Nạp lại model AI bổ sung (sau khi train dần) mà không dừng camera."""
+        from ares.hazards.detector import load_hazards
+
+        an = getattr(self, "analyzer", None)
+        if an is None:
+            return False
+        hz, self.hazard_info = load_hazards(self.cfg)
+        an.hazards = hz
+        return bool(hz)
+
+    def reload_classifier(self) -> bool:
+        """Nạp lại model hành vi (sau khi train lại từ dashboard) mà không dừng camera."""
+        from ares.behavior.model import load_classifier
+        from ares.config import REPO_ROOT
+
+        cfg = self.cfg
+        an = getattr(self, "analyzer", None)
+        if an is None or cfg.behavior_mode == "rules":
+            return False
+        cpath = resolve_path(cfg.behavior_classifier, REPO_ROOT) if cfg.behavior_classifier else self.root / "models" / "current.pt"
+        if not cpath.exists():
+            return False
+        device = an.pose.device if an.pose is not None else "cpu"
+        net, meta = load_classifier(cpath, device)
+        an.classifier = (net, meta, device)
+        self.classifier_info = {"path": str(cpath), "classes": meta["classes"], "metrics": meta.get("metrics", {}),
+                                "trained_at": meta.get("trained_at")}
+        self.emit(Event(self.clock.time(), "BEHAVIOR_MODEL_RELOADED", "info",
+                        f"Đã nạp model hành vi mới (macro-F1 {meta.get('metrics', {}).get('macro_f1', 0):.2f})."))
+        return True
 
     def _run(self) -> None:
         if self.analyzer is None:
@@ -156,6 +194,7 @@ class BehaviorMonitor:
             return False
         t0 = time.monotonic()
         results = self.analyzer.process(batch, draw=True)
+        raw = {c: img for c, img, _ in batch}  # ảnh gốc (chưa vẽ) — lưu cho sự kiện của model phát hiện để train dần
         self.stats["infer_ms"] = round((time.monotonic() - t0) * 1000, 1)
         self.stats["frames"] += len(batch)
         import cv2
@@ -168,10 +207,11 @@ class BehaviorMonitor:
                     self._overlay[r.cam_id] = (buf.tobytes(), r.t, r.tracks)
                 self.clips.push(r.cam_id, r.t, r.image)
             for ev in r.events:
-                self._handle(ev, r.image, self.analyzer.cams.get(r.cam_id))
+                self._handle(ev, r.image, self.analyzer.cams.get(r.cam_id), raw.get(r.cam_id))
         return True
 
-    def _handle(self, ev: BehaviorEvent, image: np.ndarray | None, ca: CameraAnalyzer | None) -> None:
+    def _handle(self, ev: BehaviorEvent, image: np.ndarray | None, ca: CameraAnalyzer | None,
+                raw: np.ndarray | None = None) -> None:
         cfg = self.cfg
         eid = time.strftime("%Y%m%d-%H%M%S", time.localtime(ev.t)) + "-" + uuid.uuid4().hex[:6]
         rel = f"events/{event_dir_name(ev.t, cfg.tz)}/{eid}"
@@ -189,11 +229,11 @@ class BehaviorMonitor:
             msg += (f", nằm xuống đột ngột ({ev.detail.get('lying_s', 0):.0f} giây sau khi đang đứng/ngồi)"
                     if ev.detail.get("sudden") else f", nằm liên tục {ev.detail.get('lying_s', 0):.0f} giây")
             msg += ", vẫn còn cử động" if ev.detail.get("moving") else ", ít cử động"
-        if ev.kind == "PPE":
+        if ev.kind in ("PPE", "FIRE"):
             msg += f": {ev.detail.get('text', '')}"
         if ev.kind == "FIGHT":
             msg += f", người #{ev.track_ids[0]} và #{ev.track_ids[1]}"
-        else:
+        elif ev.track_ids:
             msg += f", người #{ev.track_ids[0]}"
         when = self.clock.now()
         meta = {"id": eid, "t": ev.t, "ts": when.isoformat(timespec="seconds"), "cam_id": ev.cam_id, "cam_name": cam_name,
@@ -201,6 +241,13 @@ class BehaviorMonitor:
                 "track_ids": ev.track_ids, "score": ev.score, "source": ev.source, "detail": ev.detail,
                 "center": ev.center, "config": {"still_s": cfg.behavior_still_s, "mode": cfg.behavior_mode}}
         (d / "meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+        if raw is not None and ev.kind in ("FIRE", "SMOKING", "PPE"):  # dữ liệu train dần model phát hiện
+            try:
+                from ares.hazards.feedback import save_sample
+
+                save_sample(d, raw, ev, ca)
+            except Exception:  # noqa: BLE001
+                log.debug("Không lưu được ảnh gốc của sự kiện", exc_info=True)
         self.store.add({"id": eid, "t": ev.t, "ts": meta["ts"], "cam_id": ev.cam_id, "cam_name": cam_name,
                         "kind": ev.kind, "label": meta["label"], "severity": severity, "message": msg,
                         "track_ids": json.dumps(ev.track_ids), "score": ev.score, "source": ev.source,
@@ -279,6 +326,7 @@ class BehaviorMonitor:
         cfg = self.cfg
         return {"enabled": True, "loading": self.loading, "error": self.error, "mode": cfg.behavior_mode,
                 "classifier": self.classifier_info, "stats": dict(self.stats), "cameras": cams, "ppe": self.ppe_status(),
+                "hazards": getattr(self, "hazard_info", {}),
                 "counts": self.store.counts(),
                 "config": {"still_s": cfg.behavior_still_s, "fps": cfg.behavior_fps, "cameras": cfg.behavior_cameras,
                            "clip_pre_s": cfg.behavior_clip_pre_s, "clip_post_s": cfg.behavior_clip_post_s,

@@ -99,6 +99,8 @@ def windows_from_event(ev: dict, root: Path) -> tuple[list[np.ndarray], list[int
     t1 = z["t1"] if "t1" in z else None
     k1 = z["kp1"] if "kp1" in z else None
     ref = _ref_h(b0)
+    if ev["kind"] in ("FIRE", "SMOKING"):  # AI bổ sung: train model YOLO riêng (python -m ares.hazards train)
+        return [], []
     if ev["verdict"] == "false":
         y, lo, hi = CLASSES.index("normal"), t_ev - 10, t_ev
     else:

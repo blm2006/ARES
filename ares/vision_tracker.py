@@ -105,7 +105,7 @@ def render_overlay(image: np.ndarray, dets: list[Det], zonemap: ZoneMap, zone_co
             col = (0, 170, 255)  # dải bất định -> ứng viên học chủ động (cam)
         else:
             col = (80, 200, 80)  # chắc chắn (xanh)
-        cv2.rectangle(img, (x1, y1), (x2, y2), col, 2)
+        cv2.rectangle(img, (x1, y1), (x2, y2), col, 1)
         cv2.circle(img, ((x1 + x2) // 2, y2), 4, (0, 0, 255), -1)  # điểm giữa-đáy dùng để xếp vùng
         cv2.putText(img, f"{d.conf:.2f}", (x1, max(12, y1 - 4)), cv2.FONT_HERSHEY_SIMPLEX, 0.45, col, 1, cv2.LINE_AA)
     ok, buf = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 72])

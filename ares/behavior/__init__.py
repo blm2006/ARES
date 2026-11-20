@@ -13,7 +13,7 @@ Camera chỉ phát hiện DẤU HIỆU (ngã, nằm/gục bất động lâu) �
 Lệnh:  python -m ares.behavior download | extract | train | video <file>
 """
 
-KINDS = ("FALL", "LYING_DOWN", "LYING_STILL", "SLUMPED", "FIGHT", "PPE")
+KINDS = ("FALL", "LYING_DOWN", "LYING_STILL", "SLUMPED", "FIGHT", "PPE", "FIRE", "SMOKING")
 
 KIND_VI = {
     "FALL": "Té ngã",
@@ -22,11 +22,13 @@ KIND_VI = {
     "SLUMPED": "Ngồi gục bất động",
     "FIGHT": "Đánh nhau / xô đẩy",
     "PPE": "Vi phạm đồ bảo hộ",
+    "FIRE": "Cháy / khói",
+    "SMOKING": "Hút thuốc",
 }
 
 # Mức độ hiển thị: nằm bất động sau cú ngã được nâng lên "error" (khẩn cấp) ở monitor.
 KIND_SEVERITY = {"FALL": "error", "LYING_DOWN": "error", "LYING_STILL": "error", "SLUMPED": "warn", "FIGHT": "error",
-                 "PPE": "warn"}
+                 "PPE": "warn", "FIRE": "error", "SMOKING": "warn"}
 
 # Lớp của model phân loại chuỗi khung xương (thứ tự cố định — đừng đổi khi đã có model đã train).
 CLASSES = ("normal", "fall", "lying", "slumped", "fight")

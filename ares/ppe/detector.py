@@ -104,5 +104,31 @@ class PPEDetector:
         return out
 
     def describe(self) -> dict:
-        return {"weights": Path(self.weights).name, "device": self.device, "items": self.items,
+        return {"weights": Path(self.weights).name, "device": self.device, "items": self.items, "models": [Path(self.weights).name],
                 "classes": {n: (self.class_map[i][0] if self.class_map[i] else None) for i, n in self.class_names.items()}}
+
+
+class MultiPPEDetector:
+    """Nhiều model đồ bảo hộ chạy cùng lúc (vd SH17 + Construction-PPE), gộp hộp lại. Luật bỏ phiếu theo thời gian
+    (rules.py) chỉ cần "thấy" ở 1 model là tính đang đeo, nên model này sót thì model kia bù."""
+
+    def __init__(self, dets: list[PPEDetector]):
+        self.dets = dets
+        self.device = dets[0].device
+        self.weights = " + ".join(Path(d.weights).name for d in dets)
+        self.items = sorted({i for d in dets for i in d.items})
+
+    def infer(self, images: list[np.ndarray]) -> list[list[PPEDet]]:
+        out = [[] for _ in images]
+        for d in self.dets:
+            for k, r in enumerate(d.infer(images)):
+                out[k].extend(r)
+        return out
+
+    def describe(self) -> dict:
+        classes = {}
+        for d in self.dets:
+            for n, item in d.describe()["classes"].items():
+                classes.setdefault(n, item)
+        return {"weights": self.weights, "device": self.device, "items": self.items, "classes": classes,
+                "models": [Path(d.weights).name for d in self.dets]}

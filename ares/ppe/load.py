@@ -16,21 +16,40 @@ def weights_path(cfg) -> Path:
     return p if p.is_absolute() else REPO_ROOT / p
 
 
+def extra_paths(cfg) -> list[Path]:
+    from ares.config import REPO_ROOT
+
+    out = []
+    for x in str(getattr(cfg, "ppe_extra_weights", "") or "").split(","):
+        x = x.strip()
+        if x:
+            p = Path(x).expanduser()
+            out.append(p if p.is_absolute() else REPO_ROOT / p)
+    return out
+
+
 def load_detector(cfg):
-    """-> (PPEDetector | None, thông tin trạng thái cho dashboard)."""
+    """-> (PPEDetector | MultiPPEDetector | None, thông tin trạng thái cho dashboard).
+    Nạp model chính (ARES_PPE_WEIGHTS) + các model thêm (ARES_PPE_EXTRA_WEIGHTS) đã có file; ≥ 2 model thì chạy cùng lúc."""
     path = weights_path(cfg)
-    if not path.exists():
+    paths = [p for p in [path, *extra_paths(cfg)] if p.exists()]
+    if not paths:
         return None, {"ready": False, "error": "", "weights": path.name,
                       "hint": "Chưa cài model đồ bảo hộ — chạy CAI_AI_BAO_HO.bat trên máy chủ."}
-    try:
-        from ares.behavior.pose import resolve_device
-        from ares.ppe.detector import PPEDetector
+    from ares.behavior.pose import resolve_device
+    from ares.ppe.detector import MultiPPEDetector, PPEDetector
 
-        det = PPEDetector(path, resolve_device(cfg.behavior_device or cfg.device), cfg.ppe_imgsz, cfg.ppe_conf, cfg.half)
-        return det, {"ready": True, "error": "", **det.describe()}
-    except Exception as e:  # noqa: BLE001
-        log.exception("Không nạp được model đồ bảo hộ %s", path)
-        return None, {"ready": False, "error": f"{type(e).__name__}: {e}"[:200], "weights": path.name}
+    dets, errs = [], []
+    for p in dict.fromkeys(paths):
+        try:
+            dets.append(PPEDetector(p, resolve_device(cfg.behavior_device or cfg.device), cfg.ppe_imgsz, cfg.ppe_conf, cfg.half))
+        except Exception as e:  # noqa: BLE001
+            log.exception("Không nạp được model đồ bảo hộ %s", p)
+            errs.append(f"{p.name}: {type(e).__name__}: {e}"[:200])
+    if not dets:
+        return None, {"ready": False, "error": "; ".join(errs)[:300], "weights": path.name}
+    det = dets[0] if len(dets) == 1 else MultiPPEDetector(dets)
+    return det, {"ready": True, "error": "; ".join(errs)[:300], **det.describe()}
 
 
 def rules_file(cfg) -> Path:

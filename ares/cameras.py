@@ -160,7 +160,7 @@ def render_boxes(image: np.ndarray, dets: list[Det], cfg: AresSettings) -> bytes
             col = (0, 170, 255)
         else:
             col = (80, 200, 80)
-        cv2.rectangle(img, (x1, y1), (x2, y2), col, 2)
+        cv2.rectangle(img, (x1, y1), (x2, y2), col, 1)
     ok, buf = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 72])
     return buf.tobytes() if ok else b""
 

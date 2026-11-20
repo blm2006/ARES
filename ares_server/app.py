@@ -49,7 +49,66 @@ SENSOR_RANGES = {"temp": (-40, 125), "temp2": (-40, 125), "hum": (0, 100), "lux"
 SENSOR_KEY_RE = re.compile(r"^[a-z][a-z0-9_]{0,15}$")
 DEVICE_KINDS = {"esp32": "ESP32 (Wi-Fi)", "esp8266": "ESP8266 — NodeMCU / Wemos (Wi-Fi)",
                 "usb": "Arduino Uno / Nano / Mega / R4 — cắm USB", "other": "Mạch khác — gửi HTTP/JSON"}
-CONTROL_KEYS = {"relay": (0, 1), "led": (0, 100), "buzzer": (0, 1)}
+CONTROL_KEYS = {"relay": (0, 1), "led": (0, 100), "buzzer": (0, 1), **{f"ch{i}": (0, 100) for i in range(1, 9)}}
+MAX_CHANNELS = 8
+
+
+def clean_channels(lst) -> list[dict]:
+    """Kênh đèn của 1 mạch: tối đa 8, mỗi kênh = 1 đèn (LED chỉnh độ sáng qua chân PWM, hoặc relay bật/tắt)."""
+    out = []
+    for i, c in enumerate((lst or [])[:MAX_CHANNELS] if isinstance(lst, list) else []):
+        c = c if isinstance(c, dict) else {}
+        try:
+            pin = int(c.get("pin"))
+        except (TypeError, ValueError):
+            pin = -1
+        out.append({"key": f"ch{i + 1}", "name": str(c.get("name") or f"Đèn {i + 1}").strip()[:40] or f"Đèn {i + 1}",
+                    "type": "relay" if c.get("type") == "relay" else "led",
+                    "pin": pin if 0 <= pin <= 60 or 100 <= pin <= 115 else -1})  # 100..115 = kênh CH0..CH15 của PCA9685
+    return out  # pin -1 = dùng chân mặc định khi tạo code (with_default_pins)
+
+
+DEFAULT_PINS = {  # chân mặc định cho kênh chưa chọn chân (LED cần chân PWM)
+    "usb": {"led": [9, 10, 11, 6, 5, 3], "relay": [7, 8, 4, 12, 2, 13]},
+    "esp32": {"led": [25, 26, 27, 32, 33, 14, 13, 4], "relay": [26, 27, 32, 33, 14, 13, 4, 16]},
+    "esp8266": {"led": [13, 12, 14, 15, 4, 5], "relay": [12, 13, 14, 15, 4, 5]},  # GPIO: D7 D6 D5 D8 D2 D1
+}
+
+
+def with_default_pins(chs: list[dict], kind: str) -> list[dict]:
+    pool = DEFAULT_PINS.get(kind, DEFAULT_PINS["usb"])
+    used = {c["pin"] for c in chs if c["pin"] >= 0}
+    if any(c["pin"] >= 100 for c in chs):  # mạch dùng PCA9685: kênh chưa chọn -> CH trống tiếp theo
+        pool = {"led": list(range(100, 116)), "relay": list(range(100, 116))}
+    out = []
+    for c in chs:
+        c = dict(c)
+        if c["pin"] < 0:
+            free = [p for p in pool[c["type"]] + pool["led" if c["type"] == "relay" else "relay"] if p not in used]
+            c["pin"] = free[0] if free else -1
+            used.add(c["pin"])
+        out.append(c)
+    return out
+
+
+def channels_code(chs: list[dict], kind: str = "usb") -> str:
+    """Khối C khai báo kênh đèn cho code nạp mạch."""
+    chs = with_default_pins(chs, kind)
+    if not chs:
+        return "#define N_CH 0   // mạch này chưa khai báo kênh đèn (thêm ở dashboard: thẻ mạch -> Số đèn / kênh)"
+    pins = ", ".join(str(c["pin"]) if c["pin"] >= 0 else "0" for c in chs)
+    pwm = ", ".join("1" if c["type"] == "led" else "0" for c in chs)
+    rows = []
+    for i, c in enumerate(chs):
+        nm = re.sub(r"[^\w .\-]", "", c["name"])
+        kind_vi = "LED chỉnh độ sáng" if c["type"] == "led" else "relay bật/tắt"
+        where = f"PCA9685 CH{c['pin'] - 100}" if c["pin"] >= 100 else f"chân {c['pin']}"
+        rows.append(f"//   ch{i + 1}: {nm} — {kind_vi}, {where}")
+    names = "\n".join(rows)
+    pca = 1 if any(c["pin"] >= 100 for c in chs) else 0
+    return (f"#define N_CH {len(chs)}\n{names}\nconst uint8_t CH_PIN[N_CH] = {{{pins}}};   // sửa nếu cắm dây khác (100 = PCA9685 CH0, 101 = CH1...)\n"
+            f"const uint8_t CH_PWM[N_CH] = {{{pwm}}};   // 1 = LED chỉnh độ sáng (chân có dấu ~), 0 = relay bật/tắt\n"
+            f"#define USE_PCA9685 {pca}   // 1 = đèn nối qua mạch PCA9685 (I2C: SDA-A4, SCL-A5 trên Uno)")
 
 
 def clean_sensor_data(d) -> dict:
@@ -133,6 +192,11 @@ class PlaceUpd(BaseModel):
     name: str = Field(min_length=1, max_length=60)
 
 
+class RetrainIn(BaseModel):
+    target: str = Field("behavior", pattern=r"^(behavior|person|hazards|all)$")
+    epochs: int = Field(40, ge=5, le=300)
+
+
 class AssignIn(BaseModel):
     site_id: int
     edge_id: str = Field(max_length=40)
@@ -144,11 +208,13 @@ class DeviceIn(BaseModel):
     name: str = Field(min_length=1, max_length=60)
     kind: str = Field(pattern=r"^(esp32|esp8266|usb|other)$")
     place_id: int | None = None
+    channels: list | None = None  # kênh đèn: [{"name":"Đèn bàn trái","type":"led"|"relay","pin":9}]
 
 
 class DeviceUpd(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=60)
     place_id: int | None = None
+    channels: list | None = None
 
 
 class MeIn(BaseModel):
@@ -208,6 +274,15 @@ def create_app(cfg: ServerSettings | None = None, db: ServerDB | None = None) ->
     media = cfg.data_dir / "media"
     secret = cfg.session_secret()
     stop = threading.Event()
+    from ares_server.zones import ZoneEngine
+    zones = ZoneEngine(db)  # đèn theo vùng có người cho camera thật
+
+    def zone_ticker():
+        while not stop.wait(1.0):
+            try:
+                zones.tick()
+            except Exception:  # noqa: BLE001
+                log.exception("Điều khiển đèn theo vùng lỗi")
 
     def housekeeping():
         while not stop.wait(3600):
@@ -244,6 +319,7 @@ def create_app(cfg: ServerSettings | None = None, db: ServerDB | None = None) ->
 
     @asynccontextmanager
     async def lifespan(app):
+        threading.Thread(target=zone_ticker, name="ares-server-zones", daemon=True).start()
         th = threading.Thread(target=housekeeping, name="ares-server-housekeep", daemon=True)
         th.start()
         if cfg.host not in LOCAL and cfg.discovery_port:
@@ -252,7 +328,7 @@ def create_app(cfg: ServerSettings | None = None, db: ServerDB | None = None) ->
         stop.set()
 
     app = FastAPI(title="ARES Server", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
-    app.state.db, app.state.cfg = db, cfg
+    app.state.db, app.state.cfg, app.state.zones = db, cfg, zones
     live: dict[tuple[int, str, str], tuple[bytes, float]] = {}  # ảnh trực tiếp mới nhất, chỉ giữ trong RAM
     app.state.live = live
     client_frames: dict[str, tuple[bytes, float]] = {}  # ảnh webcam máy khác gửi lên, chờ Edge kéo về chạy AI (RAM)
@@ -327,6 +403,24 @@ def create_app(cfg: ServerSettings | None = None, db: ServerDB | None = None) ->
     @app.middleware("http")
     async def guard(request: Request, call_next):
         p = request.url.path
+        if p == "/traffic" or p.startswith("/traffic/"):  # gói Giao thông gắn vào server: chỉ quản trị viên
+            u = current_user(request)
+            if u is None and request.method == "GET" and request.query_params.get("t"):
+                return _err(401, "Phiên hết hạn — đăng nhập lại")
+            if u is None or u["role"] != "admin":
+                if p.startswith("/traffic/api/"):
+                    return _err(401 if u is None else 403, "Cần đăng nhập quản trị viên")
+                from fastapi.responses import HTMLResponse
+                return HTMLResponse("<meta charset='utf-8'><p style='font:15px system-ui;padding:20px'>Phần <b>Giao thông</b> "
+                                    "chỉ dành cho quản trị viên. <a href='/'>Đăng nhập</a></p>", status_code=401)
+            if request.query_params.get("t") and not request.cookies.get(COOKIE):  # mở từ dashboard GitHub Pages: đặt cookie
+                from fastapi.responses import RedirectResponse
+                r = RedirectResponse(p, status_code=303)
+                r.set_cookie(COOKIE, request.query_params["t"], httponly=True, samesite="lax", max_age=12 * 3600,
+                             secure=request.url.scheme == "https")
+                return r
+            request.state.user = u
+            return await call_next(request)
         public = p in PUBLIC and not (p == "/api/me" and request.method != "GET")  # GET /api/me công khai, POST thì không
         if p.startswith("/api/") and not p.startswith("/api/v1/") and not public:
             u = current_user(request)
@@ -384,7 +478,24 @@ def create_app(cfg: ServerSettings | None = None, db: ServerDB | None = None) ->
         if isinstance(payload.get("command_results"), list):
             db.save_results(a[0]["id"], a[1], payload["command_results"])
         return {"ok": True, "time": time.time(), "updates": db.pop_updates(a[0]["id"], a[1]),
-                "commands": db.pop_commands(a[0]["id"], a[1]), "ppe_rules": ppe_rules_for(a[0]["id"], a[1])}
+                "commands": db.pop_commands(a[0]["id"], a[1]), "ppe_rules": ppe_rules_for(a[0]["id"], a[1]),
+                "zone_layouts": zones.zones_for(a[0]["id"], a[1])}
+
+    @app.post("/api/v1/zones")
+    async def v1_zones(request: Request):
+        """Máy AI gửi số người trong từng vùng của từng camera (~1 lần/giây) -> server bật/tắt đèn theo vùng."""
+        a = edge_auth(request)
+        if isinstance(a, JSONResponse):
+            return a
+        try:
+            d = json.loads(await request.body() or b"{}")
+        except ValueError:
+            return _err(400, "JSON không hợp lệ")
+        now = time.time()
+        for cam, v in list((d.get("cams") or {}).items())[:64] if isinstance(d.get("cams"), dict) else []:
+            if isinstance(v, dict) and isinstance(v.get("counts"), dict):
+                zones.feed((a[0]["id"], a[1], str(cam)[:20]), v["counts"], int(v.get("n") or 0), now)
+        return {"ok": True, "layouts": zones.zones_for(a[0]["id"], a[1])}
 
     # ------------------------------------------------------------------ thử video: máy AI nhận job, tải video, gửi kết quả
     vdir = media / "videos"
@@ -422,7 +533,8 @@ def create_app(cfg: ServerSettings | None = None, db: ServerDB | None = None) ->
             rules = clean_ppe(json.loads(j.get("ppe") or "{}"))
         except ValueError:
             rules = clean_ppe(None)
-        return {"id": j["id"], "name": j["name"], "ext": j["ext"], "size": j["size"], "ppe": rules}
+        return {"id": j["id"], "name": j["name"], "ext": j["ext"], "size": j["size"], "ppe": rules,
+                "kind": j.get("kind") or "behavior", "opts": j.get("opts") or {}}
 
     @app.get("/api/v1/jobs/{jid}/video")
     def v1_job_video(jid: int, request: Request):
@@ -476,11 +588,27 @@ def create_app(cfg: ServerSettings | None = None, db: ServerDB | None = None) ->
             if 0 < len(data) <= MAX_RESULT_BYTES:
                 (d / "result.mp4").write_bytes(data)
                 has_mp4 = 1
+        ft, tk = meta.get("frame_t"), meta.get("tracks")
+        if isinstance(ft, list) and isinstance(tk, list) and 0 < len(ft) == len(tk) <= 40000:
+            try:
+                clean_t = [round(float(x), 3) for x in ft]
+                clean_k = [[[int(b[0]), *[round(float(v), 4) for v in b[1:5]], int(b[5])] for b in fr[:200]
+                            if isinstance(b, list) and len(b) == 6] for fr in tk]
+                (d / "tracks.json").write_text(json.dumps({"t": clean_t, "b": clean_k}, separators=(",", ":")), encoding="utf-8")
+            except (TypeError, ValueError):
+                pass
         keep = {k: meta.get(k) for k in ("events", "fps", "duration", "people_max", "people_series", "processing_s", "frames",
-                                         "device", "mode", "posture_s", "ppe", "ppe_note")}
+                                         "device", "mode", "posture_s", "ppe", "ppe_note", "kind", "layout", "light_runs",
+                                         "lights_stat", "zones_stat", "energy_saved_pct", "track_stats")}
+        keep = {k: v for k, v in keep.items() if v is not None}
+        for k in ("light_runs",):  # chặn kết quả quá lớn
+            if isinstance(keep.get(k), dict):
+                keep[k] = {str(a)[:12]: [[int(x[0]), int(x[1])] for x in (b or [])[:20000] if isinstance(x, list) and len(x) == 2]
+                           for a, b in list(keep[k].items())[:24]}
         keep["status_runs"] = [[int(r[0]), int(r[1]), str(r[2])[:200]] for r in (meta.get("status_runs") or [])[:5000]
                                if isinstance(r, list) and len(r) == 3]
         keep["events"] = (keep.get("events") or [])[:500]
+        keep.setdefault("people_series", [])
         keep["people_series"] = (keep.get("people_series") or [])[:7200]
         if not n_frames:  # máy AI (kể cả bản cũ) không đọc được khung nào: đây là LỖI, không phải "Xong, không có sự kiện"
             db.update_video_job(jid, status="error", finished=time.time(), n_frames=0, has_mp4=0,
@@ -488,7 +616,7 @@ def create_app(cfg: ServerSettings | None = None, db: ServerDB | None = None) ->
                                         "Bấm Phân tích lại; vẫn lỗi thì đổi video sang MP4 (H.264) rồi tải lại.")
             return {"ok": True}
         db.update_video_job(jid, status="done", progress=1.0, finished=time.time(), result=keep, n_frames=n_frames,
-                            has_mp4=has_mp4, message=f"Xong — {len(keep['events'])} sự kiện")
+                            has_mp4=has_mp4, message=f"Xong — {len(keep.get('events') or [])} sự kiện")
         return {"ok": True}
 
     # ------------------------------------------------------------------ mạch cảm biến gửi số đo (ESP32/ESP8266 qua Wi-Fi)
@@ -927,7 +1055,54 @@ def create_app(cfg: ServerSettings | None = None, db: ServerDB | None = None) ->
                        "new_alerts": len(db.events(500, "new", scope=sc))},
             "today": db.counts_since(today, sc),
             "series": db.series(None, now - 24 * 3600, 300) if sc is None else db.cam_series(sc, now - 24 * 3600),
+            # đèn / điều hoà / cảm biến của các máy AI (ARES điều khiển qua MQTT) — chỉ quản trị viên
+            "integrations": [] if sc is not None else [
+                {"name": e["name"] or e["edge_id"], "online": now - (e["last_seen"] or 0) <= cfg.offline_after_s,
+                 **(e["info"].get("integrations") or {})} for e in db.edges()],
         }, headers=NO_STORE)
+
+    # ================================================================== train lại AI từ đánh giá cảnh báo
+    def _verdict_counts() -> dict:
+        with db._lock:
+            rows = db._db.execute("SELECT kind, verdict, COUNT(*) FROM events WHERE verdict IN ('true','false') "
+                                  "GROUP BY kind, verdict").fetchall()
+        out: dict = {"true": 0, "false": 0, "by_kind": {}}
+        for kind, v, n in rows:
+            out[v] += n
+            out["by_kind"].setdefault(kind, {"true": 0, "false": 0})[v] = n
+        return out
+
+    @app.get("/api/admin/retrain")
+    def retrain_status():
+        e = ai_edge()
+        st = (e["info"].get("retrain") if e else None) or {}
+        cmds = []
+        if e:
+            cmds = [c for c in db.commands(e["site_id"], 30) if (c["cmd"] or {}).get("type") == "retrain"][:5]
+        clf = ((e["info"].get("ai") or {}).get("behavior") or {}).get("classifier") if e else None
+        beh = ((e["info"].get("ai") or {}).get("behavior") or {}) if e else {}
+        return JSONResponse({"ai_online": e is not None, "edge": e["name"] if e else "", "state": st,
+                             "verdicts": _verdict_counts(), "classifier": clf,
+                             "behavior": {"ppe": beh.get("ppe") or {}, "hazards": beh.get("hazards") or {}},
+                             "classifier_info": beh.get("classifier_info"),
+                             "history": [{"id": c["id"], "created": c["created"], "by": c.get("created_by"),
+                                          "target": c["cmd"].get("target"), "done": c.get("done"), "ok": c.get("ok"),
+                                          "message": c.get("message")} for c in cmds]}, headers=NO_STORE)
+
+    @app.post("/api/admin/retrain")
+    def retrain_start(body: RetrainIn, request: Request):
+        e = ai_edge()
+        if e is None:
+            return _err(409, "Máy chủ AI chưa chạy — mở ARES_MAY_CHU.bat rồi thử lại")
+        st = e["info"].get("retrain") or {}
+        if st.get("running"):
+            return _err(409, "Máy AI đang train — đợi xong")
+        pend = [c for c in db.commands(e["site_id"], 10) if (c["cmd"] or {}).get("type") == "retrain" and not c.get("done")]
+        if pend:
+            return _err(409, "Lệnh train trước chưa được máy AI nhận — đợi khoảng 30 giây")
+        cid = db.add_command(e["site_id"], e["edge_id"], {"type": "retrain", "target": body.target, "epochs": body.epochs},
+                             request.state.user["username"])
+        return {"ok": True, "id": cid, "message": "Đã gửi lệnh — máy AI nhận ở nhịp liên lạc tiếp theo (≤ 30 giây)."}
 
     # ================================================================== địa điểm
     def _place_for(request: Request, pid: int) -> dict | None:
@@ -1020,7 +1195,9 @@ def create_app(cfg: ServerSettings | None = None, db: ServerDB | None = None) ->
                 "place_id": d["place_id"], "place_name": p.get("name", "?"), "user_id": d["user_id"],
                 "owner": users.get(d["user_id"], "?"), "online": bool(d["last_seen"] and now - d["last_seen"] <= DEVICE_ONLINE_S),
                 "last_seen": d["last_seen"], "data": d["last_data"], "desired": d["desired"], "via": d["via"],
-                "created": d["created"]}
+                "created": d["created"],
+                # chân thật sẽ dùng (kênh chưa chọn chân -> chân mặc định, giống code tải về)
+                "channels": with_default_pins(d.get("channels") or [], "usb" if d["kind"] in ("usb", "other") else d["kind"])}
 
     @app.get("/api/devices")
     def devices_list(request: Request):
@@ -1049,7 +1226,7 @@ def create_app(cfg: ServerSettings | None = None, db: ServerDB | None = None) ->
             return _err(404, "Không có địa điểm này")
         if u["role"] != "admin" and len(db.devices(u["id"])) >= 20:
             return _err(409, "Mỗi tài khoản tối đa 20 mạch")
-        d = db.add_device(p["user_id"], pid, body.name, body.kind)
+        d = db.add_device(p["user_id"], pid, body.name, body.kind, clean_channels(body.channels))
         return {"ok": True, "id": d["id"]}
 
     @app.post("/api/devices/{did}")
@@ -1065,9 +1242,11 @@ def create_app(cfg: ServerSettings | None = None, db: ServerDB | None = None) ->
             if p is None:
                 return _err(404, "Không có địa điểm này")
             kw.update(place_id=p["id"], user_id=p["user_id"])
+        if body.channels is not None:
+            kw["channels"] = clean_channels(body.channels)
         if kw:
             db.set_device(did, **kw)
-        return {"ok": True}
+        return {"ok": True, "channels": kw.get("channels", d["channels"])}
 
     @app.post("/api/devices/{did}/delete")
     def device_delete(did: int, request: Request):
@@ -1106,6 +1285,84 @@ def create_app(cfg: ServerSettings | None = None, db: ServerDB | None = None) ->
             return _err(400, "JSON không hợp lệ")
         return _ingest(d, body, "usb", request)
 
+    @app.get("/api/devices/{did}/cmd")
+    def device_cmd_get(did: int, request: Request):
+        """Lệnh mong muốn hiện tại — dashboard đang nối mạch USB hỏi mỗi giây để đèn phản hồi nhanh."""
+        d = _dev_for(request, did)
+        return JSONResponse({"desired": d["desired"]}, headers=NO_STORE) if d else _err(404, "Không có mạch này")
+
+    # ------------------------------------------------------------------ vùng & đèn của camera thật
+    def _zone_cams(request: Request) -> list[dict]:
+        sc = scope_of(request)
+        now = time.time()
+        pmap = place_of_cams()
+        pinfo = {p["id"]: p for p in db.places()}
+        unames = {u["id"]: (u["name"] or u["username"]) for u in db.users()}
+        cnames = {(c["site_id"], c["edge_id"], c["cam_id"]): c["name"] for c in db.client_cams()}
+        hw = {(c["site_id"], c["edge_id"], c["cam_id"]): c for c in db.cameras()}
+        lay = zones.layouts
+        out = []
+        for k in set(pmap) | set(hw):
+            if sc is not None and k not in sc:
+                continue
+            c, pl = hw.get(k, {}), pinfo.get(pmap.get(k), {})
+            lv = live.get(k)
+            L = lay.get(k) or {}
+            v = zones.view(k)
+            out.append({"site_id": k[0], "edge_id": k[1], "cam_id": k[2], "name": cnames.get(k) or c.get("name") or k[2],
+                        "place_id": pl.get("id"), "place_name": pl.get("name", "Chưa gán"), "owner": unames.get(pl.get("user_id"), ""),
+                        "owner_id": pl.get("user_id"), "online": bool(c.get("online")) and now - (c.get("last_seen") or 0) <= cfg.offline_after_s,
+                        "n_people": c.get("n_people", 0), "live": bool(lv and now - lv[1] <= 10),
+                        "n_zones": len(L.get("zones", [])), "n_lights": len(L.get("lights", [])),
+                        "lights_on": sum(1 for x in (v.get("lights") or {}).values() if x["on"])})
+        out.sort(key=lambda x: (x["owner"], x["place_name"], x["name"]))
+        return out
+
+    @app.get("/api/zones")
+    def zones_list(request: Request):
+        return JSONResponse({"cams": _zone_cams(request)}, headers=NO_STORE)
+
+    def _zone_key(request: Request, site_id: int, edge_id: str, cam_id: str):
+        k = (int(site_id), edge_id, cam_id)
+        if not any((c["site_id"], c["edge_id"], c["cam_id"]) == k for c in _zone_cams(request)):
+            return None
+        return k
+
+    @app.get("/api/zones/{site_id}/{edge_id}/{cam_id}")
+    def zones_get(site_id: int, edge_id: str, cam_id: str, request: Request):
+        k = _zone_key(request, site_id, edge_id, cam_id)
+        if k is None:
+            return _err(404, "Không có camera này")
+        L = {kk: v for kk, v in (zones.layouts.get(k) or {}).items() if not kk.startswith("_")}
+        return JSONResponse({"layout": L or None, "state": zones.view(k)}, headers=NO_STORE)
+
+    @app.post("/api/zones/{site_id}/{edge_id}/{cam_id}")
+    async def zones_set(site_id: int, edge_id: str, cam_id: str, request: Request):
+        from ares_server.layout import clean_layout
+        k = _zone_key(request, site_id, edge_id, cam_id)
+        if k is None:
+            return _err(404, "Không có camera này")
+        try:
+            raw = (await request.body()).decode("utf-8", "replace")
+            if len(raw) > 30000:
+                raise ValueError("bố trí quá lớn")
+            L = clean_layout(json.loads(raw or "{}"))
+        except ValueError as e:
+            return _err(400, f"Bố trí vùng/đèn không hợp lệ: {e}")
+        for li in L["lights"]:
+            if li["device_id"] and _dev_for(request, li["device_id"]) is None:
+                return _err(400, f"{li['name']}: mạch #{li['device_id']} không phải của bạn")
+        db.set_cam_layout(*k, L, request.state.user["username"])
+        zones.reload()
+        return {"ok": True, "layout": L, "state": zones.view(k)}
+
+    @app.get("/api/zones-state")
+    def zones_state(request: Request):
+        """Trạng thái trực tiếp (số người từng vùng, đèn bật/tắt + lý do) của mọi camera có bố trí mà người này xem được."""
+        sc = scope_of(request)
+        out = {f"{k[0]}/{k[1]}/{k[2]}": zones.view(k) for k in list(zones.layouts) if sc is None or k in sc}
+        return JSONResponse({"cams": out, "t": time.time()}, headers=NO_STORE)
+
     @app.get("/api/devices/{did}/series")
     def device_series(did: int, request: Request, hours: float = 24):
         if _dev_for(request, did) is None:
@@ -1125,7 +1382,19 @@ def create_app(cfg: ServerSettings | None = None, db: ServerDB | None = None) ->
         if not re.match(r"^https?://[A-Za-z0-9.\-:\[\]]+(/[A-Za-z0-9._~/\-]*)?$", srv):
             return _err(400, "Địa chỉ máy chủ không hợp lệ")
         name = re.sub(r"[^\w .\-]", "", d["name"])[:60]
-        code = (tpl.replace("{{SENSORS}}", (fw / "common_sensors.inc").read_text(encoding="utf-8").strip())
+        sens = (fw / "common_sensors.inc").read_text(encoding="utf-8").strip()
+        # bật sẵn đúng cảm biến mạch đang có (theo số đo mạch đã gửi) — mặc định tắt hết để nạp được ngay, không đòi thư viện
+        keys = set((d.get("last_data") or d.get("data") or {}).keys())
+        on = {"DHT": bool(keys & {"temp", "hum"}), "LDR": bool(keys & {"lux", "raw", "lux_window", "light"}),
+              "PIR": "motion" in keys, "GAS": "gas" in keys, "SOUND": "sound" in keys, "SR04": "dist" in keys}
+        for k, v in on.items():
+            sens = re.sub(rf"(#define USE_{k}\s+)[01]", lambda m, v=v: m.group(1) + ("1" if v else "0"), sens, count=1)
+        lz = (d.get("last_data") or {}).get("lux_zones")
+        n_ldr = max([len(lz) if isinstance(lz, list) else 0] + [int(k[5:]) for k in keys if re.fullmatch(r"light[1-6]", k)] + [1])
+        if n_ldr > 1:
+            sens = re.sub(r"(#define USE_LDR\s+)[01]", r"\g<1>1", sens, count=1)
+        code = (tpl.replace("{{LDR_COUNT}}", str(min(6, n_ldr))).replace("{{SENSORS}}", sens)
+                .replace("{{CHANNELS}}", channels_code(d.get("channels") or [], "usb" if d["kind"] in ("usb", "other") else d["kind"]))
                 .replace("{{SERVER}}", srv).replace("{{TOKEN}}", d["token"]).replace("{{NAME}}", name))
         fn = ("ares_usb" if d["kind"] == "usb" else "ares_wifi") + f"_{d['id']}.ino"
         return Response(code, media_type="text/plain; charset=utf-8",
@@ -1137,9 +1406,23 @@ def create_app(cfg: ServerSettings | None = None, db: ServerDB | None = None) ->
         u = request.state.user
         return j if j and (j["user_id"] == u["id"] or u["role"] == "admin") else None
 
+    def _parse_opts(raw: str) -> dict | None:
+        from ares_server.layout import clean_layout
+        if not raw:
+            return clean_layout({})
+        if len(raw) > 20000:
+            raise ValueError("Bố trí vùng/đèn quá lớn")
+        return clean_layout(json.loads(raw))
+
     @app.post("/api/videos")
-    async def video_upload(request: Request, name: str = "", ppe: str = ""):
+    async def video_upload(request: Request, name: str = "", ppe: str = "", kind: str = "behavior", opts: str = ""):
         u = request.state.user
+        if kind not in ("behavior", "people"):
+            return _err(400, "Loại thử video không hợp lệ")
+        try:
+            layout = _parse_opts(opts) if kind == "people" else None
+        except ValueError as e:
+            return _err(400, f"Bố trí vùng/đèn không hợp lệ: {e}")
         name = (name or "video.mp4").replace("\\", "/").split("/")[-1].strip()[:120] or "video.mp4"
         ext = Path(name).suffix.lower()
         if ext not in VIDEO_EXT:
@@ -1155,7 +1438,8 @@ def create_app(cfg: ServerSettings | None = None, db: ServerDB | None = None) ->
             return _err(400, "Mẫu đồ bảo hộ không hợp lệ")
         # 'uploading': máy AI chỉ được nhận job khi file đã về ĐỦ. (Trước đây job vào hàng chờ ngay lúc bắt đầu tải, tải qua
         # Internet mất cả phút nên máy AI nhận file dở -> đọc được 0 khung mà vẫn báo "Xong".)
-        jid = db.add_video_job(u["id"], name, ext, size, clean_ppe(ppe) if ppe else None, status="uploading")
+        jid = db.add_video_job(u["id"], name, ext, size, clean_ppe(ppe) if ppe and kind == "behavior" else None,
+                               status="uploading", kind=kind, opts=layout)
         p = _job_dir(jid) / f"source{ext}"
         n = 0
         try:
@@ -1189,17 +1473,60 @@ def create_app(cfg: ServerSettings | None = None, db: ServerDB | None = None) ->
         src = _job_dir(jid) / f"source{j['ext']}"
         if not src.exists() or src.stat().st_size < 1024:
             return _err(410, "Máy chủ không còn file gốc — tải lại video")
-        for fn in ("frames.zip", "result.mp4"):
+        for fn in ("frames.zip", "result.mp4", "tracks.json"):
             (_job_dir(jid) / fn).unlink(missing_ok=True)
         db.update_video_job(jid, status="queued", progress=0.0, result="", n_frames=0, has_mp4=0, size=src.stat().st_size,
                             started=None, finished=None,
                             message="Đang chờ máy AI (phân tích lại)" if ai_edge() else "Đang chờ — máy chủ AI chưa chạy")
         return {"ok": True}
 
+    @app.post("/api/videos/{jid}/opts")
+    async def video_opts(jid: int, request: Request):
+        """Đổi bố trí vùng/đèn của video phần Người & môi trường (rồi bấm Phân tích lại — không phải tải lại video)."""
+        j = _own_job(request, jid)
+        if j is None:
+            return _err(404, "Không có video này")
+        if j["kind"] != "people":
+            return _err(400, "Chỉ video thử phần Người & môi trường mới có vùng/đèn")
+        if j["status"] in ("queued", "running", "uploading"):
+            return _err(409, "Video đang chờ hoặc đang phân tích — đợi xong rồi sửa")
+        try:
+            layout = _parse_opts((await request.body()).decode("utf-8", "replace"))
+        except ValueError as e:
+            return _err(400, f"Bố trí vùng/đèn không hợp lệ: {e}")
+        db.update_video_job(jid, opts=json.dumps(layout, ensure_ascii=False))
+        return {"ok": True, "opts": layout}
+
+    @app.get("/api/videos/{jid}/thumb.jpg")
+    def video_thumb(jid: int, request: Request):
+        """Khung hình gốc đầu video (để vẽ lại vùng). Không có OpenCV trên server thì dùng khung kết quả đầu tiên."""
+        j = _own_job(request, jid)
+        if j is None:
+            return _err(404, "Không có video này")
+        d = _job_dir(jid)
+        th = d / "thumb.jpg"
+        if not th.exists():
+            src = d / f"source{j['ext']}"
+            try:
+                import cv2
+                cap = cv2.VideoCapture(str(src))
+                cap.set(cv2.CAP_PROP_POS_MSEC, 500)
+                ok, img = cap.read()
+                cap.release()
+                if ok:
+                    if img.shape[1] > 960:
+                        img = cv2.resize(img, (960, int(img.shape[0] * 960 / img.shape[1])))
+                    cv2.imwrite(str(th), img, [cv2.IMWRITE_JPEG_QUALITY, 80])
+            except Exception:  # noqa: BLE001
+                pass
+        if th.exists():
+            return FileResponse(th, media_type="image/jpeg")
+        return video_frame(jid, 1, request)
+
     @app.get("/api/videos")
-    def video_list(request: Request):
+    def video_list(request: Request, kind: str = ""):
         u = request.state.user
-        items = db.video_jobs(None if u["role"] == "admin" else u["id"])
+        items = db.video_jobs(None if u["role"] == "admin" else u["id"], kind=kind or None)
         names = {x["id"]: (x["name"] or x["username"]) for x in db.users()}
         q = [j["id"] for j in sorted(db.video_jobs(None, 500), key=lambda j: j["id"]) if j["status"] == "queued"]
         for j in items:
@@ -1224,6 +1551,25 @@ def create_app(cfg: ServerSettings | None = None, db: ServerDB | None = None) ->
         except KeyError:
             return _err(404, "Không có khung này")
         return Response(data, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=86400"})
+
+    @app.get("/api/videos/{jid}/source")
+    def video_source(jid: int, request: Request):
+        """Video gốc đã tải lên — web phát mượt bằng thẻ <video> (hỗ trợ tua: Range) và tự vẽ vùng/người/đèn đè lên."""
+        j = _own_job(request, jid)
+        p = _job_dir(jid) / f"source{j['ext']}" if j else None
+        if p is None or not p.exists():
+            return _err(404, "Không còn video gốc")
+        mt = {".mp4": "video/mp4", ".m4v": "video/mp4", ".mov": "video/quicktime", ".webm": "video/webm",
+              ".mkv": "video/x-matroska", ".avi": "video/x-msvideo"}.get(j["ext"], "application/octet-stream")
+        return FileResponse(p, media_type=mt, headers={"Cache-Control": "private, max-age=86400"})
+
+    @app.get("/api/videos/{jid}/tracks.json")
+    def video_tracks(jid: int, request: Request):
+        j = _own_job(request, jid)
+        p = _job_dir(jid) / "tracks.json" if j else None
+        if p is None or not p.exists():
+            return _err(404, "Kết quả này chưa có vị trí người từng khung — bấm Phân tích lại")
+        return FileResponse(p, media_type="application/json", headers={"Cache-Control": "private, max-age=600"})
 
     @app.get("/api/videos/{jid}/result.mp4")
     def video_mp4(jid: int, request: Request):
@@ -1595,4 +1941,58 @@ def create_app(cfg: ServerSettings | None = None, db: ServerDB | None = None) ->
     def favicon():
         return Response(status_code=204)
 
+    _mount_traffic(app, cfg)
     return app
+
+
+TRAFFIC_PAGES = {"": "index.html", "studio": "studio.html", "vi-pham": "vi_pham.html"}
+_TRAFFIC_URL = re.compile(r"""(["'`])/(api/|studio|vi-pham)""")
+
+
+def traffic_html(name: str) -> str:
+    """Trang của gói Giao thông, đổi đường dẫn tuyệt đối /api/... -> /traffic/api/... để chạy dưới /traffic."""
+    from traffic_safety_ai.dashboard.app import STATIC as TS
+
+    html = (TS / name).read_text(encoding="utf-8")
+    html = _TRAFFIC_URL.sub(lambda m: f"{m.group(1)}/traffic/{m.group(2)}", html)
+    html = html.replace('href="/"', 'href="/traffic/"')
+    # đường dẫn báo cáo do API trả về (/reports/...) cũng phải nằm dưới /traffic
+    return html.replace('href="${esc(j.report_url)}"', 'href="/traffic${esc(j.report_url)}"').replace(
+        'href="${esc(r.url)}"', 'href="/traffic${esc(r.url)}"')
+
+
+def _mount_traffic(app: FastAPI, cfg) -> None:
+    """Gắn dashboard + Studio (thử video) + trang xử lý vi phạm của gói traffic_safety_ai vào /traffic.
+
+    Bảo vệ bằng phiên đăng nhập ARES (chỉ quản trị viên, xem guard). Gói chưa cài đủ thư viện -> /traffic báo rõ thiếu gì."""
+    from fastapi.responses import HTMLResponse
+
+    try:
+        from traffic_safety_ai.dashboard.app import create_app as traffic_app
+        sub = traffic_app(token=None)
+        app.state.traffic_error = ""
+    except Exception as e:  # noqa: BLE001 — thiếu yaml/scipy/... : server vẫn chạy, chỉ phần giao thông báo lỗi
+        log.warning("Không gắn được phần Giao thông: %s", e)
+        sub, app.state.traffic_error = None, f"{type(e).__name__}: {e}"
+
+    def page(name: str):
+        def h():
+            if sub is None:
+                return HTMLResponse("<meta charset='utf-8'><div style='font:15px system-ui;padding:20px'><b>Chưa chạy được phần "
+                                    "Giao thông</b><p>" + str(app.state.traffic_error).replace("<", "&lt;") + "</p><p>Cài thư viện: "
+                                    "<code>.venv\\Scripts\\python -m pip install -r traffic_safety_ai\\requirements.txt</code> "
+                                    "rồi khởi động lại máy chủ.</p></div>", status_code=503)
+            return HTMLResponse(traffic_html(name), headers={"Cache-Control": "no-store"})
+        return h
+
+    for path, name in TRAFFIC_PAGES.items():
+        app.add_api_route(f"/traffic/{path}", page(name), methods=["GET"], include_in_schema=False)
+    app.add_api_route("/traffic", lambda: Response(status_code=307, headers={"Location": "/traffic/"}), methods=["GET"],
+                      include_in_schema=False)
+
+    @app.get("/api/traffic/info")
+    def traffic_info():
+        return {"ok": sub is not None, "error": app.state.traffic_error}
+
+    if sub is not None:
+        app.mount("/traffic", sub)

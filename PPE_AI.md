@@ -1,6 +1,6 @@
 # ARES — AI bảo hộ lao động (đồ bảo hộ)
 
-> Phần mở rộng của AI hành vi (`BEHAVIOR_AI.md`). Mã nguồn: `ares/ppe/`. Cập nhật: 17/11/2026.
+> Phần mở rộng của AI hành vi (`BEHAVIOR_AI.md`). Mã nguồn: `ares/ppe/`. Cập nhật: 18/11/2026 (chạy 2 model cùng lúc).
 
 ## 1. Làm gì
 
@@ -46,6 +46,17 @@ Những thứ camera **không** kiểm được ở xưởng gỗ: tóc dài ch�
    hộp mảnh xanh ngọc quanh các món AI nhìn thấy.
 
 ## 4. Model
+
+**Từ 18/11/2026 chạy 2 model cùng lúc rồi gộp kết quả** (model này sót thì model kia bù — luật bỏ phiếu chỉ cần 1 model thấy):
+
+| File | Nguồn | Nhận | Giấy phép |
+|---|---|---|---|
+| `ppe_sh17_yolo8s.pt` | github.com/ahmadmughees/SH17dataset (YOLOv8s) | kính, chụp tai, khẩu trang, kính che mặt, găng, nón, áo phản quang, giày, áo bảo hộ | dữ liệu CC BY-NC-SA 4.0 (phi thương mại) |
+| `ppe_construction_y8.pt` | huggingface.co/killuminati1/construction-ppe-yolov8 (YOLOv8) | nón (`Hard_hat`), kính (`Glass`), áo phản quang (`Vest`), chụp tai, khẩu trang, găng, giày + lớp `No-…` | Apache-2.0 |
+
+Đổi danh sách model thêm: `ARES_PPE_EXTRA_WEIGHTS=a.pt,b.pt` (rỗng = chỉ model chính). Thử trên video xưởng gỗ của trường: model
+Construction-PPE nhận "Worker / No-Vest / No-Helmet" ổn, đôi khi nhận nhầm 1 khung nón — bộ đếm 4–5 giây lọc được.
+
 
 - Cài: chạy **`CAI_AI_BAO_HO.bat`** trên máy chủ (`python -m ares.ppe setup`): tải `ppe_sh17_yolo8s.pt` (~22 MB), kiểm mã SHA-256, in bảng
   "lớp của model → món". Kiểm lại bất cứ lúc nào: `python -m ares.ppe check`.

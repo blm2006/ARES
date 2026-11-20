@@ -2,7 +2,7 @@
 
 > Sơ đồ workflow có hình minh hoạ: `WORKFLOW.html` (mở bằng trình duyệt).
 > Chi tiết phần nhận diện hành vi: `BEHAVIOR_AI.md`. AI bảo hộ lao động: `PPE_AI.md`. Cách triển khai server: `deploy/server/README.md`.
-> Cập nhật: 17/11/2026.
+> Cập nhật: 17/11/2026 (thêm 3 phần trên dashboard: Hành vi · Người & môi trường · Giao thông).
 
 ## 1. Sản phẩm
 
@@ -39,6 +39,56 @@ Người trực xác nhận **Đúng** hoặc **Báo nhầm**. Dữ liệu xác 
 |---|---|---|
 | **Server** `:8200` | Người quản lý, người dùng | Quản trị viên: **Tổng quan** · **Trực tiếp** · **Cảnh báo** · **Địa điểm** · **Thử video** · **Tài khoản** · **Thiết lập**. Người dùng: **Tổng quan** · **Camera của tôi** · **Cảnh báo** · **Địa điểm** · **Thử video**. Góc phải: nút tài khoản (tên, đổi tên hiển thị, đổi mật khẩu, đăng xuất). |
 | **Edge** `:8100` | Kỹ thuật viên | Giám sát, camera, duyệt ảnh, model, thiết bị, và trang `/behavior` (cảnh báo hành vi + khung xương trực tiếp) |
+
+## 3b. Dashboard chia 3 phần (+ Hệ thống)
+
+Thanh trên cùng của dashboard máy chủ `:8200` chọn **phần**, thanh thứ hai là các mục của phần đó:
+
+| Phần | Mục | Ghi chú |
+|---|---|---|
+| **Hành vi** | Tổng quan · Trực tiếp / Camera của tôi · Cảnh báo · Thử video · **Train lại AI** (quản trị) | Té ngã, nằm/gục bất động, đánh nhau, đồ bảo hộ |
+| **Người & môi trường** | Tổng quan (số người, nhiệt độ/độ ẩm, ánh sáng, đèn/điều hoà) · Trực tiếp / Camera của tôi · Cảm biến · **Thử video** (chia vùng + đèn) | YOLO người + cảm biến |
+| **Giao thông** (quản trị) | Tổng quan · Thử video (Studio) · Xử lý vi phạm | Gói `traffic_safety_ai` chạy ngay trong server ở `/traffic` — không cần mở `MO_APP.bat` riêng (2 cái cùng dùng cổng 8200) |
+| **Hệ thống** | Địa điểm · Tài khoản · Thiết lập | |
+
+**Thử video — Người & môi trường.** Chọn video → khung hình đầu hiện ra → **+ Vẽ vùng** (bấm các góc, bấm lại điểm đầu để đóng, kéo chấm trắng để sửa)
+→ **+ Thêm đèn**: tên, vùng của đèn, **mạch** (mạch ESP32/Arduino ở mục Cảm biến hoặc "chỉ mô phỏng"), cổng (relay bật/tắt hoặc LED độ sáng %)
+→ đặt "tắt đèn khi vùng vắng N giây" → **Tải lên và phân tích**. Kết quả: video có vùng (vàng = đèn đang bật), khung người mảnh,
+mốc bật/tắt từng đèn, thời gian bật, % tiết kiệm so với bật cả buổi. Tick **Điều khiển mạch thật** khi xem kết quả thì đèn thật bật/tắt đúng nhịp video
+(đóng cửa sổ là tắt). **Sửa vùng/đèn** ở bảng video rồi **Lưu & phân tích lại** — không phải tải lại video. Bố trí được nhớ trên máy (Lưu bố trí).
+Vùng đánh dấu **Cửa ra vào** = chỗ người được phép "xuất hiện" giữa khung hình (xem bám vết bên dưới). Mã: `ares/people_video.py`, `ares_server/layout.py`.
+
+**Bám vết người (mọi phần thử video + camera hành vi).** Người mới chỉ được nhận nếu: có sẵn trong **2 giây đầu**, hoặc đi vào từ **rìa khung hình**
+(cách mép < 6 %), hoặc xuất hiện trong vùng **Cửa ra vào**. Khung người mọc ra giữa khung hình:
+trùng phần lớn với người đang có (1 người vỡ thành 2 khung) → **bỏ**; gần chỗ 1 người vừa mất dấu ≤ 6 giây → **nối lại đúng mã cũ**;
+còn lại chỉ là ứng viên, phải thấy liên tục **4 giây** mới được nhận (người ngồi khuất sau bàn rồi đứng dậy).
+Chỉnh trong `ares_config/ares.env`: `ARES_BEHAVIOR_TRACK_GATE` (true/false), `_WARMUP_S`, `_EDGE`, `_CONFIRM_S` (0 = không bao giờ nhận người mọc giữa khung), `_RECOVER_S`.
+Không giới hạn số người / khung (`ARES_BEHAVIOR_MAX_DET=1000`). Khung người, khung xương và chữ trên hình kết quả đã vẽ mảnh hơn.
+
+**Train lại AI từ đánh giá cảnh báo** (Hành vi → Train lại AI, chỉ quản trị viên). Bấm **Đúng / Báo nhầm** ở Cảnh báo → đánh giá về máy AI.
+Bấm **Train lại ngay** → server gửi lệnh trong heartbeat → máy AI train ở luồng nền: model hành vi dùng dataset công khai (nếu đã tải) + mọi sự kiện
+đã đánh giá (Đúng = mẫu của loại đó, Báo nhầm = mẫu bình thường), xong **nạp model mới ngay**; "YOLO người" chạy vòng học chủ động sẵn có (có cổng kiểm định).
+Dashboard hiện số đánh giá theo loại, nhật ký train đang chạy, kết quả (macro-F1) và lịch sử. Cần ≥ 2 clip/sự kiện có khung xương. Mã: `ares/remote_train.py`.
+
+**Model trong phần Hành vi (18/11/2026).** YOLO-pose (khung xương) · ST-GCN hành vi (train từ đánh giá) · đồ bảo hộ = SH17 + Construction-PPE
+chạy cùng lúc (nón, kính, áo phản quang, chụp tai, khẩu trang, găng, giày) · **cháy / khói** · **hút thuốc**. Cài/kiểm: `CAI_AI_BAO_HO.bat`.
+Danh sách model đang chạy xem ở Hành vi → Train lại AI. Chi tiết, giấy phép, cách train dần: `BEHAVIOR_AI.md`, `PPE_AI.md`.
+
+**Vùng & đèn cho camera thật** (Người & môi trường → Vùng & đèn, 18/11/2026). Chọn camera (camera IP của máy chủ hoặc webcam
+"Camera của tôi" ở máy khác) → hình trực tiếp hiện ra → vẽ vùng → **+ Thêm đèn**: vùng của đèn, **mạch** + cổng (Relay bật/tắt hoặc LED %),
+chế độ Tự động / Luôn bật / Luôn tắt → **Lưu & áp dụng**.
+
+```
+máy AI: YOLO người + bám vết -> điểm giữa chân -> đếm người từng vùng -> POST /api/v1/zones mỗi 1 giây (ARES_UPLINK_ZONE_S)
+server: ares_server/zones.py — vùng có người: BẬT; vắng đủ N giây: TẮT; mất số liệu > 15 giây: Tự động BẬT để an toàn
+mạch:   ESP32/ESP8266 nhận lệnh khi gửi số đo (2 giây/lần) · Arduino USB ở MÁY KHÁC: dashboard mở trên máy đó hỏi lệnh mỗi giây, ghi xuống USB
+```
+
+- Bố trí lưu trên server (bảng `cam_layouts`), máy AI nhận trong ≤ 5 giây. Người dùng chỉ sửa được camera và mạch của mình.
+- Nhiều đèn chung 1 cổng mạch: bật nếu 1 đèn bật (LED lấy độ sáng lớn nhất). Bấm lệnh tay ở mục Cảm biến không bị ghi đè cho tới khi trạng thái đèn đổi.
+- Vùng **Cửa ra vào** cũng được dùng cho bám vết camera thật (người mới chỉ "xuất hiện" ở rìa khung hoặc qua cửa).
+- Mạch USB: máy cắm mạch phải mở dashboard (app ARES Viewer, hoặc Chrome/Edge qua https) và bấm **Kết nối USB trên máy này**; đóng dashboard là mạch thôi nhận lệnh.
+- **Nạp lại code cho ESP32** đã nạp trước 18/11 để có chu kỳ 2 giây (bản cũ 5 giây vẫn chạy, chỉ chậm hơn).
 
 ## 4. Dữ liệu đi đâu
 
@@ -119,7 +169,7 @@ Video lên máy chủ, máy AI nhận việc (luồng riêng, không làm chậm
 video đã vẽ khung xương (phát ngay trong dashboard, có tua/tốc độ, bấm sự kiện để nhảy tới đúng lúc), danh sách sự kiện kèm mốc thời gian,
 số người tối đa, thời gian xử lý, nút tải video kết quả; thêm thẻ trạng thái đổi theo từng khung (An toàn / Chú ý / Báo động), dải thời gian tô màu theo mức (bấm để tua) và tổng thời gian từng tư thế. Tối đa 500 MB/video, mỗi người 3 video chờ; xoá video là máy AI dừng ngay.
 Máy AI chỉ nhận video khi đã tải lên **đủ** (trạng thái *Đang tải lên* → *Đang chờ*); video không đọc được khung nào thì báo **Lỗi** kèm lý do, không báo "Xong" rỗng. Nút **Phân tích lại** cho AI chạy lại trên video đã tải lên (không phải tải lại).
-Máy AI khởi động lại giữa chừng thì video tự quay về hàng chờ. Máy AI không giữ lại video sau khi xử lý. Tắt tính năng: `ARES_UPLINK_VIDEO_JOBS=false`. Thử bằng lệnh trên chính máy chủ vẫn được: `python -m ares.behavior video x.mp4`.
+Máy AI không giữ lại video sau khi xử lý. Tắt tính năng: `ARES_UPLINK_VIDEO_JOBS=false`. Thử bằng lệnh trên chính máy chủ vẫn được: `python -m ares.behavior video x.mp4`.
 
 **Khởi động lại từ xa.** `ARES_MAY_CHU.bat` chạy server và máy AI dưới một "người giám sát": quản trị viên bấm **Thiết lập → Khởi động lại máy chủ** (hoặc file `var/restart.flag` đổi) thì cả hai tự dừng gọn rồi mở lại bằng mã mới nhất, khoảng 1 phút, không cần ngồi ở máy chủ. Tắt hẳn vẫn là Ctrl+C / đóng cửa sổ.
 
@@ -169,7 +219,7 @@ python -m ares.behavior video samples\x.mp4   :: thử AI hành vi trên video
 
 ## 7. Kiểm thử đã chạy
 
-- **284 test tự động pass.** Gồm luật hành vi trên khung xương tổng hợp, server (khoá thiết bị, chống trùng, chống CSRF, đăng nhập, địa điểm theo người dùng: chỉ thấy của mình, gán camera, đổi tên/xoá), AI tự chuyển CPU khi GPU lỗi, thử video tải lên (nhận job, huỷ, nhận lại khi máy AI tắt, không nhận khi đang tải dở, 0 khung = lỗi, phân tích lại), khởi động lại từ xa, dashboard từ xa (CORS, token, an toàn sau đường hầm), đồ bảo hộ (ánh xạ lớp model, ghép đồ với người, thiếu/cấm, luật theo địa điểm tới máy AI), mạch cảm biến (Wi-Fi bằng khoá, USB bằng phiên đăng nhập, lệnh relay/LED, chặn người khác), uplink qua HTTP thật (mất mạng, gửi bù, khoá sai, chế độ không gửi ảnh, đồng bộ đánh giá ngược).
+- **296 test tự động pass** (thêm: cổng sinh người của tracker, thử video vùng + đèn trọn vòng server ↔ máy AI, train lại theo lệnh, Giao thông gắn ở /traffic chỉ cho quản trị viên). Trước đó: Gồm luật hành vi trên khung xương tổng hợp, server (khoá thiết bị, chống trùng, chống CSRF, đăng nhập, địa điểm theo người dùng: chỉ thấy của mình, gán camera, đổi tên/xoá), AI tự chuyển CPU khi GPU lỗi, thử video tải lên (nhận job, huỷ, nhận lại khi máy AI tắt, không nhận khi đang tải dở, 0 khung = lỗi, phân tích lại), khởi động lại từ xa, dashboard từ xa (CORS, token, an toàn sau đường hầm), đồ bảo hộ (ánh xạ lớp model, ghép đồ với người, thiếu/cấm, luật theo địa điểm tới máy AI), mạch cảm biến (Wi-Fi bằng khoá, USB bằng phiên đăng nhập, lệnh relay/LED, chặn người khác), uplink qua HTTP thật (mất mạng, gửi bù, khoá sai, chế độ không gửi ảnh, đồng bộ đánh giá ngược).
 - **Chạy thật trên máy dev** với 2 Edge cùng lúc:
   - 1 Edge nhận video giám sát thật, chạy YOLO-pose + model đánh nhau.
   - 1 Edge mô phỏng đèn/điều hòa.

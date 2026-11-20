@@ -23,14 +23,15 @@ def resolve_device(dev: str) -> str:
 
 
 class PoseEstimator:
-    def __init__(self, weights: str | Path, device: str = "auto", imgsz: int = 640, conf: float = 0.35, half: bool = True):
+    def __init__(self, weights: str | Path, device: str = "auto", imgsz: int = 640, conf: float = 0.35, half: bool = True,
+                 max_det: int = 1000):
         from ultralytics import YOLO
 
         self.device = resolve_device(device)
         self.model = YOLO(str(weights))
         if getattr(self.model, "task", "pose") != "pose":
             raise ValueError(f"{weights} không phải model pose (task={self.model.task}). Dùng yolo11n-pose.pt / yolo11s-pose.pt.")
-        self.imgsz, self.conf = imgsz, conf
+        self.imgsz, self.conf, self.max_det = imgsz, conf, max(1, int(max_det))  # không giới hạn số người trong 1 khung
         self.half = bool(half) and self.device.startswith("cuda")
         self.weights = str(weights)
         self.fallback_reason = ""
@@ -51,12 +52,13 @@ class PoseEstimator:
         kw = {"half": True} if self.half else {}  # chỉ truyền khi bật (bản Ultralytics mới đổi tên tham số này)
         try:
             res = self.model.predict(images, imgsz=self.imgsz, conf=self.conf, device=self.device, classes=[0],
-                                     verbose=False, **kw)
+                                     max_det=getattr(self, "max_det", 1000), verbose=False, **kw)
         except RuntimeError as e:
             if self.device == "cpu" or "CUDA" not in str(e):
                 raise
             self._to_cpu(e)
-            res = self.model.predict(images, imgsz=self.imgsz, conf=self.conf, device="cpu", classes=[0], verbose=False)
+            res = self.model.predict(images, imgsz=self.imgsz, conf=self.conf, device="cpu", classes=[0],
+                                     max_det=getattr(self, "max_det", 1000), verbose=False)
         out = []
         for r in res:
             if r.boxes is None or len(r.boxes) == 0 or r.keypoints is None:

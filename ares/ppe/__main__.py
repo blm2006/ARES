@@ -13,6 +13,10 @@ from pathlib import Path
 # (phi thương mại): dùng cho xưởng của trường / nghiên cứu / thử nghiệm. Khi bán thương mại phải train model riêng.
 DEFAULT_URL = "https://github.com/ahmadmughees/SH17dataset/releases/download/v1/yolo8s.pt"
 DEFAULT_SHA256 = "dfaf451bdda3f92fe4012327e337225929ad7af22146b00e0d6989c2f4e40a4b"
+# Model thêm, chạy cùng lúc với SH17: Construction-PPE YOLOv8 (Apache-2.0) — nón, kính, áo phản quang, chụp tai,
+# khẩu trang, găng, giày và lớp "không có ..." (No-Helmet, No-Vest...).
+EXTRA = [("ppe_construction_y8.pt", "https://huggingface.co/killuminati1/construction-ppe-yolov8/resolve/main/best.pt",
+          "31ef3ca04a17cf545f3fcfc64c4af8993a41d52ccc460e82aff01d5354603533")]
 
 
 def setup(cfg, url: str, sha256: str, force: bool) -> int:
@@ -45,6 +49,12 @@ def setup(cfg, url: str, sha256: str, force: bool) -> int:
             return 1
         tmp.replace(dest)
         print("Tải xong, mã kiểm tra khớp.")
+    from ares.config import REPO_ROOT
+    from ares.hazards.__main__ import download
+
+    print("Model đồ bảo hộ thêm (Construction-PPE, Apache-2.0):")
+    for name, u, sh in EXTRA:
+        download(u, REPO_ROOT / name, sh)
     return check(cfg)
 
 
