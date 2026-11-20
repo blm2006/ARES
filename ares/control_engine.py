@@ -151,9 +151,6 @@ class LightingController:
             elif empty_for[i] <= cfg.empty_dim_after_s:
                 st = "GRACE"
                 sp = self.prev_sp[i]
-                # Người đã rời khỏi: được giảm đèn nếu trời sáng hơn, nhưng KHÔNG được thêm đèn
-                # (che cảm biến lúc này không được mở đèn lên, nếu không đèn sẽ bật rồi lại tắt khi hết trễ).
-                pwm_max = self.pwm[i]
             elif room_empty_for > cfg.room_off_after_s:
                 st = "OFF"
                 sp = 0.0

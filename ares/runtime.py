@@ -85,12 +85,8 @@ class AresRuntime:
             detector_factory = None
         else:
             if bus is None:
-                if cfg.bus == "serial":
-                    from ares.serial_bus import SerialBus
-                    bus = SerialBus(cfg, self.clock, self.n, on_sensor=self._on_sensor, on_connection=self._on_connection)
-                else:
-                    from ares.mqtt_client import MqttBus
-                    bus = MqttBus(cfg, self.clock, self.n, on_sensor=self._on_sensor, on_connection=self._on_connection)
+                from ares.mqtt_client import MqttBus
+                bus = MqttBus(cfg, self.clock, self.n, on_sensor=self._on_sensor, on_connection=self._on_connection)
             if detector is None:
                 from ares.detector import YoloDetector
                 ver, path = self.registry.production()

@@ -16,7 +16,6 @@ nvidia-ml-py>=12.535
 
 # ARES (python -m ares)
 paho-mqtt>=2.0
-pyserial>=3.5          # ARES_BUS=serial (Arduino USB)
 tzdata; sys_platform == "win32"
 
 # dev

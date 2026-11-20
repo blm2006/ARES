@@ -53,10 +53,6 @@ class AresSettings(BaseSettings):
     mqtt_prefix: str = "ares"
     mqtt_client_id: str = "ares-server"
     mqtt_qos: int = Field(1, ge=0, le=2)
-    # ---- Cầu nối phần cứng: "mqtt" (ESP32 + broker) hoặc "serial" (Arduino cắm USB)
-    bus: str = Field("mqtt", pattern="^(mqtt|serial)$")
-    serial_port: str = ""  # ví dụ COM3 (Windows) hoặc /dev/ttyACM0; rỗng = tự dò cổng Arduino
-    serial_baud: int = 115200
     sensor_stale_s: float = 120.0  # quá lâu không có gói cảm biến => coi là mất dữ liệu
 
     # ------------------------------------------------------------------ vision
